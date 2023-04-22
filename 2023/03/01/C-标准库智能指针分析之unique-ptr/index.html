@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      C++标准库智能指针之unique_ptr 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">C++标准库智能指针之unique_ptr</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-03-01 19:34:21
+        </span>
+        
+              <span class="post-tags">
+                <i class="iconfont icon-tags mr-10" title="标签"></i>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/C/" title="C++">
+                    #C++
+                  </a>
+                </span>
+                
+                <span class="span--tag mr-8">
+                  <a href="/tags/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                    #C++标准库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章分析一下C++标准库智能指针中的unique_ptr</p>
+<h1 id="unique-ptr"><a href="#unique-ptr" class="headerlink" title="unique_ptr"></a>unique_ptr</h1><p>unique_ptr是一种独占型的智能指针，无法拷贝，但是可以移动。先看一下unique_ptr的使用。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 接受一个裸指针作为构造函数参数</span></span><br><span class="line"><span class="function">unique_ptr&lt;<span class="type">int</span>&gt; <span class="title">b</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>(<span class="number">1</span>))</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 释放指针指向的内存</span></span><br><span class="line">b.<span class="built_in">reset</span>();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 释放指针指针指向的内存，同时接管另一片内存</span></span><br><span class="line">b.<span class="built_in">reset</span>(<span class="keyword">new</span> <span class="built_in">int</span>(<span class="number">5</span>));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 获得unique_ptr内部的指针值</span></span><br><span class="line"><span class="keyword">auto</span> pp = b.<span class="built_in">get</span>();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 释放指针，但不释放内存</span></span><br><span class="line"><span class="keyword">auto</span> p = b.<span class="built_in">release</span>();</span><br><span class="line"><span class="comment">// 手动释放内存</span></span><br><span class="line"><span class="keyword">delete</span> p;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 移动</span></span><br><span class="line"><span class="function">unique_ptr&lt;<span class="type">int</span>&gt; <span class="title">cc</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>(<span class="number">1</span>))</span></span>;</span><br><span class="line">unique_ptr&lt;<span class="type">int</span>&gt; dd = std::<span class="built_in">move</span>(cc);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>unique_ptr原理相对简单，就是使用了RAII机制来包装一个裸指针，他的定义如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Dp</span> = default_delete&lt;_Tp&gt; &gt;</span><br><span class="line"><span class="keyword">class</span> _LIBCPP_TEMPLATE_VIS unique_ptr &#123;</span><br><span class="line">...</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">typedef</span> _Tp element_type;</span><br><span class="line">  <span class="keyword">typedef</span> _Dp deleter_type;</span><br><span class="line">  <span class="keyword">typedef</span> <span class="keyword">typename</span> __pointer_type&lt;_Tp, deleter_type&gt;::type pointer;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">  __compressed_pair&lt;pointer, deleter_type&gt; __ptr_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>unique_ptr内部只有 __compressed_pair&lt;pointer, deleter_type&gt;  __ptr _; 这一个数据成员。</p>
+<p>pointer类型：如果_Dp是default_delete类型，那么pointer推导出来就是_Tp*，而deleter_type通常是一个空的类型（default_delete就是空的），__compressed_pair会针对此进行空间优化，__ptr_的大小通常就是pointer的大小。</p>
+<h2 id="接受裸指针参数的构造函数"><a href="#接受裸指针参数的构造函数" class="headerlink" title="接受裸指针参数的构造函数"></a>接受裸指针参数的构造函数</h2><p>先看一下unique_ptr的构造函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>,</span><br><span class="line">          <span class="keyword">class</span> = _EnableIfDeleterDefaultConstructible&lt;_Dummy&gt; &gt;</span><br><span class="line"><span class="keyword">explicit</span> <span class="built_in">unique_ptr</span>(pointer __p) _NOEXCEPT : __ptr_(__p) &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>就是用指针参数__p来构造__ptr_</p>
+<p>_EnableIfDeleterDefaultConstructible则是检查删除器是否可以默认构造</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _Dummy, <span class="keyword">class</span> <span class="title class_">_Deleter</span> = <span class="keyword">typename</span> __dependent_type&lt;</span><br><span class="line">                         __identity&lt;deleter_type&gt;, _Dummy&gt;::type&gt;</span><br><span class="line"><span class="keyword">using</span> _EnableIfDeleterDefaultConstructible =</span><br><span class="line">  <span class="keyword">typename</span> enable_if&lt;is_default_constructible&lt;_Deleter&gt;::value &amp;&amp;</span><br><span class="line">                     !is_pointer&lt;_Deleter&gt;::value&gt;::type;</span><br></pre></td></tr></table></figure>
+
+<p>__identity如下，__identity<deleter_type>内部定义了deleter_type为type</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__identity</span> &#123; <span class="keyword">typedef</span> _Tp type; &#125;;</span><br></pre></td></tr></table></figure>
+<p>__dependent_type如下，所以上面__dependent_type&lt;__identity<deleter_type>, _Dummy&gt;::type就是deleter_type，因为他继承了__identity里面的type类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="type">bool</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__dependent_type</span> : <span class="keyword">public</span> _Tp &#123;&#125;;</span><br></pre></td></tr></table></figure>
+<p>所以上面_EnableIfDeleterDefaultConstructible这个trait检查的就是下面两个条件要满足</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">is_default_constructible&lt;deleter_type&gt;::value</span><br><span class="line">!is_pointer&lt;deleter_type&gt;::value</span><br></pre></td></tr></table></figure>
+<p>第一个条件要求deleter_type能够默认构造<br>第二个条件要求deleter_type不是指针类型</p>
+<h2 id="移动构造"><a href="#移动构造" class="headerlink" title="移动构造"></a>移动构造</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function"><span class="title">unique_ptr</span><span class="params">(unique_ptr&amp;&amp; __u)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function">    : __ptr_(__u.release(), _VSTD::forward&lt;deleter_type&gt;(__u.get_deleter())) &#123;</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Up</span>, <span class="keyword">class</span> <span class="title class_">_Ep</span>,</span><br><span class="line">    <span class="keyword">class</span> = _EnableIfMoveConvertible&lt;unique_ptr&lt;_Up, _Ep&gt;, _Up&gt;,</span><br><span class="line">    <span class="keyword">class</span> = _EnableIfDeleterConvertible&lt;_Ep&gt;</span><br><span class="line">&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line"><span class="built_in">unique_ptr</span>(unique_ptr&lt;_Up, _Ep&gt;&amp;&amp; __u) _NOEXCEPT</span><br><span class="line">    : __ptr_(__u.<span class="built_in">release</span>(), _VSTD::forward&lt;_Ep&gt;(__u.<span class="built_in">get_deleter</span>())) &#123;&#125;</span><br></pre></td></tr></table></figure>
+<p>移动构造的参数可以是和当前unique_ptr相同的类型，也可以是不同类型，此时两者要满足能够互相转换的条件，比如子类的unique_ptr移动到父类unique_ptr</p>
+<h2 id="析构函数"><a href="#析构函数" class="headerlink" title="析构函数"></a>析构函数</h2><p>析构函数内部调用reset()，reset()就是将__ptr_的第一个元素（也就是指针）取出，然后调用第二个元素（也就是删除器），把第一个元素作为参数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">~<span class="built_in">unique_ptr</span>() &#123; <span class="built_in">reset</span>(); &#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">reset</span><span class="params">(pointer __p = pointer())</span> _NOEXCEPT </span>&#123;</span><br><span class="line">pointer __tmp = __ptr_.<span class="built_in">first</span>();</span><br><span class="line">__ptr_.<span class="built_in">first</span>() = __p;</span><br><span class="line"><span class="keyword">if</span> (__tmp)</span><br><span class="line">  __ptr_.<span class="built_in">second</span>()(__tmp);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="release"><a href="#release" class="headerlink" title="release"></a>release</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">pointer <span class="title">release</span><span class="params">()</span> _NOEXCEPT </span>&#123;</span><br><span class="line">    pointer <span class="type">__t</span> = __ptr_.<span class="built_in">first</span>();</span><br><span class="line">    __ptr_.<span class="built_in">first</span>() = <span class="built_in">pointer</span>();</span><br><span class="line">    <span class="keyword">return</span> <span class="type">__t</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>仅仅是取出__ptr_的第一个元素，然后将之置为空指针</p>
+<h2 id="get"><a href="#get" class="headerlink" title="get"></a>get</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">pointer <span class="title">get</span><span class="params">()</span> <span class="type">const</span> _NOEXCEPT </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> __ptr_.<span class="built_in">first</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>取出__ptr_的第一个元素</p>
+<h2 id="make-unique"><a href="#make-unique" class="headerlink" title="make_unique"></a>make_unique</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span>... _Args&gt;</span><br><span class="line"><span class="keyword">inline</span> </span><br><span class="line"><span class="keyword">typename</span> __unique_if&lt;_Tp&gt;::<span class="function">__unique_single</span></span><br><span class="line"><span class="function"><span class="title">make_unique</span><span class="params">(_Args&amp;&amp;... __args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">unique_ptr</span>&lt;_Tp&gt;(<span class="keyword">new</span> _Tp(_VSTD::forward&lt;_Args&gt;(__args)...));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>内部就是调用unique_ptr&lt;_Tp&gt;的构造函数，使用了默认删除器。__unique_if是</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__unique_if</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> unique_ptr&lt;_Tp&gt; __unique_single;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>如果_Tp是非数组类型，__unique_if&lt;_Tp&gt;::__unique_single 就是unique_ptr&lt;_Tp&gt;</p>
+<h2 id="default-delete"><a href="#default-delete" class="headerlink" title="default_delete"></a>default_delete</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">default_delete</span> &#123;</span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> _LIBCPP_CXX03_LANG</span></span><br><span class="line">  <span class="function"><span class="keyword">constexpr</span> <span class="title">default_delete</span><span class="params">()</span> _NOEXCEPT </span>= <span class="keyword">default</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Up</span>&gt;</span><br><span class="line">  <span class="built_in">default_delete</span>(<span class="type">const</span> default_delete&lt;_Up&gt;&amp;,</span><br><span class="line">                 <span class="keyword">typename</span> enable_if&lt;is_convertible&lt;_Up*, _Tp*&gt;::value&gt;::type* =</span><br><span class="line">                     <span class="number">0</span>) _NOEXCEPT &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">(_Tp* __ptr)</span> <span class="type">const</span> _NOEXCEPT </span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">delete</span> __ptr;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>default_delete确实是一个空类型。他是一个重载了operator()调用运算符的类</p>
+<p>上面分析了日常工作中unique_ptr常见的成员函数，下篇继续分析智能指针中的shared_ptr和weak_ptr。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/02/23/hello-world/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-03-01 19:34:21
+            </span>
+            
+                  <span class="post-tags">
+                    <i class="iconfont icon-tags mr-10" title="标签"></i>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/C/" title="C++">
+                        #C++
+                      </a>
+                    </span>
+                    
+                    <span class="span--tag mr-8">
+                      <a href="/tags/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                        #C++标准库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bshared-ptr%E5%92%8Cweak-ptr/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#unique-ptr"><span class="toc-text">unique_ptr</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E8%A3%B8%E6%8C%87%E9%92%88%E5%8F%82%E6%95%B0%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受裸指针参数的构造函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A7%BB%E5%8A%A8%E6%9E%84%E9%80%A0"><span class="toc-text">移动构造</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%9E%90%E6%9E%84%E5%87%BD%E6%95%B0"><span class="toc-text">析构函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#release"><span class="toc-text">release</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#get"><span class="toc-text">get</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#make-unique"><span class="toc-text">make_unique</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#default-delete"><span class="toc-text">default_delete</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

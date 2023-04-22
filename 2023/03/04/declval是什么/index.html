@@ -11,7 +11,7 @@
   
   <title>
     
-      关于 
+      declval是什么 
       
       
       |
@@ -146,16 +146,110 @@
   
 
   
-  <!-- 关于页 url形式：https://yoursite/about/ -->
-    <div class="container about-index">
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">declval是什么</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-03-04 12:19:37
+        </span>
+        
+      </div>
       <div class="markdown-body">
-        <p>暂时还没有想说的…</p>
+        <p>C++ 中，我想 decltype 大家应该都知道，那么 declval 又是什么呢？</p>
+<p>declval 定义在<utility>中，他可能的实现如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">constexpr</span> <span class="type">bool</span> always_false = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">typename</span> std::add_rvalue_reference&lt;T&gt;::<span class="function">type <span class="title">declval</span><span class="params">()</span> <span class="keyword">noexcept</span></span>&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(always_false&lt;T&gt;, <span class="string">&quot;declval not allowed in an evaluated context&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，declval 就是为输入类型增加了右值引用，然后返回。</p>
+<p>declval 是一个模板函数，通常要配合 decltype 使用，在 decltype 中，用 declval 去“定义”某个类型的变量，然后用这个变量来组成表达式，这里定义打引号是因为 declval 定义的变量不能访问他的值，只能进行类型计算，举个例子。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">B</span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line"><span class="function"><span class="type">const</span> <span class="type">int</span>&amp; <span class="title">hello</span><span class="params">(<span class="type">const</span> B&amp;)</span></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> b.i;</span><br><span class="line">&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">auto</span> <span class="title">ff</span><span class="params">(B&amp; b)</span> -&gt; <span class="title">decltype</span><span class="params">(declval&lt;A&gt;().hello(declval&lt;B&gt;()))</span></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> b.i;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的例子只做演示，实际不可能写这种代码。上面的例子跳过了 A 和 B 的构造函数，直接定义他们的变量，并且访问他们的成员函数。</p>
+<p>个人觉得 declval 最让人困惑的一点是：为什么 declval 返回一个右值引用类型就可以访问到该类型的成员函数和成员变量？</p>
+<p>我的理解是 declval 的关键在于<strong>借助函数返回值返回一个虚拟的变量</strong>：C++ 的函数总被视为返回一个变量，但是在 decltype 类型计算中并不关心返回的变量是否真正存在，只是在编译的时候计算、推导类型。值的一提，C++ 很多其他特性其实都借助了函数返回值这一点，比如 move、forward。</p>
+<p>看一个例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">B</span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line"><span class="function"><span class="type">const</span> <span class="type">int</span>&amp; <span class="title">hello</span><span class="params">(<span class="type">const</span> B&amp;)</span></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> b.i;</span><br><span class="line">&#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> AA = A&amp;&amp;;</span><br><span class="line"><span class="keyword">using</span> BB = B&amp;&amp;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">auto</span> <span class="title">ff</span><span class="params">(B&amp; b)</span> -&gt; <span class="title">decltype</span><span class="params">(AA.hello(BB))</span></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> b.i;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个例子编译不过，虽然他看上去和上面的例子做的工作一样，但是违反了 C++ 的语义，我们不能从类型去访问成员函数，所以需要借助函数返回值来迂回实现。</p>
+<p>为什么返回右值引用，左值引用可以吗？</p>
+<p>个人觉得是可以的，只要把引用想象成对一个虚拟变量的引用，不管左值还是右值引用，都可以访问成员变量和成员函数。但 declval 设计成返回右值引用应该有其他方面的考虑。</p>
+<p>参考资料：</p>
+<p><a href="https://en.cppreference.com/w/cpp/utility/declval">https://en.cppreference.com/w/cpp/utility/declval</a></p>
 
       </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/03/04/decltype-auto-%E7%94%A8%E6%B3%95/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-03-04 12:19:37
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVOption%E5%92%8CAVClass/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
     </div>
-  
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
 
   
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
 
         
 <div class="footer">

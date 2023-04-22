@@ -11,7 +11,7 @@
   
   <title>
     
-      关于 
+      move和forward 
       
       
       |
@@ -146,16 +146,118 @@
   
 
   
-  <!-- 关于页 url形式：https://yoursite/about/ -->
-    <div class="container about-index">
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">move和forward</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-22 12:26:09
+        </span>
+        
+      </div>
       <div class="markdown-body">
-        <p>暂时还没有想说的…</p>
+        <p>之前的文章介绍了右值引用和将亡值，这篇博客谈一谈从右值引用引申出的移动和转发。</p>
+<p>之前说过，左值引用和右值引用本质都是指针，所以可以用 static_cast 将他们进行互相转换。但是一般很少直接用 static_cast 进行转换，而是使用语义性更强的 move&#x2F;forward 获得输入的左值&#x2F;右值参数的左值引用&#x2F;将亡值。</p>
+<p>move 的例子如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="type">int</span> &amp;j = i;</span><br><span class="line"><span class="type">int</span> &amp;&amp;k = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">std::<span class="built_in">move</span>(i);</span><br><span class="line">std::<span class="built_in">move</span>(j);</span><br><span class="line">std::<span class="built_in">move</span>(k);</span><br><span class="line">std::<span class="built_in">move</span>(<span class="number">0</span>); <span class="comment">// 上面move返回的都是将亡值</span></span><br></pre></td></tr></table></figure>
+
+<p>move 函数会返回输入的左值、右值参数的将亡值，move 函数实现如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span><br><span class="line"><span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::<span class="function">type&amp;&amp;</span></span><br><span class="line"><span class="function"><span class="title">move</span><span class="params">(_Tp&amp;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type _Up;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">static_cast</span>&lt;_Up&amp;&amp;&gt;(<span class="type">__t</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>输入参数是模板参数的右值引用，也就是万能引用，表明 move 可以接受左值或者右值参数。万能引用经过模板参数推导后会发生引用折叠，最后 <code>__t</code> 一定是左值或者右值引用之一，以上面的代码为例</p>
+<ul>
+<li>输入为 i、j、k，那么 <code>_Tp</code> 推断 int &amp;，<code>__t</code> 最后折叠为 int &amp;类型</li>
+<li>输入为 0，那么 <code>_Tp</code> 推断 int，<code>__t</code> 最后是 int &amp;&amp;类型</li>
+</ul>
+<p>在知道 <code>_Tp</code> 如何推断之后，就可以很轻松的理解上面的代码了。先看返回值，<code>typename remove_reference&lt;_Tp&gt;::type&amp;&amp;</code> 表示将 <code>_Tp</code> 去除引用后的类型加上右值引用，则返回值一定是右值引用，这和 move 的语义相符，就是返回将亡值。函数体中就是用 static_cast 将输入的不管是左值还是右值引用都强制转换为 <code>typename remove_reference&lt;_Tp&gt;::type&amp;&amp;</code>，也就是右值引用。</p>
+<p>所以 move 的作用就是获得输入参数的将亡值，仅此而已。</p>
+<p>无论输入参数是左值还是右值，move 都返回将亡值，如果现在需要根据输入参数的类型返回不同类型的引用，比如输入左值，返回左值引用，输入右值，返回右值引用，那么 move 将无能为力，所以引入了 forward。forward 例子如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="type">int</span> &amp;j = i;</span><br><span class="line"><span class="type">int</span> &amp;&amp;k = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">std::forward&lt;<span class="type">int</span>&amp;&gt;(i); <span class="comment">// 返回左值引用</span></span><br><span class="line"></span><br><span class="line">std::forward&lt;<span class="type">int</span>&gt;(<span class="number">0</span>); <span class="comment">// 返回右值引用</span></span><br></pre></td></tr></table></figure>
+
+<p>forward 实现如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="function"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span></span><br><span class="line"><span class="function">_Tp&amp;&amp;</span></span><br><span class="line"><span class="function"><span class="title">forward</span><span class="params">(<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">static_cast</span>&lt;_Tp&amp;&amp;&gt;(<span class="type">__t</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="function"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span></span><br><span class="line"><span class="function">_Tp&amp;&amp;</span></span><br><span class="line"><span class="function"><span class="title">forward</span><span class="params">(<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&amp;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(!is_lvalue_reference&lt;_Tp&gt;::value,</span><br><span class="line">                  <span class="string">&quot;can not forward an rvalue as an lvalue&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">static_cast</span>&lt;_Tp&amp;&amp;&gt;(<span class="type">__t</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>forwad 和 move 不一样，move 可以通过输入参数推断模板类型，但是 forward 必须指定模板参数，因为 foward 的参数是 <code>typename remove_reference&lt;_Tp&gt;::type</code>，无法通过输入参数进行模板参数推断。</p>
+<p>在指定模板参数后，就有了两个版本的 forwad，一个参数是左值引用，另一个是右值引用，根据函数匹配原则，输入参数是左值，优先选择左值引用版本，输入参数是右值，优先是使用右值引用版本。</p>
+<p>forwad 函数内部也是用 static_cast 对输入参数进行强制转换，但是 <code>static_cast&lt;_Tp&amp;&amp;&gt;</code> 进行转换的目标参数是 <code>_Tp&amp;&amp;</code>，根据引用折叠，要想得到左值引用，<code>_Tp</code> 必须形如 int&amp;，想要得到右值，<code>_Tp</code> 必须是 int 或者 int&amp;&amp;。这也是为什么上面例子中左值引用是 <code>std::forward&lt;int&amp;&gt;(i);</code> 右值引用是 <code>std::forward&lt;int&gt;(0);</code></p>
+<p>返回值和上面 <code>static_cast&lt;_Tp&amp;&amp;&gt;</code> 一样都是 <code>_Tp&amp;&amp;</code>。</p>
+<p>所以使用 forwad 一定要正确配置模板参数，比如使用 <code>std::forward&lt;int&gt;(i);</code> 返回的将是右值引用，而 <code>std::forward&lt;int&amp;&gt;(0);</code> 虽然可以返回左值，但是上面 static_assert 会报错。</p>
+<p>forward 常常和模板一起使用，比如</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> T&gt;</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff</span><span class="params">(T&amp;&amp; t)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">gg</span>(std::forward&lt;T&gt;(t));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>根据万能引用模板参数推断原则，如果输入参数是左值，那么 T 形如 int&amp;，如果输入右值，则 T 形如 int（不论输入是纯右值还是将亡值）。上面模板函数在使用 forwad 时传的模板参数 T，恰好和 forward 对模板参数的要求一致：要转发得到左值，T 必须形如 int&amp;，要转发得到右值引用，T 必须是 int 或者 int&amp;&amp;。</p>
+<p>从上面的分析可以发现，move 和 foward 都是获得输入参数的引用，move 只能得到将亡值，forwad 则会根据输入参数类型返回左值引用或者将亡值，他们内部都是通过 static_cast 实现的。</p>
+<p>本来还计划介绍 <code>forward as tuple</code>，但想了想，还是等 tuple 分析完以后再来介绍会好一些。</p>
 
       </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/22/%E5%B7%A6%E5%80%BC%E3%80%81%E5%8F%B3%E5%80%BC%E3%80%81%E5%B7%A6%E5%80%BC%E5%BC%95%E7%94%A8%E3%80%81%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-22 12:26:09
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
     </div>
-  
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
 
   
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
 
         
 <div class="footer">

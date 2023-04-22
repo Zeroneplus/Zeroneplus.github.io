@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg filter之创建filter与filtergraph 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg filter之创建filter与filtergraph</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:09:45
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客介绍一下 ffmpeg 中 filter 和 filtergraph 的使用，为后续介绍具体原理作铺垫。</p>
+<p>下面是一个 filter 和 filtergraph 的简单示例：</p>
+<ul>
+<li>先从 filtergraph 中创建 3 个 filter 的实例</li>
+<li>将 filter 实例连接起来</li>
+<li>配置整个 filtergraph，然后就可以使用该 filtergraph 对数据进行处理</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> AVFilter *buffersrc  = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;buffer&quot;</span>);</span><br><span class="line"><span class="type">const</span> AVFilter *buffersink = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;buffersink&quot;</span>);</span><br><span class="line"><span class="type">const</span> AVFilter *myfilter   = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;myfilter&quot;</span>);</span><br><span class="line"></span><br><span class="line">AVFilterGraph *filter_graph = <span class="built_in">avfilter_graph_alloc</span>();</span><br><span class="line"></span><br><span class="line">AVFilterContext *in_video_filter = <span class="literal">NULL</span>;</span><br><span class="line">AVFilterContext *out_video_filter = <span class="literal">NULL</span>;</span><br><span class="line">AVFilterContext *my_video_filter = <span class="literal">NULL</span>;</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;in_video_filter, buffersrc, <span class="string">&quot;in&quot;</span>, args, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;out_video_filter, buffersink, <span class="string">&quot;out&quot;</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;my_video_filter, myfilter, <span class="string">&quot;myfilter&quot;</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avfilter_link</span>(in_video_filter, <span class="number">0</span>, my_video_filter, <span class="number">0</span>);</span><br><span class="line"><span class="built_in">avfilter_link</span>(my_video_filter, <span class="number">0</span>, out_video_filter, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avfilter_graph_config</span>(filter_graph, <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<p>上面代码的逻辑比较好理解，这里不作过多介绍。下面直接分析相关 api 的代码实现</p>
+<h1 id="avfilter-get-by-name"><a href="#avfilter-get-by-name" class="headerlink" title="avfilter_get_by_name"></a>avfilter_get_by_name</h1><p>avfilter_get_by_name 就是通过 name 字符串得到 AVFilter 的指针，AVFilter 相当于一个描述符，指明了将要创建的 AVFilterContext 的特性</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVFilter *<span class="title">avfilter_get_by_name</span><span class="params">(<span class="type">const</span> <span class="type">char</span> *name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVFilter *f = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">void</span> *opaque = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!name)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> ((f = <span class="built_in">av_filter_iterate</span>(&amp;opaque)))</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(f-&gt;name, name))</span><br><span class="line">            <span class="keyword">return</span> f;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="avfilter-graph-alloc"><a href="#avfilter-graph-alloc" class="headerlink" title="avfilter_graph_alloc"></a>avfilter_graph_alloc</h1><p>avfilter_graph_alloc 则是创建 AVFilterGraph 实例，该实例管理所有的 AVFilterContext</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVFilterGraph *<span class="title">avfilter_graph_alloc</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterGraph *ret = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ret));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret-&gt;internal = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ret-&gt;internal));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret-&gt;av_class = &amp;filtergraph_class;</span><br><span class="line">    <span class="built_in">av_opt_set_defaults</span>(ret);</span><br><span class="line">    <span class="built_in">ff_framequeue_global_init</span>(&amp;ret-&gt;internal-&gt;frame_queues);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_framequeue_global_init</span><span class="params">(FFFrameQueueGlobal *fqg)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="avfilter-graph-create-filter"><a href="#avfilter-graph-create-filter" class="headerlink" title="avfilter_graph_create_filter"></a>avfilter_graph_create_filter</h1><p>这个函数是在 AVFilterGraph 实例内创建 AVFilterContext，具体来说就是先创建 AVFilterContext，然后将 AVFilterContext 添加到 AVFilterGraph 中，当然用户也可以手动进行这两个过程，但是 avfilter_graph_create_filter 在把 AVFilterContext 添加到 AVFilterGraph 时会自动处理 AVFilterGraph 中的 AVFilterContext 指针数组，不建议用户直接使用底层接口。</p>
+<p>avfilter_graph_create_filter 中还会执行 AVFilterContext 的初始化，也就是会调用 AVFilter 中定义的 init&#x2F;init_dict 函数初始化 AVFilterContext。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_graph_create_filter</span><span class="params">(AVFilterContext **filt_ctx, <span class="type">const</span> AVFilter *filt,</span></span></span><br><span class="line"><span class="params"><span class="function">                                 <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *args, <span class="type">void</span> *opaque,</span></span></span><br><span class="line"><span class="params"><span class="function">                                 AVFilterGraph *graph_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    *filt_ctx = <span class="built_in">avfilter_graph_alloc_filter</span>(graph_ctx, filt, name);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">avfilter_init_str</span>(*filt_ctx, args);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVFilterContext *<span class="title">avfilter_graph_alloc_filter</span><span class="params">(AVFilterGraph *graph,</span></span></span><br><span class="line"><span class="params"><span class="function">                                             <span class="type">const</span> AVFilter *filter,</span></span></span><br><span class="line"><span class="params"><span class="function">                                             <span class="type">const</span> <span class="type">char</span> *name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterContext **filters, *s;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (graph-&gt;thread_type &amp;&amp; !graph-&gt;internal-&gt;thread_execute) &#123;</span><br><span class="line">        <span class="keyword">if</span> (graph-&gt;execute) &#123;</span><br><span class="line">            graph-&gt;internal-&gt;thread_execute = graph-&gt;execute;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="type">int</span> ret = <span class="built_in">ff_graph_thread_init</span>(graph);</span><br><span class="line">...</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    filters = <span class="built_in">av_realloc_array</span>(graph-&gt;filters, graph-&gt;nb_filters + <span class="number">1</span>, <span class="built_in">sizeof</span>(*filters));</span><br><span class="line">...</span><br><span class="line">    graph-&gt;filters = filters;</span><br><span class="line"></span><br><span class="line">    s = <span class="built_in">ff_filter_alloc</span>(filter, name);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    graph-&gt;filters[graph-&gt;nb_filters++] = s;</span><br><span class="line"></span><br><span class="line">    s-&gt;graph = graph;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> s;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">AVFilterContext *<span class="title">ff_filter_alloc</span><span class="params">(<span class="type">const</span> AVFilter *filter, <span class="type">const</span> <span class="type">char</span> *inst_name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterContext *ret;</span><br><span class="line">    <span class="type">int</span> preinited = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!filter)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(AVFilterContext));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret-&gt;av_class = &amp;avfilter_class;</span><br><span class="line">    ret-&gt;filter   = filter;</span><br><span class="line">    ret-&gt;name     = inst_name ? <span class="built_in">av_strdup</span>(inst_name) : <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">if</span> (filter-&gt;priv_size) &#123;</span><br><span class="line">        ret-&gt;priv     = <span class="built_in">av_mallocz</span>(filter-&gt;priv_size);</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (filter-&gt;preinit) &#123;</span><br><span class="line">        <span class="keyword">if</span> (filter-&gt;<span class="built_in">preinit</span>(ret) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> err;</span><br><span class="line">        preinited = <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_opt_set_defaults</span>(ret);</span><br><span class="line">    <span class="keyword">if</span> (filter-&gt;priv_class) &#123;</span><br><span class="line">        *(<span class="type">const</span> AVClass**)ret-&gt;priv = filter-&gt;priv_class;</span><br><span class="line">        <span class="built_in">av_opt_set_defaults</span>(ret-&gt;priv);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret-&gt;internal = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ret-&gt;internal));</span><br><span class="line">...</span><br><span class="line">    ret-&gt;internal-&gt;execute = default_execute;</span><br><span class="line"></span><br><span class="line">    ret-&gt;nb_inputs  = filter-&gt;nb_inputs;</span><br><span class="line">    <span class="keyword">if</span> (ret-&gt;nb_inputs ) &#123;</span><br><span class="line">        ret-&gt;input_pads   = <span class="built_in">av_memdup</span>(filter-&gt;inputs,  ret-&gt;nb_inputs  * <span class="built_in">sizeof</span>(*filter-&gt;inputs));</span><br><span class="line">...</span><br><span class="line">        ret-&gt;inputs      = <span class="built_in">av_calloc</span>(ret-&gt;nb_inputs, <span class="built_in">sizeof</span>(*ret-&gt;inputs));</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret-&gt;nb_outputs = filter-&gt;nb_outputs;</span><br><span class="line">    <span class="keyword">if</span> (ret-&gt;nb_outputs) &#123;</span><br><span class="line">        ret-&gt;output_pads  = <span class="built_in">av_memdup</span>(filter-&gt;outputs, ret-&gt;nb_outputs * <span class="built_in">sizeof</span>(*filter-&gt;outputs));</span><br><span class="line">...</span><br><span class="line">        ret-&gt;outputs     = <span class="built_in">av_calloc</span>(ret-&gt;nb_outputs, <span class="built_in">sizeof</span>(*ret-&gt;outputs));</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_init_str</span><span class="params">(AVFilterContext *filter, <span class="type">const</span> <span class="type">char</span> *args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVDictionary *options = <span class="literal">NULL</span>;</span><br><span class="line">    AVDictionaryEntry *e;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (args &amp;&amp; *args) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!filter-&gt;filter-&gt;priv_class) &#123;</span><br><span class="line">            <span class="built_in">av_log</span>(filter, AV_LOG_ERROR, <span class="string">&quot;This filter does not take any &quot;</span></span><br><span class="line">                   <span class="string">&quot;options, but options were provided: %s.\n&quot;</span>, args);</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">process_options</span>(filter, &amp;options, args);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">avfilter_init_dict</span>(filter, &amp;options);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((e = <span class="built_in">av_dict_get</span>(options, <span class="string">&quot;&quot;</span>, <span class="literal">NULL</span>, AV_DICT_IGNORE_SUFFIX))) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(filter, AV_LOG_ERROR, <span class="string">&quot;No such option: %s.\n&quot;</span>, e-&gt;key);</span><br><span class="line">        ret = AVERROR_OPTION_NOT_FOUND;</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_init_dict</span><span class="params">(AVFilterContext *ctx, AVDictionary **options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_opt_set_dict</span>(ctx, options);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ctx-&gt;filter-&gt;flags &amp; AVFILTER_FLAG_SLICE_THREADS &amp;&amp;</span><br><span class="line">        ctx-&gt;thread_type &amp; ctx-&gt;graph-&gt;thread_type &amp; AVFILTER_THREAD_SLICE &amp;&amp;</span><br><span class="line">        ctx-&gt;graph-&gt;internal-&gt;thread_execute) &#123;</span><br><span class="line">        ctx-&gt;thread_type       = AVFILTER_THREAD_SLICE;</span><br><span class="line">        ctx-&gt;internal-&gt;execute = ctx-&gt;graph-&gt;internal-&gt;thread_execute;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ctx-&gt;thread_type = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ctx-&gt;filter-&gt;priv_class) &#123;</span><br><span class="line">        ret = <span class="built_in">av_opt_set_dict2</span>(ctx-&gt;priv, options, AV_OPT_SEARCH_CHILDREN);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">av_log</span>(ctx, AV_LOG_ERROR, <span class="string">&quot;Error applying options to the filter.\n&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ctx-&gt;filter-&gt;init)</span><br><span class="line">        ret = ctx-&gt;filter-&gt;<span class="built_in">init</span>(ctx);</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (ctx-&gt;filter-&gt;init_dict)</span><br><span class="line">        ret = ctx-&gt;filter-&gt;<span class="built_in">init_dict</span>(ctx, options);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ctx-&gt;enable_str) &#123;</span><br><span class="line">        ret = <span class="built_in">set_enable_expr</span>(ctx, ctx-&gt;enable_str);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="avfilter-link"><a href="#avfilter-link" class="headerlink" title="avfilter_link"></a>avfilter_link</h1><p>avfilter_link 函数将两个 filter 的 src、sink 端连接起来，他会创建一个 AVFilterLink 的实例管理该连接。该 AVFilterLink 实例中有很多重要的字段，这些数据控制了这条连接的通断状态和数据缓存，后面会单独写一篇文章介绍 AVFilterLink 上的字段。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_link</span><span class="params">(AVFilterContext *src, <span class="type">unsigned</span> srcpad,</span></span></span><br><span class="line"><span class="params"><span class="function">                  AVFilterContext *dst, <span class="type">unsigned</span> dstpad)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterLink *link;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(src-&gt;graph);</span><br><span class="line">    <span class="built_in">av_assert0</span>(dst-&gt;graph);</span><br><span class="line">    <span class="built_in">av_assert0</span>(src-&gt;graph == dst-&gt;graph);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (src-&gt;nb_outputs &lt;= srcpad || dst-&gt;nb_inputs &lt;= dstpad ||</span><br><span class="line">        src-&gt;outputs[srcpad]      || dst-&gt;inputs[dstpad])</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (src-&gt;output_pads[srcpad].type != dst-&gt;input_pads[dstpad].type) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(src, AV_LOG_ERROR,</span><br><span class="line">               <span class="string">&quot;Media type mismatch between the &#x27;%s&#x27; filter output pad %d (%s) and the &#x27;%s&#x27; filter input pad %d (%s)\n&quot;</span>,</span><br><span class="line">               src-&gt;name, srcpad, (<span class="type">char</span> *)<span class="built_in">av_x_if_null</span>(<span class="built_in">av_get_media_type_string</span>(src-&gt;output_pads[srcpad].type), <span class="string">&quot;?&quot;</span>),</span><br><span class="line">               dst-&gt;name, dstpad, (<span class="type">char</span> *)<span class="built_in">av_x_if_null</span>(<span class="built_in">av_get_media_type_string</span>(dst-&gt; input_pads[dstpad].type), <span class="string">&quot;?&quot;</span>));</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    link = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*link));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    src-&gt;outputs[srcpad] = dst-&gt;inputs[dstpad] = link;</span><br><span class="line"></span><br><span class="line">    &lt;u&gt;link-&gt;src     = src;&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;dst     = dst;&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;srcpad  = &amp;src-&gt;output_pads[srcpad];&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;dstpad  = &amp;dst-&gt;input_pads[dstpad];&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;type    = src-&gt;output_pads[srcpad].type;&lt;/u&gt;</span><br><span class="line">    <span class="built_in">av_assert0</span>(AV_PIX_FMT_NONE == <span class="number">-1</span> &amp;&amp; AV_SAMPLE_FMT_NONE == <span class="number">-1</span>);</span><br><span class="line">    &lt;u&gt;link-&gt;format  = <span class="number">-1</span>;&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;status_in  = AVERROR_EOF;&lt;/u&gt;</span><br><span class="line">    &lt;u&gt;link-&gt;status_out = AVERROR_EOF;&lt;/u&gt;</span><br><span class="line">    <span class="built_in">ff_framequeue_init</span>(&amp;link-&gt;fifo, &amp;src-&gt;graph-&gt;internal-&gt;frame_queues);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_framequeue_init</span><span class="params">(FFFrameQueue *fq, FFFrameQueueGlobal *fqg)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    fq-&gt;queue = &amp;fq-&gt;first_bucket;</span><br><span class="line">    fq-&gt;allocated = <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面介绍了通过 api 直接构建 filtergraph 的方法，除了这种方法以外还可以通过配置文件来构建 filtergraph，其内部也是使用的上面的 api，只是多了一层解析配置文件、根据配置自动创建并连接 filter 的包装，读者可以参考其他资料，这里不再赘述。下篇博客针对 avfilter_graph_config 函数介绍一下 filter 的格式协商。</p>
+<p>参考资料：</p>
+<p><a href="https://www.cnblogs.com/TaigaCon/p/10067871.html">https://www.cnblogs.com/TaigaCon/p/10067871.html</a></p>
+<p><a href="http://beyoung.xyz/2018/03/24/2018-3-24-FFmpeg%E4%B8%ADAVFilter%E6%A8%A1%E5%9D%97%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97/">http://beyoung.xyz/2018/03/24/2018-3-24-FFmpeg%E4%B8%ADAVFilter%E6%A8%A1%E5%9D%97%E5%AE%9E%E8%B7%B5%E6%8C%87%E5%8D%97/</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVFrame%E5%92%8CAVPacket/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:09:45
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86%EF%BC%88format-negotiation%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#avfilter-get-by-name"><span class="toc-text">avfilter_get_by_name</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#avfilter-graph-alloc"><span class="toc-text">avfilter_graph_alloc</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#avfilter-graph-create-filter"><span class="toc-text">avfilter_graph_create_filter</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#avfilter-link"><span class="toc-text">avfilter_link</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

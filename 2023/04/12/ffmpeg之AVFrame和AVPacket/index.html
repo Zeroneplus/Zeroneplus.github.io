@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg之AVFrame和AVPacket 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg之AVFrame和AVPacket</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:09:23
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>AVFrame 和 AVPacket 是 ffmpeg 中对 buffer 进行管理的结构，AVFrame 用于管理解码好的数据，比如 yuv、rgb 格式的图像，AVPacket 用于管理编码完成后的数据，比如 h264 码流。</p>
+<p>先介绍 AVFrame，他的结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVFrame</span> &#123;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_NUM_DATA_POINTERS 8</span></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">All pointers in data and extended_data must point into one of the</span></span><br><span class="line"><span class="comment">AVBufferRef in buf or extended_buf.</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">Some filters and swscale can read</span></span><br><span class="line"><span class="comment">up to 16 bytes beyond the planes, if these filters are to be used,</span></span><br><span class="line"><span class="comment">then 16 extra bytes must be allocated.</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment">In case of video, the data[] pointers can point to the</span></span><br><span class="line"><span class="comment">end of image data in order to reverse line order, when used in</span></span><br><span class="line"><span class="comment">combination with negative values in the linesize[] array.</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">    <span class="type">uint8_t</span> *data[AV_NUM_DATA_POINTERS];</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">For video, a positive or negative value, which is typically indicating</span></span><br><span class="line"><span class="comment">the size in bytes of each picture line,</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">    <span class="type">int</span> linesize[AV_NUM_DATA_POINTERS];</span><br><span class="line"></span><br><span class="line"><span class="comment">// extended_data指向所有的data，他里面包含了data的内容，也就是说extended_data数组的前面部分就是data的内容</span></span><br><span class="line">    <span class="type">uint8_t</span> **extended_data;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">AVBuffer references backing the data for this frame. All the pointers in</span></span><br><span class="line"><span class="comment">data and extended_data must point inside one of the buffers in buf or extended_buf</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">    AVBufferRef *buf[AV_NUM_DATA_POINTERS];</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">Note that this is different from AVFrame.extended_data, which always</span></span><br><span class="line"><span class="comment">contains all the pointers. This array only contains the extra pointers,</span></span><br><span class="line"><span class="comment">which cannot fit into AVFrame.buf.</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">    AVBufferRef **extended_buf;</span><br><span class="line">    <span class="type">int</span>        nb_extended_buf;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>data 是一个指针数组，里面的每一项指向一个内存地址。</li>
+<li>linesize 用于图像，表示这个图像一行的宽度。由于对齐的要求，linesize 通常大于图像的尺寸宽度。</li>
+<li>extended_data 看名字就知道是对 data 数组的扩展，一般用在音频数据中，如果音频数据的 layout 有多个 plane，那么 AV_NUM_DATA_POINTERS 大小的 data 数组可能不够用，此时需要新分配更大的数组来保存这些指针。需要注意，extended_data 是包含 data 数组中的指针的，不是说新分配的指针才保存在 extended_data 中，而是 extended_data 会先把 data 的内容拷贝过来，然后再存储新的 buffer 指针。如果 data 数组够用，那么 extended_data 就指向 data 数组。</li>
+<li>buf 是一个指针数组，每一项指向一个 AVBufferRef，他和 buffer 的引用计数有关，后面介绍引用计数时会具体分析这个成员。</li>
+<li>extended_buf 是一个指针的指针，也可以当成指针数组，看名字就知道 extended_buf 是 buf 的扩展，但是和 extended_data 相较于 data 不一样，extended_buf 数组的前面部分不是 buf，就是新分配的 AVBufferRef*，也就是不用先把 buf 拷贝到 extended_buf，这和 extended_data 不一样。</li>
+<li>nb_extended_buf 是 extended_buf 的辅助信息，指明 extended_buf 数组有多少个元素。为什么 extended_data 没有类似的辅助信息？先留一个疑问，下面再讲。</li>
+</ul>
+<p>了解了 AVFrame 的结构后，再看一下相关的方法。</p>
+<p>要使用 AVFrame，需要先分配 AVFrame 这个结构体本身。下面的 av_frame_alloc 仅仅只分配了 AVFrame，同时作了一些初始化工作。可以看到 extended_data 最开始就是指向 data。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// this only allocates the AVFrame itself, not the data buffers.</span></span><br><span class="line"><span class="comment">// The resulting struct must be freed using av_frame_free().</span></span><br><span class="line"><span class="comment">// allocated once and then reused multiple times to hold different data</span></span><br><span class="line"><span class="function">AVFrame *<span class="title">av_frame_alloc</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFrame *frame = <span class="built_in">av_malloc</span>(<span class="built_in">sizeof</span>(*frame));</span><br><span class="line">...</span><br><span class="line">    <span class="built_in">get_frame_defaults</span>(frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> frame;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">get_frame_defaults</span><span class="params">(AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="comment">// 这一步把width、height等都归0了</span></span><br><span class="line">    <span class="built_in">memset</span>(frame, <span class="number">0</span>, <span class="built_in">sizeof</span>(*frame));</span><br><span class="line">    </span><br><span class="line"></span><br><span class="line">    frame-&gt;pts                   =</span><br><span class="line">    frame-&gt;pkt_dts               = AV_NOPTS_VALUE;</span><br><span class="line">    frame-&gt;best_effort_timestamp = AV_NOPTS_VALUE;</span><br><span class="line">    frame-&gt;pkt_duration        = <span class="number">0</span>;</span><br><span class="line">    frame-&gt;pkt_pos             = <span class="number">-1</span>;</span><br><span class="line">    frame-&gt;pkt_size            = <span class="number">-1</span>;</span><br><span class="line">    frame-&gt;time_base           = (AVRational)&#123; <span class="number">0</span>, <span class="number">1</span> &#125;;</span><br><span class="line">    frame-&gt;key_frame           = <span class="number">1</span>;</span><br><span class="line">    frame-&gt;sample_aspect_ratio = (AVRational)&#123; <span class="number">0</span>, <span class="number">1</span> &#125;;</span><br><span class="line">    frame-&gt;format              = <span class="number">-1</span>; <span class="comment">/* unknown */</span></span><br><span class="line">    frame-&gt;extended_data       = frame-&gt;data;</span><br><span class="line">    frame-&gt;color_primaries     = AVCOL_PRI_UNSPECIFIED;</span><br><span class="line">    frame-&gt;color_trc           = AVCOL_TRC_UNSPECIFIED;</span><br><span class="line">    frame-&gt;colorspace          = AVCOL_SPC_UNSPECIFIED;</span><br><span class="line">    frame-&gt;color_range         = AVCOL_RANGE_UNSPECIFIED;</span><br><span class="line">    frame-&gt;chroma_location     = AVCHROMA_LOC_UNSPECIFIED;</span><br><span class="line">    frame-&gt;flags               = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_frame_alloc 之后，AVFrame 内部还没有真正可以用来存储数据的内存，需要通过 av_frame_get_buffer 或者其他方式申请内存。使用 av_frame_get_buffer 时，必须指定 format，width&#x2F;height（对视频），nb_samples&#x2F;ch_layout（对音频）。</p>
+<blockquote>
+<p>The following fields must be set on frame before calling this function:<br/> - format (pixel format for video, sample format for audio)<br/> - width and height for video<br/> - nb_samples and ch_layout for audio</p>
+</blockquote>
+<p>此外输入的 AVFrame 必须是“fresh”的，“fresh”是指新 av_frame_alloc 或者 av_frame_unref 后。</p>
+<p>如果 AVFrame 不是“fresh”的，则可能发生内存泄漏：在 get_video_buffer 函数里面是直接对 frame-&gt;data、frame-&gt;buf 赋值，没有内存释放动作。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_get_buffer</span><span class="params">(AVFrame *frame, <span class="type">int</span> align)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (frame-&gt;format &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"><span class="function">FF_DISABLE_DEPRECATION_WARNINGS</span></span><br><span class="line"><span class="function">    <span class="title">if</span> <span class="params">(frame-&gt;width &gt; <span class="number">0</span> &amp;&amp; frame-&gt;height &gt; <span class="number">0</span>)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">return</span> <span class="title">get_video_buffer</span><span class="params">(frame, align)</span></span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (frame-&gt;nb_samples &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">             (<span class="built_in">av_channel_layout_check</span>(&amp;frame-&gt;ch_layout)</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> FF_API_OLD_CHANNEL_LAYOUT</span></span><br><span class="line">              || frame-&gt;channel_layout || frame-&gt;channels &gt; <span class="number">0</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">             ))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">get_audio_buffer</span>(frame, align);</span><br><span class="line"><span class="function">FF_ENABLE_DEPRECATION_WARNINGS</span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">    <span class="keyword">return</span> <span class="title">AVERROR</span><span class="params">(EINVAL)</span></span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">get_video_buffer</span><span class="params">(AVFrame *frame, <span class="type">int</span> align)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVPixFmtDescriptor *desc = <span class="built_in">av_pix_fmt_desc_get</span>(frame-&gt;format);</span><br><span class="line">    <span class="type">int</span> ret, i, padded_height, total_size;</span><br><span class="line">    <span class="type">int</span> plane_padding = <span class="built_in">FFMAX</span>(<span class="number">16</span> + <span class="number">16</span><span class="comment">/*STRIDE_ALIGN*/</span>, align);</span><br><span class="line">    <span class="type">ptrdiff_t</span> linesizes[<span class="number">4</span>];</span><br><span class="line">    <span class="type">size_t</span> sizes[<span class="number">4</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!desc)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_check_size</span>(frame-&gt;width, frame-&gt;height, <span class="number">0</span>, <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;linesize[<span class="number">0</span>]) &#123;</span><br><span class="line">        <span class="keyword">if</span> (align &lt;= <span class="number">0</span>)</span><br><span class="line">            align = <span class="number">32</span>; <span class="comment">/* STRIDE_ALIGN. Should be av_cpu_max_align() */</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(i=<span class="number">1</span>; i&lt;=align; i+=i) &#123;</span><br><span class="line">            ret = <span class="built_in">av_image_fill_linesizes</span>(frame-&gt;linesize, frame-&gt;format,</span><br><span class="line">                                          <span class="built_in">FFALIGN</span>(frame-&gt;width, i));</span><br><span class="line">            <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            <span class="keyword">if</span> (!(frame-&gt;linesize[<span class="number">0</span>] &amp; (align<span class="number">-1</span>)))</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span> &amp;&amp; frame-&gt;linesize[i]; i++)</span><br><span class="line">            frame-&gt;linesize[i] = <span class="built_in">FFALIGN</span>(frame-&gt;linesize[i], align);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++)</span><br><span class="line">        linesizes[i] = frame-&gt;linesize[i];</span><br><span class="line"></span><br><span class="line">    padded_height = <span class="built_in">FFALIGN</span>(frame-&gt;height, <span class="number">32</span>);</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_fill_plane_sizes</span>(sizes, frame-&gt;format,</span><br><span class="line">                                         padded_height, linesizes)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    total_size = <span class="number">4</span>*plane_padding;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (sizes[i] &gt; INT_MAX - total_size)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        total_size += sizes[i];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    frame-&gt;buf[<span class="number">0</span>] = <span class="built_in">av_buffer_alloc</span>(total_size);</span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        ret = <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_fill_pointers</span>(frame-&gt;data, frame-&gt;format, padded_height,</span><br><span class="line">                                      frame-&gt;buf[<span class="number">0</span>]-&gt;data, frame-&gt;linesize)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;data[i])</span><br><span class="line">            frame-&gt;data[i] += i * plane_padding;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    frame-&gt;extended_data = frame-&gt;data;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">fail:</span><br><span class="line">    <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 get_video_buffer 里面还可以看到，先分配一大块内存到 buf[0]，然后把 data 指针指向这块大 buf 的不同部分。</p>
+<p>再看一下 AVFrame 的引用计数特性。在上面 get_video_buffer 中，是通过 av_buffer_alloc 函数来真正进行内存分配工作：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVBufferRef *<span class="title">av_buffer_alloc</span><span class="params">(<span class="type">size_t</span> size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVBufferRef *ret = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">uint8_t</span>    *data = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    data = <span class="built_in">av_malloc</span>(size);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_buffer_create</span>(data, size, av_buffer_default_free, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">AVBufferRef *<span class="title">av_buffer_create</span><span class="params">(<span class="type">uint8_t</span> *data, <span class="type">size_t</span> size,</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">void</span> (*free)(<span class="type">void</span> *opaque, <span class="type">uint8_t</span> *data),</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">void</span> *opaque, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVBufferRef *ret;</span><br><span class="line">    AVBuffer *buf = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*buf));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">buffer_create</span>(buf, data, size, free, opaque, flags);</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> AVBufferRef *<span class="title">buffer_create</span><span class="params">(AVBuffer *buf, <span class="type">uint8_t</span> *data, <span class="type">size_t</span> size,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  <span class="type">void</span> (*free)(<span class="type">void</span> *opaque, <span class="type">uint8_t</span> *data),</span></span></span><br><span class="line"><span class="params"><span class="function">                                  <span class="type">void</span> *opaque, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVBufferRef *ref = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    buf-&gt;data     = data;</span><br><span class="line">    buf-&gt;size     = size;</span><br><span class="line">    buf-&gt;free     = free ? free : av_buffer_default_free;</span><br><span class="line">    buf-&gt;opaque   = opaque;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">atomic_init</span>(&amp;buf-&gt;refcount, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    buf-&gt;flags = flags;</span><br><span class="line"></span><br><span class="line">    ref = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ref));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ref-&gt;buffer = buf;</span><br><span class="line">    ref-&gt;data   = data;</span><br><span class="line">    ref-&gt;size   = size;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ref;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先分配真正存储数据的内存，然后创建一个 AVBufferRef 的实例，AVBufferRef 实例中有指向 AVBuffer 的指针，而 AVBuffer 里面有引用计数、释放时调用的 free 函数地址等信息。通过在不同 AVFrame 共享 AVBuffer 指针来实现引用计数。</p>
+<p>从上面可以看到，AVFrame 的 data 数组只是存放内存地址，真正管理内存的是 buf 指向的 AVBufferRef，下面的 ref、unref 操作都是操作的 AVBufferRef</p>
+<p>如果我们不想用引用计数，该怎么办呢？很简单，我们可以直接给 AVFrame 的 data 赋值，赋一个自己申请的内存，同时让 buf 数组为空，这样的 AVFrame 就不是引用计数的。但是这样的 AVFrame 在 ref 时会进行 copy 操作，而且使用带引用计数的 AVFrame 是未来的趋势。</p>
+<p>再看看 AVFrame 的其他操作。</p>
+<p>先看 ref 操作，ref 操作同样要求 dst 是 fresh 的。ref 操作主要做了：</p>
+<ul>
+<li>把 src 的属性，比如 width、height 等拷贝到 dest</li>
+<li>如果 src 不是引用计数，则会把 src 的 data 拷贝到 dst</li>
+<li>否则增加引用计数</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_ref</span><span class="params">(AVFrame *dst, <span class="type">const</span> AVFrame *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert1</span>(dst-&gt;width == <span class="number">0</span> &amp;&amp; dst-&gt;height == <span class="number">0</span>);</span><br><span class="line">    ...</span><br><span class="line">    <span class="built_in">av_assert1</span>(dst-&gt;ch_layout.nb_channels == <span class="number">0</span> &amp;&amp;</span><br><span class="line">               dst-&gt;ch_layout.order == AV_CHANNEL_ORDER_UNSPEC);</span><br><span class="line"></span><br><span class="line">    dst-&gt;format         = src-&gt;format;</span><br><span class="line">    dst-&gt;width          = src-&gt;width;</span><br><span class="line">    dst-&gt;height         = src-&gt;height;</span><br><span class="line">    dst-&gt;nb_samples     = src-&gt;nb_samples;</span><br><span class="line">    ...</span><br><span class="line">    <span class="comment">// 这里面会处理side data</span></span><br><span class="line">    ret = <span class="built_in">frame_copy_props</span>(dst, src, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* duplicate the frame data if it&#x27;s not refcounted */</span></span><br><span class="line">    <span class="keyword">if</span> (!src-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        ret = <span class="built_in">av_frame_get_buffer</span>(dst, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line">        ret = <span class="built_in">av_frame_copy</span>(dst, src);</span><br><span class="line">...</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* ref the buffers */</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="built_in">FF_ARRAY_ELEMS</span>(src-&gt;buf); i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!src-&gt;buf[i])</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        dst-&gt;buf[i] = <span class="built_in">av_buffer_ref</span>(src-&gt;buf[i]);</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (src-&gt;extended_buf) &#123;</span><br><span class="line">        dst-&gt;extended_buf = <span class="built_in">av_calloc</span>(src-&gt;nb_extended_buf,</span><br><span class="line">                                      <span class="built_in">sizeof</span>(*dst-&gt;extended_buf));</span><br><span class="line">...</span><br><span class="line">        dst-&gt;nb_extended_buf = src-&gt;nb_extended_buf;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; src-&gt;nb_extended_buf; i++) &#123;</span><br><span class="line">            dst-&gt;extended_buf[i] = <span class="built_in">av_buffer_ref</span>(src-&gt;extended_buf[i]);</span><br><span class="line">...</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* duplicate extended data */</span></span><br><span class="line">    <span class="keyword">if</span> (src-&gt;extended_data != src-&gt;data) &#123;</span><br><span class="line">        <span class="type">int</span> ch = dst-&gt;ch_layout.nb_channels;</span><br><span class="line">...</span><br><span class="line">        dst-&gt;extended_data = <span class="built_in">av_malloc_array</span>(<span class="built_in">sizeof</span>(*dst-&gt;extended_data), ch);</span><br><span class="line">...</span><br><span class="line">        <span class="built_in">memcpy</span>(dst-&gt;extended_data, src-&gt;extended_data, <span class="built_in">sizeof</span>(*src-&gt;extended_data) * ch);</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        dst-&gt;extended_data = dst-&gt;data;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memcpy</span>(dst-&gt;data,     src-&gt;data,     <span class="built_in">sizeof</span>(src-&gt;data));</span><br><span class="line">    <span class="built_in">memcpy</span>(dst-&gt;linesize, src-&gt;linesize, <span class="built_in">sizeof</span>(src-&gt;linesize));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">AVBufferRef *<span class="title">av_buffer_ref</span><span class="params">(<span class="type">const</span> AVBufferRef *buf)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVBufferRef *ret = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ret));</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    *ret = *buf;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">atomic_fetch_add_explicit</span>(&amp;buf-&gt;buffer-&gt;refcount, <span class="number">1</span>, memory_order_relaxed);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过上面的代码我们可以解答为什么 extended_data 不需要指明数组元素的个数：上面在分配 extended_data 时，数组长度是以 ch_layout.nb_channels 来算的，所以 extended_data 一般用在 audio 数据中。</p>
+<p>再看一下 unref 操作。unref 主要作了：</p>
+<ul>
+<li>释放所有 buf、data</li>
+<li>恢复 AVFrame 中的字段为默认值</li>
+</ul>
+<p>可以认为 unref 之后和新 alloc 得到的 AVFrame 的状态是一样的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_frame_unref</span><span class="params">(AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame)</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 清扫 side_data，暂时不管</span></span><br><span class="line">    <span class="built_in">wipe_side_data</span>(frame);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// buf 和 extended_buf都要被释放</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="built_in">FF_ARRAY_ELEMS</span>(frame-&gt;buf); i++)</span><br><span class="line">        <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;buf[i]);</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; frame-&gt;nb_extended_buf; i++)</span><br><span class="line">        <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;extended_buf[i]);</span><br><span class="line">    <span class="built_in">av_freep</span>(&amp;frame-&gt;extended_buf);</span><br><span class="line">    <span class="built_in">av_dict_free</span>(&amp;frame-&gt;metadata);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;hw_frames_ctx);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;opaque_ref);</span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;private_ref);</span><br><span class="line"></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> (frame-&gt;extended_data != frame-&gt;data)</span><br><span class="line">        <span class="built_in">av_freep</span>(&amp;frame-&gt;extended_data);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_channel_layout_uninit</span>(&amp;frame-&gt;ch_layout);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">get_frame_defaults</span>(frame);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>移动 move 操作。和 C++ 中的移动语义类似，把内存从一个 AVFrame 转移到另一个 frame，dst 同样要求是 fresh 的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_frame_move_ref</span><span class="params">(AVFrame *dst, AVFrame *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_assert1</span>(dst-&gt;width == <span class="number">0</span> &amp;&amp; dst-&gt;height == <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line">    <span class="built_in">av_assert1</span>(dst-&gt;ch_layout.nb_channels == <span class="number">0</span> &amp;&amp;</span><br><span class="line">               dst-&gt;ch_layout.order == AV_CHANNEL_ORDER_UNSPEC);</span><br><span class="line"></span><br><span class="line">    *dst = *src;</span><br><span class="line">    <span class="keyword">if</span> (src-&gt;extended_data == src-&gt;data)</span><br><span class="line">        dst-&gt;extended_data = dst-&gt;data;</span><br><span class="line">    <span class="built_in">get_frame_defaults</span>(src);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>clone 操作。相当于 av_frame_alloc()+av_frame_ref()</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVFrame *<span class="title">av_frame_clone</span><span class="params">(<span class="type">const</span> AVFrame *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFrame *ret = <span class="built_in">av_frame_alloc</span>();</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">av_frame_ref</span>(ret, src) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="built_in">av_frame_free</span>(&amp;ret);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>free 操作。他和 unref 的区别是，unref 会释放 get_video_buffer 分配的内存，但是 av_frame_alloc 得到的 AVFrame 本身不会释放，而 free 会先 unref，然后释放 AVFrame 本身：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_frame_free</span><span class="params">(AVFrame **frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="built_in">av_frame_unref</span>(*frame);</span><br><span class="line">    <span class="built_in">av_freep</span>(frame);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>copy 操作。和 clone 操作有很大区别。copy 是把 src 的 buffer 拷贝到 dest，dest 和 src 必须都是相同维度（宽&#x2F;高），而且都已经 av_frame_get_buffer 分配了 buffer，copy 仅仅只是把 av_frame_get_buffer 分配的 buffer 内容进行拷贝。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_copy</span><span class="params">(AVFrame *dst, <span class="type">const</span> AVFrame *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (dst-&gt;format != src-&gt;format || dst-&gt;format &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"><span class="function">FF_DISABLE_DEPRECATION_WARNINGS</span></span><br><span class="line"><span class="function">    <span class="title">if</span> <span class="params">(dst-&gt;width &gt; <span class="number">0</span> &amp;&amp; dst-&gt;height &gt; <span class="number">0</span>)</span></span></span><br><span class="line"><span class="function">        <span class="keyword">return</span> <span class="title">frame_copy_video</span><span class="params">(dst, src)</span></span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (dst-&gt;nb_samples &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">             (<span class="built_in">av_channel_layout_check</span>(&amp;dst-&gt;ch_layout)</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> FF_API_OLD_CHANNEL_LAYOUT</span></span><br><span class="line">              || dst-&gt;channels &gt; <span class="number">0</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">            ))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">frame_copy_audio</span>(dst, src);</span><br><span class="line"><span class="function">FF_ENABLE_DEPRECATION_WARNINGS</span></span><br><span class="line"><span class="function"></span></span><br><span class="line"><span class="function">    <span class="keyword">return</span> <span class="title">AVERROR</span><span class="params">(EINVAL)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>判断当前 AVFrame 是否可写，只有 AVFrame 非引用计数，或者当 frame 的引用计数为 1 时，也就是只有自己拥有时才能写</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_is_writable</span><span class="params">(AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, ret = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* assume non-refcounted frames are not writable */</span></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="built_in">FF_ARRAY_ELEMS</span>(frame-&gt;buf); i++)</span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;buf[i])</span><br><span class="line">            ret &amp;= !!<span class="built_in">av_buffer_is_writable</span>(frame-&gt;buf[i]);</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; frame-&gt;nb_extended_buf; i++)</span><br><span class="line">        ret &amp;= !!<span class="built_in">av_buffer_is_writable</span>(frame-&gt;extended_buf[i]);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>让当前 AVFrame 可写。如果 AVFrame 是引用计数的并且计数不为 1，就拷贝一份当前 AVFrame 的内存到新的 AVFrame 中，同时 unref 老的 AVFrame，在把新的 AVFrame 赋值给老的 AVFrame 作为返回，这样使得当前 AVFrame 可写。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_make_writable</span><span class="params">(AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFrame tmp;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">av_frame_is_writable</span>(frame))</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(&amp;tmp, <span class="number">0</span>, <span class="built_in">sizeof</span>(tmp));</span><br><span class="line">    tmp.format         = frame-&gt;format;</span><br><span class="line">    tmp.width          = frame-&gt;width;</span><br><span class="line">    tmp.height         = frame-&gt;height;</span><br><span class="line">...</span><br><span class="line">    tmp.nb_samples     = frame-&gt;nb_samples;</span><br><span class="line">    ret = <span class="built_in">av_channel_layout_copy</span>(&amp;tmp.ch_layout, &amp;frame-&gt;ch_layout);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (frame-&gt;hw_frames_ctx)</span><br><span class="line">        ret = <span class="built_in">av_hwframe_get_buffer</span>(frame-&gt;hw_frames_ctx, &amp;tmp, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        ret = <span class="built_in">av_frame_get_buffer</span>(&amp;tmp, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_frame_copy</span>(&amp;tmp, frame);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_frame_copy_props</span>(&amp;tmp, frame);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line"></span><br><span class="line">    *frame = tmp;</span><br><span class="line">    <span class="keyword">if</span> (tmp.data == tmp.extended_data)</span><br><span class="line">        frame-&gt;extended_data = frame-&gt;data;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面介绍了部分 AVFrame 相关的函数及其实现，包括 alloc、get_buffer、ref、unref、free，可以看到，大部分方法还是围绕引用计数这个点来做文章，其他没有介绍到的方法大体也离不开这一点，抓住引用计数这个点就能正确理解 AVFrame。</p>
+<p>接下来再分析一下 AVPacket，AVPacket 原理和 AVFrame 基本一样，比 AVFrame 可能还要简单一些，有了上面 AVFrame 的基础理解起来也不难。</p>
+<p>AVPacket 存储的是等待 decode 的数据</p>
+<blockquote>
+<p>This structure stores compressed data. It is typically exported by demuxers and then passed as input to decoders, or received as output from encoders and then passed to muxers.<br/>For video, it should typically contain one compressed frame. For audio it may contain several compressed frames. Encoders are allowed to output empty packets, with no compressed data, containing only side data (e.g. to update some stream parameters at the end of encoding).</p>
+</blockquote>
+<p>AVPacket 的结构如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVPacket</span> &#123;</span><br><span class="line">    AVBufferRef *buf;</span><br><span class="line"></span><br><span class="line">    <span class="type">int64_t</span> pts;</span><br><span class="line"></span><br><span class="line">    <span class="type">int64_t</span> dts;</span><br><span class="line"></span><br><span class="line">    <span class="type">uint8_t</span> *data;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span>   size;</span><br><span class="line">    <span class="type">int</span>   stream_index;</span><br><span class="line"></span><br><span class="line">    AVRational time_base;</span><br><span class="line">...</span><br><span class="line">&#125; AVPacket;</span><br></pre></td></tr></table></figure>
+
+<p>AVPacket 只有一个 data 指针，而不是 data 数组，他也有 AVBufferRef 指针，也支持引用计数。</p>
+<p>创建 AVPacket，也是通过 alloc 方法：将字段初始化为默认值，并不分配真正存储数据的内存</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVPacket *<span class="title">av_packet_alloc</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVPacket *pkt = <span class="built_in">av_malloc</span>(<span class="built_in">sizeof</span>(AVPacket));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="built_in">get_packet_defaults</span>(pkt);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> pkt;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">get_packet_defaults</span><span class="params">(AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">memset</span>(pkt, <span class="number">0</span>, <span class="built_in">sizeof</span>(*pkt));</span><br><span class="line"></span><br><span class="line">    pkt-&gt;pts             = AV_NOPTS_VALUE;</span><br><span class="line">    pkt-&gt;dts             = AV_NOPTS_VALUE;</span><br><span class="line">    pkt-&gt;pos             = <span class="number">-1</span>;</span><br><span class="line">    pkt-&gt;time_base       = <span class="built_in">av_make_q</span>(<span class="number">0</span>, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ref 操作：dest 必须 fresh 的，比如新 alloc 或者 unref 之后</p>
+<ul>
+<li>如果 src 不是 refcouted，将 src 的 buffer 拷贝到 dest，否则拷贝引用</li>
+<li>其他字段比如 sidedata 会从 src 拷贝内存到 dest，因为 side data 不是 ref counted 的，他在 ref 时总是拷贝，unref 时会释放</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_packet_ref</span><span class="params">(AVPacket *dst, <span class="type">const</span> AVPacket *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    dst-&gt;buf = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_packet_copy_props</span>(dst, src);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!src-&gt;buf) &#123; <span class="comment">// 非引用计数</span></span><br><span class="line">        ret = <span class="built_in">packet_alloc</span>(&amp;dst-&gt;buf, src-&gt;size);</span><br><span class="line">...</span><br><span class="line">        <span class="built_in">av_assert1</span>(!src-&gt;size || src-&gt;data);</span><br><span class="line">        <span class="keyword">if</span> (src-&gt;size)</span><br><span class="line">            <span class="built_in">memcpy</span>(dst-&gt;buf-&gt;data, src-&gt;data, src-&gt;size);</span><br><span class="line"></span><br><span class="line">        dst-&gt;data = dst-&gt;buf-&gt;data;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        dst-&gt;buf = <span class="built_in">av_buffer_ref</span>(src-&gt;buf);</span><br><span class="line">...</span><br><span class="line">        dst-&gt;data = src-&gt;data;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    dst-&gt;size = src-&gt;size;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">fail:</span><br><span class="line">    <span class="built_in">av_packet_unref</span>(dst);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>申请 AVPacket 内部 payload 的内存，pkt 必须 fresh</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_new_packet</span><span class="params">(AVPacket *pkt, <span class="type">int</span> size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVBufferRef *buf = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">int</span> ret = <span class="built_in">packet_alloc</span>(&amp;buf, size);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="built_in">get_packet_defaults</span>(pkt);</span><br><span class="line">    pkt-&gt;buf      = buf;</span><br><span class="line">    pkt-&gt;data     = buf-&gt;data;</span><br><span class="line">    pkt-&gt;size     = size;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>unref 操作：如果 AVPacket 不是 refcounted，释放 data 指向的内存，否则释放 buf 这个 AVBufferRef，同时将字段恢复成 alloc 时的默认值</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_packet_unref</span><span class="params">(AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_packet_free_side_data</span>(pkt);</span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;pkt-&gt;opaque_ref);</span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;pkt-&gt;buf);</span><br><span class="line">    <span class="built_in">get_packet_defaults</span>(pkt);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>移动操作：将 src 的内容移动到 dest，dest 必须是 fresh 的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_packet_move_ref</span><span class="params">(AVPacket *dst, AVPacket *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    *dst = *src;</span><br><span class="line">    <span class="built_in">get_packet_defaults</span>(src);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>free 操作：释放 AVPacket 本身，此外如果是 refcounted，还会先进行 unref 操作</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_packet_free</span><span class="params">(AVPacket **pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!pkt || !*pkt)</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_packet_unref</span>(*pkt);</span><br><span class="line">    <span class="built_in">av_freep</span>(pkt);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其他操作就不再列举，AVPacket 原理和 AVFrame 基本一致，操作也是相通的。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVDictionary/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:09:23
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8B%E5%88%9B%E5%BB%BAfilter%E4%B8%8Efiltergraph/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

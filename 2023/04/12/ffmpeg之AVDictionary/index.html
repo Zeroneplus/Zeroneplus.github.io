@@ -11,7 +11,7 @@
   
   <title>
     
-      关于 
+      ffmpeg之AVDictionary 
       
       
       |
@@ -146,16 +146,103 @@
   
 
   
-  <!-- 关于页 url形式：https://yoursite/about/ -->
-    <div class="container about-index">
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg之AVDictionary</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:09:03
+        </span>
+        
+      </div>
       <div class="markdown-body">
-        <p>暂时还没有想说的…</p>
+        <p>这篇博客接着之前的  ffmpeg 之 AVOption 和 AVClass  介绍一下 AVDictionary。</p>
+<p>AVDictionary 从字面上看就是字典的意思，所以他的功能也不难猜到，就是一次性操作多个 AVOption。</p>
+<p>先看一下 AVDictionary 的 struct 结构</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">AVDictionary</span> &#123;</span><br><span class="line">    <span class="type">int</span> count;</span><br><span class="line">    AVDictionaryEntry *elems;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVDictionaryEntry</span> &#123;</span><br><span class="line">    <span class="type">char</span> *key;</span><br><span class="line">    <span class="type">char</span> *value;</span><br><span class="line">&#125; AVDictionaryEntry;</span><br></pre></td></tr></table></figure>
+
+<p>AVDictionary 用于一次性 set 多个属性，有 av_opt_set_dict 这个专门的函数，他的第一个参数是 struct 实例，它必须支持 AVOption，第二个参数是指向 AVDictionary 的指针的指针。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_opt_set_dict</span><span class="params">(<span class="type">void</span> *obj, AVDictionary **options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">av_opt_set_dict2</span>(obj, options, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_opt_set_dict 内部调用了 av_opt_set_dict2。</p>
+<p>av_opt_set_dict2 中通过 av_dict_get 遍历每个 AVDictionaryEntry，然后也是通过 av_opt_set 设置属性到 struct 实例中，如果在 av_opt_set 时没找到相应的 key，该 AVDictionaryEntry 会被插入到一个新的 AVDictionary 中，最后把输入的 AVDictionary 的指针变为新的 AVDictionary，原来的 AVDictionary 会被释放，此时 options 指向的 AVDictionary*指向的就是包含未被设置的 AVDictionaryEntry 的 AVDictionary 了。</p>
+<p>也就是说 av_opt_set_dict2 会把设置成功的 AVDictionaryEntry 给去掉，将未被设置的 AVDictionaryEntry 保留下来。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_opt_set_dict2</span><span class="params">(<span class="type">void</span> *obj, AVDictionary **options, <span class="type">int</span> search_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVDictionaryEntry *t = <span class="literal">NULL</span>;</span><br><span class="line">    AVDictionary    *tmp = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!options)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> ((t = <span class="built_in">av_dict_get</span>(*options, <span class="string">&quot;&quot;</span>, t, AV_DICT_IGNORE_SUFFIX))) &#123;</span><br><span class="line">        ret = <span class="built_in">av_opt_set</span>(obj, t-&gt;key, t-&gt;value, search_flags);</span><br><span class="line">        <span class="keyword">if</span> (ret == AVERROR_OPTION_NOT_FOUND)</span><br><span class="line">            ret = <span class="built_in">av_dict_set</span>(&amp;tmp, t-&gt;key, t-&gt;value, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">av_log</span>(obj, AV_LOG_ERROR, <span class="string">&quot;Error setting option %s to value %s.\n&quot;</span>, t-&gt;key, t-&gt;value);</span><br><span class="line">            <span class="built_in">av_dict_free</span>(&amp;tmp);</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">av_dict_free</span>(options);</span><br><span class="line">    *options = tmp;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
       </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVOption%E5%92%8CAVClass/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:09:03
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVFrame%E5%92%8CAVPacket/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
     </div>
-  
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
 
   
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
 
         
 <div class="footer">

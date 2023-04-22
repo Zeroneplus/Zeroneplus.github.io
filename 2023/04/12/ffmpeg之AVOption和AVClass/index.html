@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg之AVOption和AVClass 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg之AVOption和AVClass</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:08:39
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客介绍一下 ffmpeg 中的 AVOption 和 AVClass。</p>
+<p>和 gstreamer 一样，ffmpeg 也提供了对 struct 实例的 get、set 方法，但是 ffmpeg 没有提供一套面向对象的编程机制，所以他的 get、set 方法看起来有些怪怪的。</p>
+<p>ffmpeg 中要让一个 struct 支持 get、set，那么这个 struct 的第一个成员必须是一个指向 AVClass 的指针，其指向的 AVClass 中必须有 AVOption 数组，该数组最后一个元素必须是 NULL，而 AVOption 中描述了属性的信息，比如属性的名字、默认值、存储的位置。</p>
+<p>看一个官方的例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">test_struct</span> &#123;</span><br><span class="line">    <span class="type">const</span> AVClass *<span class="keyword">class</span>;</span><br><span class="line">    <span class="type">int</span>      int_opt;</span><br><span class="line">    <span class="type">char</span>    *str_opt;</span><br><span class="line">    <span class="type">uint8_t</span> *bin_opt;</span><br><span class="line">    <span class="type">int</span>      bin_len;</span><br><span class="line">&#125; test_struct;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVOption test_options[] = &#123;</span><br><span class="line">  &#123; <span class="string">&quot;test_int&quot;</span>, <span class="string">&quot;This is a test option of int type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, int_opt),</span><br><span class="line">    AV_OPT_TYPE_INT, &#123; .i64 = <span class="number">-1</span> &#125;, INT_MIN, INT_MAX &#125;,</span><br><span class="line">  &#123; <span class="string">&quot;test_str&quot;</span>, <span class="string">&quot;This is a test option of string type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, str_opt),</span><br><span class="line">    AV_OPT_TYPE_STRING &#125;,</span><br><span class="line">  &#123; <span class="string">&quot;test_bin&quot;</span>, <span class="string">&quot;This is a test option of binary type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, bin_opt),</span><br><span class="line">    AV_OPT_TYPE_BINARY &#125;,</span><br><span class="line">  &#123; <span class="literal">NULL</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVClass test_class = &#123;</span><br><span class="line">    .class_name = <span class="string">&quot;test class&quot;</span>,</span><br><span class="line">    .item_name  = av_default_item_name,</span><br><span class="line">    .option     = test_options,</span><br><span class="line">    .version    = LIBAVUTIL_VERSION_INT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function">test_struct *<span class="title">alloc_test_struct</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    test_struct *ret = <span class="built_in">av_mallocz</span>(<span class="built_in">sizeof</span>(*ret));</span><br><span class="line">    ret-&gt;<span class="keyword">class</span> = &amp;test_class;</span><br><span class="line">    <span class="built_in">av_opt_set_defaults</span>(ret);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">free_test_struct</span><span class="params">(test_struct **foo)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_opt_free</span>(*foo);</span><br><span class="line">    <span class="built_in">av_freep</span>(foo);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的例子中想要描述的是 test_struct，他的第一个成员是指向 test_class 的指针，而 test_class 中有 test_options 这个数组首地址，该数组的每一项都描述了一个属性，get、set 时会使用 AVOption 中的信息。</p>
+<p>AVOption 结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVOption</span> &#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *name;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * short English help text</span></span><br><span class="line"><span class="comment">     * @todo What about other languages?</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *help;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The offset relative to the context structure where the option</span></span><br><span class="line"><span class="comment">     * value is stored. It should be 0 for named constants.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> offset;</span><br><span class="line">    <span class="keyword">enum</span> <span class="title class_">AVOptionType</span> type;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * the default value for scalar options</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="keyword">union</span> &#123;</span><br><span class="line">        <span class="type">int64_t</span> i64;</span><br><span class="line">        <span class="type">double</span> dbl;</span><br><span class="line">        <span class="type">const</span> <span class="type">char</span> *str;</span><br><span class="line">        <span class="comment">/* TODO those are unused now */</span></span><br><span class="line">        AVRational q;</span><br><span class="line">    &#125; default_val;</span><br><span class="line">    <span class="type">double</span> min;                 <span class="comment">///&lt; minimum valid value for the option</span></span><br><span class="line">    <span class="type">double</span> max;                 <span class="comment">///&lt; maximum valid value for the option</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> flags;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_OPT_FLAG_ENCODING_PARAM  1   <span class="comment">///&lt; a generic parameter which can be set by the user for muxing or encoding</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_OPT_FLAG_DECODING_PARAM  2   <span class="comment">///&lt; a generic parameter which can be set by the user for demuxing or decoding</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_OPT_FLAG_AUDIO_PARAM     8</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_OPT_FLAG_VIDEO_PARAM     16</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> AV_OPT_FLAG_SUBTITLE_PARAM  32</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The logical unit to which the option belongs. Non-constant</span></span><br><span class="line"><span class="comment">     * options and corresponding named constants share the same</span></span><br><span class="line"><span class="comment">     * unit. May be NULL.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *unit;</span><br><span class="line">&#125; AVOption;</span><br></pre></td></tr></table></figure>
+
+<p>每一个字段上面都有注释，就不一一解释了。</p>
+<p>看一下 offset 字段，他指的是被管理的属性存在 struct 的哪里，结合上面的例子就知道 offset 是被管理的字段在 struct 中的偏移。</p>
+<p>default_val 字段，表示默认值，是一个 union，不同类型共用这一个 union。当 AVOption 的类型指定后 default_val 需要与之对应。</p>
+<p>一般来说，每个 AVOption 必须有非空的 name 字段、type 字段、默认值字段，对于数字类型，最大值、最小值字段同样不能为空。offset 字段也是必须的，他指明了被设置的属性保存到 struct 的哪里。其他字段就不是必须的了，但 flag 字段通常会被设置。</p>
+<p>AVClass 结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Describe the class of an AVClass context structure. That is an</span></span><br><span class="line"><span class="comment"> * arbitrary struct of which the first field is a pointer to an</span></span><br><span class="line"><span class="comment"> * AVClass struct (e.g. AVCodecContext, AVFormatContext etc.).</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVClass</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * The name of the class; usually it is the same name as the</span></span><br><span class="line"><span class="comment">     * context structure type to which the AVClass is associated.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span>* class_name;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * A pointer to a function which returns the name of a context</span></span><br><span class="line"><span class="comment">     * instance ctx associated with the class.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span>* (*item_name)(<span class="type">void</span>* ctx);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * a pointer to the first option specified in the class if any or NULL</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @see av_set_default_options()</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="keyword">struct</span> <span class="title class_">AVOption</span> *option;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * LIBAVUTIL_VERSION with which this structure was created.</span></span><br><span class="line"><span class="comment">     * This is used to allow fields to be added without requiring major</span></span><br><span class="line"><span class="comment">     * version bumps everywhere.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> version;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Callback to return the supported/allowed ranges.</span></span><br><span class="line"><span class="comment">     * available since version (52.12)</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">int</span> (*query_ranges)(<span class="keyword">struct</span> AVOptionRanges **, <span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *key, <span class="type">int</span> flags);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Return next AVOptions-enabled child or NULL</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">void</span>* (*child_next)(<span class="type">void</span> *obj, <span class="type">void</span> *prev);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Iterate over the AVClasses corresponding to potential AVOptions-enabled</span></span><br><span class="line"><span class="comment">     * children.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @param iter pointer to opaque iteration state. The caller must initialize</span></span><br><span class="line"><span class="comment">     *             *iter to NULL before the first call.</span></span><br><span class="line"><span class="comment">     * @return AVClass for the next AVOptions-enabled child or NULL if there are</span></span><br><span class="line"><span class="comment">     *         no more such children.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * @note The difference between child_next and this is that child_next</span></span><br><span class="line"><span class="comment">     *       iterates over _already existing_ objects, while child_class_iterate</span></span><br><span class="line"><span class="comment">     *       iterates over _all possible_ children.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="keyword">struct</span> <span class="title class_">AVClass</span>* (*child_class_iterate)(<span class="type">void</span> **iter);</span><br><span class="line">&#125; AVClass;</span><br></pre></td></tr></table></figure>
+
+<p>目前看来 AVClass 最重要的就是 option 这个数组，他里面的 AVOption 指明了如何对被管理的 struct 进行 get、set 操作，其他的字段一般用得很少，保持默认值就行，但是 child_next 和 child_class_iterate 在 get、set 中也有用处，这个后面再介绍。</p>
+<p>接下来分析一下 av_opt_set 的代码。</p>
+<p>av_opt_set 用于设置属性，第一个参数是 struct 的实例，第二个参数是属性名，需要和 AVOption 中的 name 对应，第三个参数是属性值，注意是一个字符串，如果是数字类型在 set 时会把字符串转换为数字类型，第四个是搜索属性，如果想搜索嵌套属性时需要设置。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_opt_set</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *val, <span class="type">int</span> search_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">av_opt_set2</span>(obj, name, val, <span class="number">0</span>, search_flags);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_opt_set 内部调用 av_opt_set2 函数，av_opt_set2 先通过 name 查找 AVOption，找到之后获得 AVOption 中的 offset 信息，然后把输入的 val 根据类型进行转换（比如字符串转 int），最后把值设置到 struct 中。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_opt_set2</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *val, <span class="type">int</span> opt_flags, <span class="type">int</span> search_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line">    <span class="type">void</span> *dst, *target_obj;</span><br><span class="line">    <span class="type">const</span> AVOption *o = <span class="built_in">av_opt_find2</span>(obj, name, <span class="literal">NULL</span>, opt_flags, search_flags, &amp;target_obj);</span><br><span class="line">    <span class="keyword">if</span> (!o || !target_obj)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_OPTION_NOT_FOUND;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!val &amp;&amp; (o-&gt;type != AV_OPT_TYPE_STRING &amp;&amp;</span><br><span class="line">                 o-&gt;type != AV_OPT_TYPE_PIXEL_FMT &amp;&amp; o-&gt;type != AV_OPT_TYPE_SAMPLE_FMT &amp;&amp;</span><br><span class="line">                 o-&gt;type != AV_OPT_TYPE_IMAGE_SIZE &amp;&amp;</span><br><span class="line">                 o-&gt;type != AV_OPT_TYPE_DURATION &amp;&amp; o-&gt;type != AV_OPT_TYPE_COLOR &amp;&amp;</span><br><span class="line">                 o-&gt;type != AV_OPT_TYPE_BOOL))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (o-&gt;flags &amp; AV_OPT_FLAG_READONLY)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (o-&gt;flags &amp; AV_OPT_FLAG_DEPRECATED)</span><br><span class="line">        <span class="built_in">av_log</span>(obj, AV_LOG_WARNING, <span class="string">&quot;The \&quot;%s\&quot; option is deprecated: %s\n&quot;</span>, name, o-&gt;help);</span><br><span class="line"></span><br><span class="line">    dst = ((<span class="type">uint8_t</span> *)target_obj) + o-&gt;offset;</span><br><span class="line">    <span class="keyword">switch</span> (o-&gt;type) &#123;</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_BOOL:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">set_string_bool</span>(obj, o, val, dst);</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_STRING:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">set_string</span>(obj, o, val, dst);</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_BINARY:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">set_string_binary</span>(obj, o, val, dst);</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_FLAGS:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_INT:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_INT64:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_UINT64:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_FLOAT:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_DOUBLE:</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_RATIONAL:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">set_string_number</span>(obj, target_obj, o, val, dst);</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">av_log</span>(obj, AV_LOG_ERROR, <span class="string">&quot;Invalid option type.\n&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先看一下查找 AVOption，是通过 av_opt_find2 函数进行查找，av_opt_find2 会根据 search_flags 选择是否查找嵌套的 AVOption，这个留到后面再说，先看只在当前 struct 中进行查找</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVOption *<span class="title">av_opt_find2</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *unit,</span></span></span><br><span class="line"><span class="params"><span class="function">                             <span class="type">int</span> opt_flags, <span class="type">int</span> search_flags, <span class="type">void</span> **target_obj)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVClass  *c;</span><br><span class="line">    <span class="type">const</span> AVOption *o = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(!obj)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    c= *(AVClass**)obj;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!c)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (search_flags &amp; AV_OPT_SEARCH_CHILDREN) &#123;</span><br><span class="line">        <span class="comment">// 嵌套查找，先不管</span></span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (o = <span class="built_in">av_opt_next</span>(obj, o)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(o-&gt;name, name) &amp;&amp; (o-&gt;flags &amp; opt_flags) == opt_flags &amp;&amp;</span><br><span class="line">            ((!unit &amp;&amp; o-&gt;type != AV_OPT_TYPE_CONST) ||</span><br><span class="line">             (unit  &amp;&amp; o-&gt;type == AV_OPT_TYPE_CONST &amp;&amp; o-&gt;unit &amp;&amp; !<span class="built_in">strcmp</span>(o-&gt;unit, unit)))) &#123;</span><br><span class="line">            <span class="keyword">if</span> (target_obj) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!(search_flags &amp; AV_OPT_SEARCH_FAKE_OBJ))</span><br><span class="line">                    *target_obj = obj;</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                    *target_obj = <span class="literal">NULL</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> o;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_opt_find2 通过 av_opt_next 逐个的遍历当前 struct 的 AVClass 中的 AVOption 数组，把每一项的 name 和输入的 name 进行比较</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVOption *<span class="title">av_opt_next</span><span class="params">(<span class="type">const</span> <span class="type">void</span> *obj, <span class="type">const</span> AVOption *last)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVClass *<span class="keyword">class</span>;</span><br><span class="line">    <span class="keyword">if</span> (!obj)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">class</span> = *(<span class="type">const</span> AVClass**)obj;</span><br><span class="line">    <span class="keyword">if</span> (!last &amp;&amp; <span class="keyword">class</span> &amp;&amp; <span class="keyword">class</span>-&gt;option &amp;&amp; <span class="keyword">class</span>-&gt;option[<span class="number">0</span>].name)</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">class</span>-&gt;option;</span><br><span class="line">    <span class="keyword">if</span> (last &amp;&amp; last[<span class="number">1</span>].name)</span><br><span class="line">        <span class="keyword">return</span> ++last;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>找到 AVOption 后把偏移 offset 信息取出来，然后进行属性设置操作。</p>
+<p>看一个 string 类型的设置操作，可以看到，会把输入的字符串复制一份出来，所以这部分内存后面还需要释放。当调用 av_opt_free 时，这部分动态分配的内存会被释放，如果 struct 有 string 类型的属性，析构时需要调用 av_opt_free 函数。（注意 binary 类型也会进行动态内存分配）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">set_string</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> AVOption *o, <span class="type">const</span> <span class="type">char</span> *val, <span class="type">uint8_t</span> **dst)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_freep</span>(dst);</span><br><span class="line">    *dst = <span class="built_in">av_strdup</span>(val);</span><br><span class="line">    <span class="keyword">return</span> *dst ? <span class="number">0</span> : <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看一个 bool 类型的设置操作，他会对输入的字符串进行分析，如果是 true,y,yes 之类的会将字段设置为 true，反之如果是 false,n,no 之类的则会设为 false</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">set_string_bool</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> AVOption *o, <span class="type">const</span> <span class="type">char</span> *val, <span class="type">int</span> *dst)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> n;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!val)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(val, <span class="string">&quot;auto&quot;</span>)) &#123;</span><br><span class="line">        n = <span class="number">-1</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">av_match_name</span>(val, <span class="string">&quot;true,y,yes,enable,enabled,on&quot;</span>)) &#123;</span><br><span class="line">        n = <span class="number">1</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">av_match_name</span>(val, <span class="string">&quot;false,n,no,disable,disabled,off&quot;</span>)) &#123;</span><br><span class="line">        n = <span class="number">0</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="type">char</span> *end = <span class="literal">NULL</span>;</span><br><span class="line">        n = <span class="built_in">strtol</span>(val, &amp;end, <span class="number">10</span>);</span><br><span class="line">        <span class="keyword">if</span> (val + <span class="built_in">strlen</span>(val) != end)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (n &lt; o-&gt;min || n &gt; o-&gt;max)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">    *dst = n;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">fail:</span><br><span class="line">    <span class="built_in">av_log</span>(obj, AV_LOG_ERROR, <span class="string">&quot;Unable to parse option value \&quot;%s\&quot; as boolean\n&quot;</span>, val);</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>数字类型的设置函数就不看了，基本原理就是把用字符串表示的数字转成 AVOption 中的类型，然后进行设置，同时数字类型还会检查输入值是否在最大最小值范围内。</p>
+<p>再看一下 av_opt_set_defaults。这个函数就是把 struct 中的字段赋值为 AVOption 中的默认值，基本过程和 av_opt_set 一致。从下面可以看到，调用 av_opt_next 遍历每一个 AVOption，取偏移信息，然后把默认值设到字段中。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_opt_set_defaults</span><span class="params">(<span class="type">void</span> *s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_opt_set_defaults2</span>(s, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_opt_set_defaults2</span><span class="params">(<span class="type">void</span> *s, <span class="type">int</span> mask, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVOption *opt = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">while</span> ((opt = <span class="built_in">av_opt_next</span>(s, opt))) &#123;</span><br><span class="line">        <span class="type">void</span> *dst = ((<span class="type">uint8_t</span>*)s) + opt-&gt;offset;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> ((opt-&gt;flags &amp; mask) != flags)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (opt-&gt;flags &amp; AV_OPT_FLAG_READONLY)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">switch</span> (opt-&gt;type) &#123;</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_CONST:</span><br><span class="line">                <span class="comment">/* Nothing to be done here */</span></span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_BOOL:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_FLAGS:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_INT:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_INT64:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_UINT64:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_DURATION:</span><br><span class="line">...</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_PIXEL_FMT:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_SAMPLE_FMT:</span><br><span class="line">                <span class="built_in">write_number</span>(s, opt, dst, <span class="number">1</span>, <span class="number">1</span>, opt-&gt;default_val.i64);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_DOUBLE:</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_FLOAT: &#123;</span><br><span class="line">                <span class="type">double</span> val;</span><br><span class="line">                val = opt-&gt;default_val.dbl;</span><br><span class="line">                <span class="built_in">write_number</span>(s, opt, dst, val, <span class="number">1</span>, <span class="number">1</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">...</span><br><span class="line">            <span class="keyword">case</span> AV_OPT_TYPE_STRING:</span><br><span class="line">                <span class="comment">// 发生字符串拷贝</span></span><br><span class="line">                <span class="built_in">set_string</span>(s, opt, opt-&gt;default_val.str, dst);</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">...</span><br><span class="line">        <span class="keyword">default</span>:</span><br><span class="line">            <span class="built_in">av_log</span>(s, AV_LOG_DEBUG, <span class="string">&quot;AVOption type %d of option %s not implemented yet\n&quot;</span>,</span><br><span class="line">                   opt-&gt;type, opt-&gt;name);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>理解了上面的 set 过程，av_opt_get 就很简单了。</p>
+<p>同样先用 av_opt_find2 查找 AVOption，找到之后取偏移信息，通过偏移信息就可以从 struct 中访问到字段，由于输出是 char 字符串，所以对某些类型，比如 bool、数字类型需要转成字符串，这里同样涉及到动态分配的内存，out_val 指向的指针需要自己在外面手动释放。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_opt_get</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">int</span> search_flags, <span class="type">uint8_t</span> **out_val)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">void</span> *dst, *target_obj;</span><br><span class="line">    <span class="type">const</span> AVOption *o = <span class="built_in">av_opt_find2</span>(obj, name, <span class="literal">NULL</span>, <span class="number">0</span>, search_flags, &amp;target_obj);</span><br><span class="line">    <span class="type">uint8_t</span> *bin, buf[<span class="number">128</span>];</span><br><span class="line">    <span class="type">int</span> len, i, ret;</span><br><span class="line">    <span class="type">int64_t</span> i64;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!o || !target_obj || (o-&gt;offset&lt;=<span class="number">0</span> &amp;&amp; o-&gt;type != AV_OPT_TYPE_CONST))</span><br><span class="line">        <span class="keyword">return</span> AVERROR_OPTION_NOT_FOUND;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (o-&gt;flags &amp; AV_OPT_FLAG_DEPRECATED)</span><br><span class="line">        <span class="built_in">av_log</span>(obj, AV_LOG_WARNING, <span class="string">&quot;The \&quot;%s\&quot; option is deprecated: %s\n&quot;</span>, name, o-&gt;help);</span><br><span class="line"></span><br><span class="line">    dst = (<span class="type">uint8_t</span> *)target_obj + o-&gt;offset;</span><br><span class="line"></span><br><span class="line">    buf[<span class="number">0</span>] = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">switch</span> (o-&gt;type) &#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_INT:</span><br><span class="line">        ret = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%d&quot;</span>, *(<span class="type">int</span> *)dst);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_INT64:</span><br><span class="line">        ret = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%&quot;</span>PRId64, *(<span class="type">int64_t</span> *)dst);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_UINT64:</span><br><span class="line">        ret = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%&quot;</span>PRIu64, *(<span class="type">uint64_t</span> *)dst);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_FLOAT:</span><br><span class="line">        ret = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%f&quot;</span>, *(<span class="type">float</span> *)dst);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_DOUBLE:</span><br><span class="line">        ret = <span class="built_in">snprintf</span>(buf, <span class="built_in">sizeof</span>(buf), <span class="string">&quot;%f&quot;</span>, *(<span class="type">double</span> *)dst);</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_STRING:</span><br><span class="line">        <span class="keyword">if</span> (*(<span class="type">uint8_t</span> **)dst) &#123;</span><br><span class="line">            *out_val = <span class="built_in">av_strdup</span>(*(<span class="type">uint8_t</span> **)dst); <span class="comment">// 外面需要自己释放</span></span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (search_flags &amp; AV_OPT_ALLOW_NULL) &#123;</span><br><span class="line">            *out_val = <span class="literal">NULL</span>;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            *out_val = <span class="built_in">av_strdup</span>(<span class="string">&quot;&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> *out_val ? <span class="number">0</span> : <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">    <span class="keyword">case</span> AV_OPT_TYPE_BINARY:</span><br><span class="line">        <span class="keyword">if</span> (!*(<span class="type">uint8_t</span> **)dst &amp;&amp; (search_flags &amp; AV_OPT_ALLOW_NULL)) &#123;</span><br><span class="line">            *out_val = <span class="literal">NULL</span>;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        len = *(<span class="type">int</span> *)(((<span class="type">uint8_t</span> *)dst) + <span class="built_in">sizeof</span>(<span class="type">uint8_t</span> *));</span><br><span class="line">        <span class="keyword">if</span> ((<span class="type">uint64_t</span>)len * <span class="number">2</span> + <span class="number">1</span> &gt; INT_MAX)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        <span class="keyword">if</span> (!(*out_val = <span class="built_in">av_malloc</span>(len * <span class="number">2</span> + <span class="number">1</span>))) <span class="comment">// 外面需要自己释放</span></span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="keyword">if</span> (!len) &#123;</span><br><span class="line">            *out_val[<span class="number">0</span>] = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        bin = *(<span class="type">uint8_t</span> **)dst;</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; len; i++)</span><br><span class="line">            <span class="built_in">snprintf</span>(*out_val + i * <span class="number">2</span>, <span class="number">3</span>, <span class="string">&quot;%02X&quot;</span>, bin[i]);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">...</span><br><span class="line">   &#125;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= <span class="built_in">sizeof</span>(buf))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    *out_val = <span class="built_in">av_strdup</span>(buf);</span><br><span class="line">    <span class="keyword">return</span> *out_val ? <span class="number">0</span> : <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>对于 binary 要注意，从上面 AV_OPT_TYPE_BINARY 分支可以看到，binary 在 struct 中占据两部分，一个是 binary 的地址，一个是 binary 的长度。</p>
+<p>最后再介绍一下嵌套 AVOption。</p>
+<p>gobject 中支持属性的继承，也就是子类可以使用父类的属性，也可以覆盖父类的属性，这种需求是很常见的。而 ffmpeg 没有实现面向对象的机制，但是他也想支持类似的属性继承功能，于是就提供了嵌套 AVOption 特性。</p>
+<p>嵌套 AVOption 是指当前 struct 支持 AVOption，同时他还有一个成员也支持 AVOption，现在希望 get、set 时能从当前 struct 以及他的成员中进行操作。看一个官方的例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">child_struct</span> &#123;</span><br><span class="line">    AVClass *<span class="keyword">class</span>;</span><br><span class="line">    <span class="type">int</span> flags_opt;</span><br><span class="line">&#125; child_struct;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVOption child_opts[] = &#123;</span><br><span class="line">    &#123; <span class="string">&quot;test_flags&quot;</span>, <span class="string">&quot;This is a test option of flags type.&quot;</span>,</span><br><span class="line">    <span class="built_in">offsetof</span>(child_struct, flags_opt), AV_OPT_TYPE_FLAGS, &#123; .i64 = <span class="number">0</span> &#125;, INT_MIN, INT_MAX &#125;,</span><br><span class="line">    &#123; <span class="literal">NULL</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVClass child_class = &#123;</span><br><span class="line">    .class_name = <span class="string">&quot;child class&quot;</span>,</span><br><span class="line">    .item_name  = av_default_item_name,</span><br><span class="line">    .option     = child_opts,</span><br><span class="line">    .version    = LIBAVUTIL_VERSION_INT,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">test_struct</span> &#123;</span><br><span class="line">    <span class="type">const</span> AVClass *<span class="keyword">class</span>;</span><br><span class="line">    <span class="type">int</span>      int_opt;</span><br><span class="line">    <span class="type">char</span>    *str_opt;</span><br><span class="line">    <span class="type">uint8_t</span> *bin_opt;</span><br><span class="line">    <span class="type">int</span>      bin_len;</span><br><span class="line">    child_struct *child_struct;</span><br><span class="line">&#125; test_struct;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVOption test_options[] = &#123;</span><br><span class="line">  &#123; <span class="string">&quot;test_int&quot;</span>, <span class="string">&quot;This is a test option of int type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, int_opt),</span><br><span class="line">    AV_OPT_TYPE_INT, &#123; .i64 = <span class="number">-1</span> &#125;, INT_MIN, INT_MAX &#125;,</span><br><span class="line">  &#123; <span class="string">&quot;test_str&quot;</span>, <span class="string">&quot;This is a test option of string type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, str_opt),</span><br><span class="line">    AV_OPT_TYPE_STRING &#125;,</span><br><span class="line">  &#123; <span class="string">&quot;test_bin&quot;</span>, <span class="string">&quot;This is a test option of binary type.&quot;</span>, <span class="built_in">offsetof</span>(test_struct, bin_opt),</span><br><span class="line">    AV_OPT_TYPE_BINARY &#125;,</span><br><span class="line">  &#123; <span class="literal">NULL</span> &#125;,</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> *<span class="title">child_next</span><span class="params">(<span class="type">void</span> *obj, <span class="type">void</span> *prev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    test_struct *t = obj;</span><br><span class="line">    <span class="keyword">if</span> (!prev &amp;&amp; t-&gt;child_struct)</span><br><span class="line">        <span class="keyword">return</span> t-&gt;child_struct;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">const</span> AVClass* <span class="title">child_class_iterate</span><span class="params">(<span class="type">void</span> **iter)</span></span></span><br><span class="line"><span class="function"></span>&#123; <span class="comment">// 只返回一次child_class</span></span><br><span class="line">    <span class="type">const</span> AVClass *c = *iter ? <span class="literal">NULL</span> : &amp;child_class;</span><br><span class="line">    *iter = (<span class="type">void</span>*)(<span class="type">uintptr_t</span>)c;</span><br><span class="line">    <span class="keyword">return</span> c;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> AVClass test_class = &#123;</span><br><span class="line">    .class_name = <span class="string">&quot;test class&quot;</span>,</span><br><span class="line">    .item_name  = av_default_item_name,</span><br><span class="line">    .option     = test_options,</span><br><span class="line">    .version    = LIBAVUTIL_VERSION_INT,</span><br><span class="line">    .child_next = child_next,</span><br><span class="line">    .child_class_iterate = child_class_iterate,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>在上面的例子中，有 test_struct 和 child_struct 两个结构，他们都支持 AVOption。test_struct 有一个指针指向 child_struct，可以把 child_struct 视为 test_struct 的子结构。</p>
+<p>要让 test_struct 支持嵌套 AVOption（也就是 set、get test_struct 时可以设置到 child_struct），只需要在 test_struct 的 AVClass 中实现 child_next、child_class_iterate 两个函数。child_next 是对真实存在的子 struct 进行遍历，child_class_iterate 是对所有可能存在的子 struct 进行遍历。这样说可能不太好理解，看一下 AVCodecContext 中的 child_next 和 child_class_iterate 函数：</p>
+<p>先通过 avcodec_alloc_context3 来创建 AVCodecContext 实例，AVCodecContext 实例中的 AVClass 是 av_codec_context_class 这个 struct。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVCodecContext *<span class="title">avcodec_alloc_context3</span><span class="params">(<span class="type">const</span> AVCodec *codec)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecContext *avctx= <span class="built_in">av_malloc</span>(<span class="built_in">sizeof</span>(AVCodecContext));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!avctx)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">init_context_defaults</span>(avctx, codec) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_free</span>(avctx);</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> avctx;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">init_context_defaults</span><span class="params">(AVCodecContext *s, <span class="type">const</span> AVCodec *codec)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> FFCodec *<span class="type">const</span> codec2 = <span class="built_in">ffcodec</span>(codec);</span><br><span class="line">    <span class="type">int</span> flags=<span class="number">0</span>;</span><br><span class="line">    <span class="built_in">memset</span>(s, <span class="number">0</span>, <span class="built_in">sizeof</span>(AVCodecContext));</span><br><span class="line"></span><br><span class="line">    s-&gt;av_class = &amp;av_codec_context_class;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_codec_context_class 的 child_next、child_class_iterate 分别是 codec_child_next、codec_child_class_iterate。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> AVClass av_codec_context_class = &#123;</span><br><span class="line">    .class_name              = <span class="string">&quot;AVCodecContext&quot;</span>,</span><br><span class="line">    .item_name               = context_to_name,</span><br><span class="line">    .option                  = avcodec_options,</span><br><span class="line">    .version                 = LIBAVUTIL_VERSION_INT,</span><br><span class="line">    .log_level_offset_offset = <span class="built_in">offsetof</span>(AVCodecContext, log_level_offset),</span><br><span class="line">    .child_next              = codec_child_next,</span><br><span class="line">    .child_class_iterate     = codec_child_class_iterate,</span><br><span class="line">    .category                = AV_CLASS_CATEGORY_ENCODER,</span><br><span class="line">    .get_category            = get_category,</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 codec_child_next 就是返回 AVCodecContext 中的 priv_data 指针，而 priv_data 指向的是每个 codec 自定义的一个也支持 get、set 操作的 struct 的实例，该实例在创建 AVCodecContext 通常也会被创建，他是当前 AVCodecContext 中必然真实存在的一个实例。</p>
+<p>而 codec_child_class_iterate 是通过 av_codec_iterate 对每个 AVCodec 实例进行遍历，返回每个 AVCodec 实例中的 priv_class（也是一个 AVClass），codec_child_class_iterate 返回的 AVClass 肯定不能进行 get、set 操作，因为该 AVClass 对应的 struct 都不知道有没有创建。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> *<span class="title">codec_child_next</span><span class="params">(<span class="type">void</span> *obj, <span class="type">void</span> *prev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecContext *s = obj;</span><br><span class="line">    <span class="keyword">if</span> (!prev &amp;&amp; s-&gt;codec &amp;&amp; s-&gt;codec-&gt;priv_class &amp;&amp; s-&gt;priv_data)</span><br><span class="line">        <span class="keyword">return</span> s-&gt;priv_data;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">const</span> AVClass *<span class="title">codec_child_class_iterate</span><span class="params">(<span class="type">void</span> **iter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVCodec *c;</span><br><span class="line">    <span class="comment">/* find next codec with priv options */</span></span><br><span class="line">    <span class="keyword">while</span> (c = <span class="built_in">av_codec_iterate</span>(iter))</span><br><span class="line">        <span class="keyword">if</span> (c-&gt;priv_class)</span><br><span class="line">            <span class="keyword">return</span> c-&gt;priv_class;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再回到之前 av_opt_find2 中略过的 search_flags 相关部分。</p>
+<p>av_opt_find2 在查找 AVOption 时，会根据 search_flags 决定调用 child_next 还是 child_class_iterate 来遍历子 struct，如果 AV_OPT_SEARCH_CHILDREN 为 true 而 AV_OPT_SEARCH_FAKE_OBJ 为 false 则会使用 child_next。</p>
+<p>可以看到下面的搜索过程其实是一个深度优先搜索，所以子 struct 可以覆盖父 struct 的属性。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVOption *<span class="title">av_opt_find2</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *unit,</span></span></span><br><span class="line"><span class="params"><span class="function">                             <span class="type">int</span> opt_flags, <span class="type">int</span> search_flags, <span class="type">void</span> **target_obj)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVClass  *c;</span><br><span class="line">    <span class="type">const</span> AVOption *o = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(!obj)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    c= *(AVClass**)obj;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!c)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (search_flags &amp; AV_OPT_SEARCH_CHILDREN) &#123;</span><br><span class="line">        <span class="keyword">if</span> (search_flags &amp; AV_OPT_SEARCH_FAKE_OBJ) &#123;</span><br><span class="line">            <span class="type">void</span> *iter = <span class="literal">NULL</span>;</span><br><span class="line">            <span class="type">const</span> AVClass *child;</span><br><span class="line">            <span class="keyword">while</span> (child = <span class="built_in">av_opt_child_class_iterate</span>(c, &amp;iter))</span><br><span class="line">                <span class="keyword">if</span> (o = <span class="built_in">av_opt_find2</span>(&amp;child, name, unit, opt_flags, search_flags, <span class="literal">NULL</span>))</span><br><span class="line">                    <span class="keyword">return</span> o;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="type">void</span> *child = <span class="literal">NULL</span>;</span><br><span class="line">            <span class="keyword">while</span> (child = <span class="built_in">av_opt_child_next</span>(obj, child))</span><br><span class="line">                <span class="keyword">if</span> (o = <span class="built_in">av_opt_find2</span>(child, name, unit, opt_flags, search_flags, target_obj))</span><br><span class="line">                    <span class="keyword">return</span> o;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (o = <span class="built_in">av_opt_next</span>(obj, o)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(o-&gt;name, name) &amp;&amp; (o-&gt;flags &amp; opt_flags) == opt_flags &amp;&amp;</span><br><span class="line">            ((!unit &amp;&amp; o-&gt;type != AV_OPT_TYPE_CONST) ||</span><br><span class="line">             (unit  &amp;&amp; o-&gt;type == AV_OPT_TYPE_CONST &amp;&amp; o-&gt;unit &amp;&amp; !<span class="built_in">strcmp</span>(o-&gt;unit, unit)))) &#123;</span><br><span class="line">            <span class="keyword">if</span> (target_obj) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!(search_flags &amp; AV_OPT_SEARCH_FAKE_OBJ))</span><br><span class="line">                    *target_obj = obj;</span><br><span class="line">                <span class="keyword">else</span></span><br><span class="line">                    *target_obj = <span class="literal">NULL</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">return</span> o;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> *<span class="title">av_opt_child_next</span><span class="params">(<span class="type">void</span> *obj, <span class="type">void</span> *prev)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVClass *c = *(AVClass **)obj;</span><br><span class="line">    <span class="keyword">if</span> (c-&gt;child_next)</span><br><span class="line">        <span class="keyword">return</span> c-&gt;<span class="built_in">child_next</span>(obj, prev);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">const</span> AVClass *<span class="title">av_opt_child_class_iterate</span><span class="params">(<span class="type">const</span> AVClass *parent, <span class="type">void</span> **iter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (parent-&gt;child_class_iterate)</span><br><span class="line">        <span class="keyword">return</span> parent-&gt;<span class="built_in">child_class_iterate</span>(iter);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>参考资料：</p>
+<p><a href="https://blog.csdn.net/leixiaohua1020/article/details/44268323">https://blog.csdn.net/leixiaohua1020/article/details/44268323</a></p>
+<p><a href="https://blog.csdn.net/leixiaohua1020/article/details/44279329">https://blog.csdn.net/leixiaohua1020/article/details/44279329</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/03/04/declval%E6%98%AF%E4%BB%80%E4%B9%88/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:08:39
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg%E4%B9%8BAVDictionary/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

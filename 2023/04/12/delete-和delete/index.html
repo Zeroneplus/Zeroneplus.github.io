@@ -11,7 +11,7 @@
   
   <title>
     
-      关于 
+      delete[]和delete 
       
       
       |
@@ -146,16 +146,113 @@
   
 
   
-  <!-- 关于页 url形式：https://yoursite/about/ -->
-    <div class="container about-index">
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">delete[]和delete</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:14:57
+        </span>
+        
+      </div>
       <div class="markdown-body">
-        <p>暂时还没有想说的…</p>
+        <blockquote>
+<p>最近看到这个帖子上介绍的 C++ delete[]的实现 <a href="https://zhuanlan.zhihu.com/p/74897601">https://zhuanlan.zhihu.com/p/74897601</a>，这篇博客记录一下自己的验证。</p>
+</blockquote>
+<p>当 C++ delete 一个数组时，不仅仅是简单的释放内存，还需要对数组中的每一个对象都调用析构函数，所以需要知道数组元素的个数，那么数组个数信息到底保存在哪里呢？上面帖子中最高赞同的答案是：C++ new 一个数组时，会在数组的最开始额外分配一块小内存（比如 4 或 8 字节）用于记录数组个数，下面对这个结论进行验证。</p>
+<p>cpp 文件如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">    ~<span class="built_in">A</span>()&#123;</span><br><span class="line">        i++;</span><br><span class="line">        cout &lt;&lt; i &lt;&lt; endl;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">1</span>;</span><br><span class="line">    i++;</span><br><span class="line">    i = <span class="number">45</span>;</span><br><span class="line">    A* a = <span class="keyword">new</span> A[i];</span><br><span class="line">    <span class="keyword">delete</span>[] a; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面文件编译后用 gdb 进行调试</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">(gdb) b <span class="number">18</span> </span><br><span class="line">Breakpoint <span class="number">1</span> at <span class="number">0x11ef</span>: file m2.cpp, line <span class="number">18.</span> </span><br><span class="line">(gdb) r</span><br><span class="line">...</span><br><span class="line">Breakpoint <span class="number">1</span>, <span class="built_in">main</span> () at m2.cpp:<span class="number">18</span> </span><br><span class="line"><span class="number">18</span>          <span class="keyword">delete</span>[] a;  </span><br><span class="line">(gdb) p a </span><br><span class="line">$<span class="number">1</span> = (A *) <span class="number">0x55555556aeb8</span> </span><br><span class="line">(gdb) x/<span class="number">8</span>db <span class="number">0x55555556aeb8</span><span class="number">-8</span> </span><br><span class="line"><span class="number">0x55555556aeb0</span>: <span class="number">45</span>      <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<p>在 18 行打了个断点，然后查看 a 变量的值，a 变量存储了新创建的数组的地址，接着查看这个地址向前移动 8 后的内存，可以看到，确实出现了数组个数信息，当把数组长度调整时，45 也会随之改变。所以上面的结论是对的，当 new 一个数组时，会在头部额外分配一块内存记录数组个数。</p>
+<p>接着又进行了以下实验，这次把析构函数注释掉</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">    <span class="comment">/* ~A()&#123;</span></span><br><span class="line"><span class="comment">        i++;</span></span><br><span class="line"><span class="comment">        cout &lt;&lt; i &lt;&lt; endl;</span></span><br><span class="line"><span class="comment">    &#125; */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> i = <span class="number">1</span>;</span><br><span class="line">    i++;</span><br><span class="line">    i = <span class="number">45</span></span><br><span class="line">    A* a = <span class="keyword">new</span> A[i];</span><br><span class="line">    <span class="keyword">delete</span> a; </span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>编译上面文件然后用 gdb 调试</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">g++ m2.cpp -o main -g</span><br><span class="line">gdb main</span><br><span class="line"></span><br><span class="line">info breakpoints</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">(gdb) b <span class="number">18</span> </span><br><span class="line">Breakpoint <span class="number">1</span> at <span class="number">0x11b7</span>: file m2.cpp, line <span class="number">18.</span> </span><br><span class="line">(gdb) r</span><br><span class="line">...</span><br><span class="line">Breakpoint <span class="number">1</span>, <span class="built_in">main</span> () at m2.cpp:<span class="number">18</span> </span><br><span class="line"><span class="number">18</span>          <span class="keyword">delete</span>[] a;  </span><br><span class="line">(gdb) p a </span><br><span class="line">$<span class="number">1</span> = (A *) <span class="number">0x55555556aeb0</span> </span><br><span class="line">(gdb) x/<span class="number">8</span>db <span class="number">0x55555556aeb0</span><span class="number">-8</span> </span><br><span class="line"><span class="number">0x55555556aea8</span>: <span class="number">-63</span>      <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span>       <span class="number">0</span> </span><br><span class="line">(gdb) exit</span><br></pre></td></tr></table></figure>
+
+<p>这次在数组头部往前 8 字节的地方没有出现数组个数信息，经测试-63 处的内存每次调试都会得到不同的值。<strong>所以编译器只会在必要的时候保存数组长度信息</strong>，当析构函数是编译器合成并且是 trivial 的（也就是没有做什么具体工作），那么析构时没有必要调用析构函数，因此也就不需要数组长度信息了。</p>
+<p>参考资料：</p>
+<p>深度探索 C++ 对象模型</p>
 
       </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8BAVFilterLink/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:14:57
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/C%E8%AF%AD%E8%A8%80%E7%9A%84%E5%8F%98%E9%95%BF%E5%8F%82%E6%95%B0%E5%87%BD%E6%95%B0/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
     </div>
-  
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
 
   
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
 
         
 <div class="footer">

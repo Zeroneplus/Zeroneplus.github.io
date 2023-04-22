@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg filter之状态变化与数据流转 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg filter之状态变化与数据流转</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:10:38
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客介绍一下 filter 的状态变化与数据流转过程，是 filter 系列的最后一篇，后续可能还会写一些小文章介绍一些之前略过的细节内容。</p>
+<p>filter 有两种方法实现滤波函数，第一种方法是在 filter 的 input AVFilterPad 上实现 filter_frame 函数，这种方法通常配合默认 activate 函数使用，一般用于简单的一个输入，一个输出的场景，第二个方法是实现 filter 的 activate 函数，在 activate 函数中执行 frame 的传输，这个方法一般用于复杂一些的，多个输入输出的 filter。</p>
+<p>对于上面第二种方法，一个典型的 sink filter 的 activate 函数如下：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">activate</span><span class="params">(AVFilterContext *ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, ret = <span class="number">0</span>， pts;</span><br><span class="line">    AVFilterLink *link;</span><br><span class="line">    AVFrame *frame;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ctx-&gt;nb_inputs; i++) &#123;</span><br><span class="line"></span><br><span class="line">        link = ctx-&gt;inputs[i];</span><br><span class="line">        <span class="built_in">ff_inlink_acknowledge_status</span>(link, &amp;ret, &amp;pts);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">ff_inlink_consume_frame</span>(link, &amp;frame);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// process with frame</span></span><br><span class="line">        ...</span><br><span class="line">        </span><br><span class="line">        <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">ff_inlink_request_frame</span>(link);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>基本流程是：</p>
+<ul>
+<li>更新 inlink 的状态，比如上游把 status_in 设为 1 后，下游要相应的更新 status_out</li>
+<li>如果 inlink 的状态没问题，就尝试从 inlink 的 fifo 中取数据</li>
+<li>取到数据后对数据进行处理</li>
+<li>最后再向 inlink 发送 request_frame 请求</li>
+</ul>
+<p>看看上面用到的状态调整函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_inlink_acknowledge_status</span><span class="params">(AVFilterLink *link, <span class="type">int</span> *rstatus, <span class="type">int64_t</span> *rpts)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    *rpts = link-&gt;current_pts;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">ff_framequeue_queued_frames</span>(&amp;link-&gt;fifo))</span><br><span class="line">        <span class="keyword">return</span> *rstatus = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;status_out)</span><br><span class="line">        <span class="keyword">return</span> *rstatus = link-&gt;status_out;</span><br><span class="line">    <span class="keyword">if</span> (!link-&gt;status_in)</span><br><span class="line">        <span class="keyword">return</span> *rstatus = <span class="number">0</span>;</span><br><span class="line">    *rstatus = link-&gt;status_out = link-&gt;status_in;</span><br><span class="line">    <span class="built_in">ff_update_link_current_pts</span>(link, link-&gt;status_in_pts);</span><br><span class="line">    *rpts = link-&gt;current_pts;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_inlink_acknowledge_status 主要工作是把 status_in 的状态传递到 status_out。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_inlink_consume_frame</span><span class="params">(AVFilterLink *link, AVFrame **rframe)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFrame *frame;</span><br><span class="line"></span><br><span class="line">    *rframe = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">ff_inlink_check_available_frame</span>(link))</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (link-&gt;fifo.samples_skipped) &#123;</span><br><span class="line">        frame = <span class="built_in">ff_framequeue_peek</span>(&amp;link-&gt;fifo, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">ff_inlink_consume_samples</span>(link, frame-&gt;nb_samples, frame-&gt;nb_samples, rframe);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    frame = <span class="built_in">ff_framequeue_take</span>(&amp;link-&gt;fifo);</span><br><span class="line">    <span class="built_in">consume_update</span>(link, frame);</span><br><span class="line">    *rframe = frame;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_inlink_check_available_frame</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">ff_framequeue_queued_frames</span>(&amp;link-&gt;fifo) &gt; <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">consume_update</span><span class="params">(AVFilterLink *link, <span class="type">const</span> AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">ff_update_link_current_pts</span>(link, frame-&gt;pts);</span><br><span class="line">    <span class="built_in">ff_inlink_process_commands</span>(link, frame);</span><br><span class="line">    link-&gt;dst-&gt;is_disabled = !<span class="built_in">ff_inlink_evaluate_timeline_at_frame</span>(link, frame);</span><br><span class="line">    link-&gt;frame_count_out++;</span><br><span class="line">    link-&gt;sample_count_out += frame-&gt;nb_samples;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_inlink_consume_frame 就是从 inlink 中取一个 frame。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_inlink_request_frame</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_assert1</span>(!link-&gt;status_in);</span><br><span class="line">    <span class="built_in">av_assert1</span>(!link-&gt;status_out);</span><br><span class="line">    link-&gt;frame_wanted_out = <span class="number">1</span>;</span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(link-&gt;src, <span class="number">100</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_inlink_request_frame 就是把 inlink 的 frame_wanted_out 设为 1，然后激活上游 filter，让上游 filter 去处理下游的 request_frame 请求。</p>
+<p>上面的例子展示的是 sink filter 的 activate 函数，从该函数中可以看到下游向上游请求数据的过程，但是没有上游收到下游 request_frame 请求，然后往下游 filter_frame 的过程。接下来我们看一个既有输入又有输出的 filter 的 activate 函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">activate</span><span class="params">(AVFilterContext *ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, j, ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ctx-&gt;nb_inputs; i++) &#123;</span><br><span class="line">        AVFrame *frame = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="type">int</span> rpts;</span><br><span class="line">        <span class="type">int</span> status;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">ff_inlink_acknowledge_status</span>(ctx-&gt;inputs[i], &amp;status, &amp;rpts);</span><br><span class="line">        <span class="keyword">if</span> (!status) &#123;</span><br><span class="line">            ret = <span class="built_in">ff_inlink_consume_frame</span>(ctx-&gt;inputs[i], &amp;frame);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; ctx-&gt;nb_outputs; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">ff_outlink_get_status</span>(ctx-&gt;outputs[j]))</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (status) &#123;</span><br><span class="line">                <span class="comment">// 在某些条件下，根据inlink状态设置outlink的状态</span></span><br><span class="line">                <span class="keyword">if</span> (<span class="comment">/* some condition */</span>)</span><br><span class="line">                    <span class="built_in">ff_outlink_set_status</span>(ctx-&gt;outputs[j], AVERROR_EOF, AV_NOPTS_VALUE);</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (frame) &#123;</span><br><span class="line">                <span class="comment">// 进行滤波处理并将frame传给下游</span></span><br><span class="line">                ...</span><br><span class="line">                ret = <span class="built_in">ff_filter_frame</span>(ctx-&gt;outputs[j], frame);</span><br><span class="line">                <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 在满足一定条件后向上游申请数据</span></span><br><span class="line">        <span class="comment">// 或者发送eof给上游</span></span><br><span class="line">        <span class="keyword">if</span> (<span class="comment">/* some condition */</span>)</span><br><span class="line">            <span class="built_in">ff_inlink_request_frame</span>(ctx-&gt;inputs[i]);</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (<span class="comment">/* some condition */</span>)</span><br><span class="line">            <span class="built_in">ff_inlink_set_status</span>(ctx-&gt;inputs[i], AVERROR_EOF);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面函数的流程和 sink filter 类似，但是多了往下游传输 frame 的过程：</p>
+<ul>
+<li>对每个 inlink，先检查并传递该 link 上的 status</li>
+<li>如果这个 inlink 异常，则需要把异常传递给和该 inlink 有关联的下游 outlink</li>
+<li>如果这个 inlink 正常，从 inlink 上取 frame，进行处理，并传给下游 outlink</li>
+<li>最后还要决定是继续往 inlink 中请求数据，还是设置 AVERROR_EOF 来断开 inlink</li>
+</ul>
+<p>可以发现，激活函数中做了这几件事：检查 inlink 的状态；从上往下传递异常 或者 从上往下传输 frame；从下往上传递异常 或者 从下往上传递 request frame 请求。</p>
+<p>接下来也看看相关函数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_outlink_get_status</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> link-&gt;status_in;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_outlink_get_status 就是取得 outlink 的状态，outlink 是相对 src filter 而言的，所以 ff_outlink_get_status 就是取得 link 的 input 状态 status_in</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title">ff_outlink_set_status</span><span class="params">(AVFilterLink *link, <span class="type">int</span> status, <span class="type">int64_t</span> pts)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">ff_avfilter_link_set_in_status</span>(link, status, pts);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_avfilter_link_set_in_status</span><span class="params">(AVFilterLink *link, <span class="type">int</span> status, <span class="type">int64_t</span> pts)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;status_in == status)</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    <span class="built_in">av_assert0</span>(!link-&gt;status_in);</span><br><span class="line">    link-&gt;status_in = status;</span><br><span class="line">    link-&gt;status_in_pts = pts;</span><br><span class="line">    link-&gt;frame_wanted_out = <span class="number">0</span>;</span><br><span class="line">    link-&gt;frame_blocked_in = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">ff_frame_pool_uninit</span>((FFFramePool**)&amp;link-&gt;frame_pool);</span><br><span class="line">    <span class="built_in">filter_unblock</span>(link-&gt;dst);</span><br><span class="line">    <span class="comment">/* Fast forward EOF and other error status, with priority 300;</span></span><br><span class="line"><span class="comment">     * otherwise, reconfig may occur ahead of time, resulting in link format not being cleared,</span></span><br><span class="line"><span class="comment">     * then getting error reconfig result.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(link-&gt;dst, status ? <span class="number">300</span> : <span class="number">200</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">filter_unblock</span><span class="params">(AVFilterContext *filter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">unsigned</span> i;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; filter-&gt;nb_outputs; i++)</span><br><span class="line">        filter-&gt;outputs[i]-&gt;frame_blocked_in = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_outlink_set_status 就是设置 outlink 的状态，同样 outlink 是相对 src filter 而言的，所以这里也是设置 status_in。</p>
+<p>除了 outlink 可以 get&#x2F;set status，inlink 也可以：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_inlink_set_status</span><span class="params">(AVFilterLink *link, <span class="type">int</span> status)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;status_out)</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    link-&gt;frame_wanted_out = <span class="number">0</span>;</span><br><span class="line">    link-&gt;frame_blocked_in = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">ff_avfilter_link_set_out_status</span>(link, status, AV_NOPTS_VALUE);</span><br><span class="line">    <span class="keyword">while</span> (<span class="built_in">ff_framequeue_queued_frames</span>(&amp;link-&gt;fifo)) &#123;</span><br><span class="line">           AVFrame *frame = <span class="built_in">ff_framequeue_take</span>(&amp;link-&gt;fifo);</span><br><span class="line">           <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!link-&gt;status_in)</span><br><span class="line">        link-&gt;status_in = status;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_avfilter_link_set_out_status</span><span class="params">(AVFilterLink *link, <span class="type">int</span> status, <span class="type">int64_t</span> pts)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">av_assert0</span>(!link-&gt;frame_wanted_out);</span><br><span class="line">    <span class="built_in">av_assert0</span>(!link-&gt;status_out);</span><br><span class="line">    link-&gt;status_out = status;</span><br><span class="line">    <span class="keyword">if</span> (pts != AV_NOPTS_VALUE)</span><br><span class="line">        <span class="built_in">ff_update_link_current_pts</span>(link, pts);</span><br><span class="line">    <span class="built_in">ff_frame_pool_uninit</span>((FFFramePool**)&amp;link-&gt;frame_pool);</span><br><span class="line">    <span class="built_in">filter_unblock</span>(link-&gt;dst);</span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(link-&gt;src, <span class="number">200</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_inlink_set_status 中除了设置 status_out，还会设置 status_in，这和 ff_outlink_set_status 不一样</p>
+<p>注意没有 ff_inlink_get_status，但是有 ff_inlink_acknowledge_status，这个函数是把 link 上的 status_in 传递到 status_out，然后返回 status_out。</p>
+<p>可以看到 status_in 和 status_out 的设置有特殊的规定：可以单独设置 status_in；不能单独设置 status_out，设置 status_out 时会一起设置 status_in；可以单独取得 status_in；当取得 status_out 时一定会检查 status_in 并尝试改变 status_out。</p>
+<p>注意到上面还出现了一个新的函数 ff_filter_frame，用于从上游往下游送数据，该函数主要是把 frame 添加到 filter 的 output link 的 fifo 中，该函数会清除 frame_blocked_in 和 frame_wanted_out，最后还会激活下游 filter，而之前的 ff_inlink_request_frame 会激活上游的 filter。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_filter_frame</span><span class="params">(AVFilterLink *link, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!link-&gt;incfg.formats) &#123;</span><br><span class="line">        <span class="built_in">link_uninit_dump_pcm</span>(link, <span class="literal">false</span>);</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Consistency checks */</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    link-&gt;frame_blocked_in = link-&gt;frame_wanted_out = <span class="number">0</span>;</span><br><span class="line">    link-&gt;frame_count_in++;</span><br><span class="line">    link-&gt;sample_count_in += frame-&gt;nb_samples;</span><br><span class="line">    <span class="built_in">filter_unblock</span>(link-&gt;dst);</span><br><span class="line">    ret = <span class="built_in">ff_framequeue_add</span>(&amp;link-&gt;fifo, frame);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(link-&gt;dst, <span class="number">300</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">error:</span><br><span class="line">    <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">    <span class="keyword">return</span> AVERROR_PATCHWELCOME;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>结合上面的两个激活函数，filter 的整体的运转逻辑就不难理解了：</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/filter%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96/filter-request.jpg"></p>
+<p>数据请求总是由下游 sink 发起，会逐步把 request 请求往 src 传递，这是一个拉的过程；当传递到某个有数据的 filter 时，就开始往下游推数据。关键点是每次 request_frame 时会激活上游 filter，每次 filter_frame 时会激活下游 filter。</p>
+<p>介绍完自定义 activate 函数中的数据流转逻辑，再来看看默认激活函数配合 pad 上 filter_frame 和 request_frame 函数的数据流转过程</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/filter%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96/pad.jpg"></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">ff_filter_activate_default</span><span class="params">(AVFilterContext *filter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">unsigned</span> i;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; filter-&gt;nb_inputs; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">samples_ready</span>(filter-&gt;inputs[i], filter-&gt;inputs[i]-&gt;min_samples)) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">ff_filter_frame_to_filter</span>(filter-&gt;inputs[i]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; filter-&gt;nb_inputs; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (filter-&gt;inputs[i]-&gt;status_in &amp;&amp; !filter-&gt;inputs[i]-&gt;status_out) &#123;</span><br><span class="line">            <span class="built_in">av_assert1</span>(!<span class="built_in">ff_framequeue_queued_frames</span>(&amp;filter-&gt;inputs[i]-&gt;fifo));</span><br><span class="line">            <span class="keyword">return</span> forward_status_change(filter, filter-&gt;inputs[i]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; filter-&gt;nb_outputs; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (filter-&gt;outputs[i]-&gt;frame_wanted_out &amp;&amp;</span><br><span class="line">            !filter-&gt;outputs[i]-&gt;frame_blocked_in) &#123;</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">ff_request_frame_to_filter</span>(filter-&gt;outputs[i]);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> FFERROR_NOT_READY;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_filter_activate_default 会优先从自己的 inlink 上取数据并将数据传递给下游，通过 ff_filter_frame_to_filter 函数实现：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">ff_filter_frame_to_filter</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFrame *frame = <span class="literal">NULL</span>;</span><br><span class="line">    AVFilterContext *dst = link-&gt;dst;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert1</span>(<span class="built_in">ff_framequeue_queued_frames</span>(&amp;link-&gt;fifo));</span><br><span class="line">    ret = link-&gt;min_samples ?</span><br><span class="line">          <span class="built_in">ff_inlink_consume_samples</span>(link, link-&gt;min_samples, link-&gt;max_samples, &amp;frame) :</span><br><span class="line">          <span class="built_in">ff_inlink_consume_frame</span>(link, &amp;frame);</span><br><span class="line">    <span class="built_in">av_assert1</span>(ret);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_assert1</span>(!frame);</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* The filter will soon have received a new frame, that may allow it to</span></span><br><span class="line"><span class="comment">       produce one or more: unblock its outputs. */</span></span><br><span class="line">    <span class="built_in">filter_unblock</span>(dst);</span><br><span class="line">    <span class="comment">/* AVFilterPad.filter_frame() expect frame_count_out to have the value</span></span><br><span class="line"><span class="comment">       before the frame; ff_filter_frame_framed() will re-increment it. */</span></span><br><span class="line">    link-&gt;frame_count_out--;</span><br><span class="line">    ret = <span class="built_in">ff_filter_frame_framed</span>(link, frame);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; ret != link-&gt;status_out) &#123;</span><br><span class="line">        <span class="built_in">ff_avfilter_link_set_out_status</span>(link, ret, AV_NOPTS_VALUE);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">/* Run once again, to see if several frames were available, or if</span></span><br><span class="line"><span class="comment">           the input status has also changed, or any other reason. */</span></span><br><span class="line">        <span class="built_in">ff_filter_set_ready</span>(dst, <span class="number">300</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">ff_filter_frame_framed</span><span class="params">(AVFilterLink *link, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">int</span> (*filter_frame)(AVFilterLink *, AVFrame *);</span><br><span class="line">    AVFilterContext *dstctx = link-&gt;dst;</span><br><span class="line">    AVFilterPad *dst = link-&gt;dstpad;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(filter_frame = dst-&gt;filter_frame))</span><br><span class="line">        filter_frame = default_filter_frame;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (dst-&gt;flags &amp; AVFILTERPAD_FLAG_NEEDS_WRITABLE) &#123;</span><br><span class="line">        ret = <span class="built_in">ff_inlink_make_frame_writable</span>(link, &amp;frame);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">ff_inlink_process_commands</span>(link, frame);</span><br><span class="line">    dstctx-&gt;is_disabled = !<span class="built_in">ff_inlink_evaluate_timeline_at_frame</span>(link, frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (dstctx-&gt;is_disabled &amp;&amp;</span><br><span class="line">        (dstctx-&gt;filter-&gt;flags &amp; AVFILTER_FLAG_SUPPORT_TIMELINE_GENERIC))</span><br><span class="line">        filter_frame = default_filter_frame;</span><br><span class="line">    ret = <span class="built_in">filter_frame</span>(link, frame);</span><br><span class="line">    link-&gt;frame_count_out++;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">fail:</span><br><span class="line">    <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">default_filter_frame</span><span class="params">(AVFilterLink *link, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">ff_filter_frame</span>(link-&gt;dst-&gt;outputs[<span class="number">0</span>], frame);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>pad 的默认 filter_frame 函数是 ff_filter_frame，就是不作滤波处理，直接传递到 output link 的 fifo 上。</p>
+<p>其次优先执行 input link 的状态调整：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">forward_status_change</span><span class="params">(AVFilterContext *filter, AVFilterLink *in)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">unsigned</span> out = <span class="number">0</span>, progress = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(!in-&gt;status_out);</span><br><span class="line">    <span class="keyword">if</span> (!filter-&gt;nb_outputs) &#123;</span><br><span class="line">        <span class="comment">/* not necessary with the current API and sinks */</span></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">while</span> (!in-&gt;status_out) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!filter-&gt;outputs[out]-&gt;status_in) &#123;</span><br><span class="line">            progress++;</span><br><span class="line">            ret = <span class="built_in">ff_request_frame_to_filter</span>(filter-&gt;outputs[out]);</span><br><span class="line">            <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (++out == filter-&gt;nb_outputs) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!progress) &#123;</span><br><span class="line">                <span class="comment">/* Every output already closed: input no longer interesting</span></span><br><span class="line"><span class="comment">                   (example: overlay in shortest mode, other input closed). */</span></span><br><span class="line">                <span class="built_in">ff_avfilter_link_set_out_status</span>(in, in-&gt;status_in, in-&gt;status_in_pts);</span><br><span class="line">                <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">            &#125;</span><br><span class="line">            progress = <span class="number">0</span>;</span><br><span class="line">            out = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(filter, <span class="number">200</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数比较有趣，他没有直接调用 ff_inlink_acknowledge_status 来改变 inlink 的 status_out，而是让 output link 发送 request 请求，在 request 过程中会检查 inlink 的 status_in 并更新 status_out：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">ff_request_frame_to_filter</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">FF_TPRINTF_START</span>(<span class="literal">NULL</span>, request_frame_to_filter); <span class="built_in">ff_tlog_link</span>(<span class="literal">NULL</span>, link, <span class="number">1</span>);</span><br><span class="line">    <span class="comment">/* Assume the filter is blocked, let the method clear it if not */</span></span><br><span class="line">    link-&gt;frame_blocked_in = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;srcpad-&gt;request_frame)</span><br><span class="line">        ret = link-&gt;srcpad-&gt;<span class="built_in">request_frame</span>(link);</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (link-&gt;src-&gt;inputs[<span class="number">0</span>])</span><br><span class="line">        ret = <span class="built_in">ff_request_frame</span>(link-&gt;src-&gt;inputs[<span class="number">0</span>]);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (ret != <span class="built_in">AVERROR</span>(EAGAIN) &amp;&amp; ret != link-&gt;status_in)</span><br><span class="line">            <span class="built_in">ff_avfilter_link_set_in_status</span>(link, ret, <span class="built_in">guess_status_pts</span>(link-&gt;src, ret, link-&gt;time_base));</span><br><span class="line">        <span class="keyword">if</span> (ret == AVERROR_EOF)</span><br><span class="line">            ret = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_request_frame</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (!link-&gt;outcfg.formats)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert1</span>(!link-&gt;dst-&gt;filter-&gt;activate);</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;status_out)</span><br><span class="line">        <span class="keyword">return</span> link-&gt;status_out;</span><br><span class="line">    <span class="keyword">if</span> (link-&gt;status_in) &#123;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">ff_framequeue_queued_frames</span>(&amp;link-&gt;fifo)) &#123;</span><br><span class="line">            <span class="built_in">av_assert1</span>(!link-&gt;frame_wanted_out);</span><br><span class="line">            <span class="built_in">av_assert1</span>(link-&gt;dst-&gt;ready &gt;= <span class="number">300</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="comment">/* Acknowledge status change. Filters using ff_request_frame() will</span></span><br><span class="line"><span class="comment">               handle the change automatically. Filters can also check the</span></span><br><span class="line"><span class="comment">               status directly but none do yet. */</span></span><br><span class="line">            <span class="built_in">ff_avfilter_link_set_out_status</span>(link, link-&gt;status_in, link-&gt;status_in_pts);</span><br><span class="line">            <span class="keyword">return</span> link-&gt;status_out;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    link-&gt;frame_wanted_out = <span class="number">1</span>;</span><br><span class="line">    <span class="built_in">ff_filter_set_ready</span>(link-&gt;src, <span class="number">100</span>);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_request_frame_to_filter 在让 outlink 发送 request 请求的同时还把 inlink 的状态传递给了 outlink。</p>
+<p>如果上面两步都没有执行，那么 ff_filter_activate_default 最后会尝试执行 ff_request_frame_to_filter 往上游传递 request_frame 请求。在传递 request_frame 请求时会检查 outlink 的 frame_wanted_out 和 frame_blocked_in，frame_wanted_out 比较好理解，而 frame_blocked_in 则是 ff_request_frame_to_filter 函数内设置的，也就是说避免 ff_request_frame_to_filter 对同一个 link 多次执行。</p>
+<p>经过对比可以发现，默认激活函数做的事情也是那么几件：从上往下送数据，从上往下传递状态，从下往上传递 request 请求。默认激活函数通常和 pad 的 request_frame 和 filter_frame 配合使用。</p>
+<p>最后再总结一下 pad 的 request_frame 和 filter_frame 函数：request_frame 只出现在 output pad，用于把 outlink 上的 request 请求传递给 inlink；filter_frame 只出现在 input pad，用于把 inlink 上的 frame 传递到 outlink 的 fifo。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86%EF%BC%88format-negotiation%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:10:38
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8Bdump%E6%8E%92%E9%94%99/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

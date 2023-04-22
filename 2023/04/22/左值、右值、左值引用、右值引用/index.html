@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      左值、右值、左值引用、右值引用 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">左值、右值、左值引用、右值引用</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-22 09:48:15
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <blockquote>
+<p>这篇文章想不自量力的分析 C++ 中的左值、右值、左值引用、右值引用，为后面分析其他新特性做铺垫。</p>
+</blockquote>
+<p>左值和右值是表达式的结果的属性，表达式就是“运算符 + 运算对象”，表达式加上末尾的分号就是语句，最简单的表达式是变量，下面例子都是表达式：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span></span><br><span class="line">i</span><br><span class="line">i+<span class="number">1</span></span><br><span class="line">++i</span><br></pre></td></tr></table></figure>
+
+<p>可以这样理解左值和右值：左值是指表达式的结果能被操纵、能被取地址，右值是指表达式的结果虽然存在，也可以使用，但是我们没有办法取地址。</p>
+<p>区分左值、右值最容易的方法是：左值通常有名字，在程序里可以取地址；右值通常是某次计算的临时结果，虽然仿佛有一个变量来存储这个结果，但是该变量对程序员不可见，无法取地址。</p>
+<p>但是注意要以能否取地址为判定准则，而不是以是否有名字来区分左右值，看以下例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i; <span class="comment">// i是左值</span></span><br><span class="line">i = <span class="number">1</span>; <span class="comment">// i是左值，1是右值</span></span><br><span class="line"><span class="type">int</span> j = i+<span class="number">1</span>; <span class="comment">// j是左值，i+1的结果是一个临时值，是右值</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">hello</span><span class="params">()</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="function">A&amp; <span class="title">f</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line">&amp;<span class="built_in">f</span>(); <span class="comment">// f()返回左值 虽然f()的返回值没有名字</span></span><br></pre></td></tr></table></figure>
+
+<p>还要注意，不能用下面的方法来区分左值右值：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span>&#123;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">hello</span><span class="params">()</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="function">A&amp; <span class="title">f</span><span class="params">()</span></span>;</span><br><span class="line"><span class="function">A <span class="title">g</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="built_in">f</span>().<span class="built_in">hello</span>();</span><br><span class="line"><span class="built_in">g</span>().<span class="built_in">hello</span>(); <span class="comment">// 不能以这种方式来区分，因为左值右值都可以“使用”，像这样访问对象的成员函数是使用</span></span><br></pre></td></tr></table></figure>
+
+<p>C++11 在原来的左值右值基础上做了扩展，原来的左值右值现在分成左值 lvalue、将亡值 xvalue、纯右值 prvalue。</p>
+<p>纯右值和之前的右值概念是一致的，字面量、某些运算符计算得到的临时结果、返回非引用类型的函数是纯右值</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> j = <span class="number">1</span>; <span class="comment">// 等号右边是纯右值</span></span><br><span class="line"><span class="type">int</span> i = <span class="number">3</span>; <span class="comment">// 等号右边是纯右值</span></span><br><span class="line">j = j + i; <span class="comment">// j + i 返回一个临时的运算结果，是纯右值</span></span><br><span class="line">j-- <span class="comment">// 纯右值</span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">f</span><span class="params">()</span></span>; <span class="comment">// 纯右值</span></span><br><span class="line">&amp;a <span class="comment">// 纯右值</span></span><br><span class="line">a==b <span class="comment">// 纯右值</span></span><br><span class="line">a&gt;=b <span class="comment">// 纯右值</span></span><br><span class="line">a&lt;b <span class="comment">// 纯右值</span></span><br><span class="line">a&amp;&amp;b <span class="comment">// 纯右值</span></span><br><span class="line">a||b <span class="comment">// 纯右值</span></span><br><span class="line">~a <span class="comment">// 纯右值</span></span><br><span class="line">a+b <span class="comment">// 纯右值</span></span><br></pre></td></tr></table></figure>
+
+<p>左值和之前左值的概念类似，都是指能被程序员操纵、使用的值，比如变量名、函数名、变量的左值&#x2F;右值引用，某些返回左值引用的运算符，返回左值引用的函数，如</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>, *p = &amp;i; <span class="comment">// i p都是左值</span></span><br><span class="line"><span class="type">int</span>&amp; j = i; <span class="comment">// j也是左值</span></span><br><span class="line">*p = <span class="number">1</span>; <span class="comment">// *p 也是左值，解引用返回指向变量的左值引用</span></span><br><span class="line">p[<span class="number">0</span>] = <span class="number">2</span>; <span class="comment">// 索引也返回左值引用</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span>&amp;&amp; m = <span class="number">1</span>; <span class="comment">// m也是左值</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> &amp;<span class="title">f</span><span class="params">()</span></span>;</span><br><span class="line"><span class="built_in">f</span>() <span class="comment">// 返回左值引用的函数的结果也是左值</span></span><br></pre></td></tr></table></figure>
+
+<p><code>int i</code> <code>int&amp;j</code> 容易理解，某些返回左值引用的运算符需要注意，比如解引用、前缀 ++、前缀–、数组索引、+&#x3D;、-&#x3D;。</p>
+<p>但是右值引用 <code>int&amp;&amp; m</code>，为什么也把他算到左值里面？</p>
+<p>这是因为当我们定义一个右值引用后，我们就可以显式的使用这个引用了，就好像操作的是被绑定的变量，所以把他也当作左值，比如下面可以对 m 取地址，<strong>能进行取地址操作是左值的核心属性</strong></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span>&amp;&amp; m = <span class="number">1</span>;</span><br><span class="line">&amp;m</span><br></pre></td></tr></table></figure>
+
+<p>将亡值和新引入的右值引用相关，哪些情况下会得到将亡值？返回右值引用的函数、转换为右值引用的转换函数，比如</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span>&amp;&amp; <span class="title">f</span><span class="params">(<span class="type">int</span>&amp;)</span></span>;</span><br><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="built_in">f</span>(i) <span class="comment">// 将亡值</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> i = <span class="number">0</span>, &amp;j = i;</span><br><span class="line"><span class="built_in">static_cast</span>&lt;<span class="type">int</span>&amp;&amp;&gt;(j) <span class="comment">// 将亡值</span></span><br></pre></td></tr></table></figure>
+
+<p>可以看到，当右值引用出现在变量定义和函数返回值时，有不同的含义，当右值引用出现在函数返回值时，是将亡值，而当右值引用出现在变量定义时，是左值。</p>
+<p>为什么要让函数返回右值引用是将亡值？为了支持新的移动语义。</p>
+<p>当 C++ 中发生拷贝构造时，会把传入的引用指向的对象中的资源拷贝一份：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">E</span>&#123;</span><br><span class="line"><span class="built_in">E</span>(<span class="type">const</span> E&amp;); <span class="comment">// 发生拷贝时会new一块buf，然后memcpy传入的对象中的buf</span></span><br><span class="line"></span><br><span class="line"><span class="type">void</span> *buf; <span class="comment">// 动态分配的内存，析构时释放</span></span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果用户想提高效率，不想发生拷贝，而希望构造函数直接接管传入对象中分配的内存，那么需要一个标记提示函数 “输入参数指向的对象可以被安全的接管”，此时构造函数可以直接将输入对象的 buf 指针赋给自己，因为输入对象是可被安全接管的。我们称可以被安全接管的对象为将亡值。</p>
+<p>首先可以确定这个 “标记” 一定是引用，只有引用传递才能保证函数访问到的是需要被接管的对象，传值会发生拷贝，这和我们上面节省拷贝的初衷不符。原有的左值引用是否可以呢？不可以，左值引用已经有了自己的语义，无法实现这一功能，所以就诞生了右值引用。</p>
+<p>既然确定了这个“标记”是一个引用，接下来就要思考如何让一个变量标记为“可以被安全的接管”。可以像定义变量一样，定义一个右值引用的变量，然后将这个变量视为“将亡”，这其实也是可以的，但是为什么最后没有使用这种方式，个人猜测原因之一是这种显式定义的变量给人一种可以使用的感觉，可能有程序员会不小心在后面的代码中使用这个变量，所以最后使用函数返回右值引用作为“将亡”的标记。</p>
+<p>在决定了函数返回右值引用作为“将亡”之后，还要考虑引入新的右值引用对原有语言规则的影响，比如能否在定义变量时使用右值引用，这样定义后又该怎么解释这个右值引用。出于语言一致性的考虑，C++ 允许在变量定义中使用右值引用，但此时的右值引用就像左值引用一样（毕竟右值引用也是一种引用），所以它也是左值。当我们定义一个右值引用的变量时，可以对他取地址，但是无法对函数返回右值引用取地址：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span>&amp;&amp; i = <span class="number">0</span>;</span><br><span class="line"><span class="type">int</span>* q =&amp;i; <span class="comment">// ok</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span>&amp;&amp; <span class="title">hello</span><span class="params">()</span></span>;</span><br><span class="line"><span class="type">int</span>* p = &amp;<span class="built_in">hello</span>(); <span class="comment">// error. Cannot take the address of an rvalue of type &#x27;int&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>既然允许在变量定义中定义右值引用，还要考虑右值引用能绑定到什么类型的值上，出于种种考虑，标准规定右值引用只能绑定到纯右值或者将亡值上：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span>&amp;&amp; m = <span class="number">1</span>; <span class="comment">// ok</span></span><br><span class="line"><span class="type">int</span>&amp;&amp; j = m; <span class="comment">// error. Rvalue reference to type &#x27;int&#x27; cannot bind to lvalue of type &#x27;int&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span>&amp;&amp; <span class="title">hello</span><span class="params">()</span></span>;</span><br><span class="line"><span class="type">int</span>&amp;&amp; p = <span class="built_in">hello</span>(); <span class="comment">// ok</span></span><br></pre></td></tr></table></figure>
+
+<p>C++ 标准中，左值和将亡值称为泛左值，纯右值和将亡值称为右值。将亡值是函数返回右值引用，而右值引用广义上来说也是引用，可以视为左值；将亡值无法取地址，这符合右值的特点，也可以视为右值。所以将亡值就是标记一个引用为临时值。</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/%E5%B7%A6%E5%80%BC-%E5%8F%B3%E5%80%BC-%E5%B7%A6%E5%80%BC%E5%BC%95%E7%94%A8-%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8/%5Bignore%5D-l-x-r-value.png"></p>
+<p>再谈一谈左值右值引用的转换。可以通过 static_cast 将一个左值引用转成右值引用，反之亦然。可以这样理解这种转换，左值&#x2F;右值引用都是对对象的引用，底层都是指针，只是在上层有不同的解释。当我们把一个左值引用通过 move 或者 static_cast 转换成一个将亡值的时候，表示将这个对象标记为将亡，并要求后续代码不能再使用这个对象，然后如果某个函数有接受右值引用参数的重载，就可以通过将亡值把对象移动出去。看一个例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span> &#123;</span><br><span class="line"><span class="comment">// 实现了移动构造</span></span><br><span class="line"><span class="type">void</span> *buff;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function">A <span class="title">ff</span><span class="params">(A b)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> std::<span class="built_in">move</span>(b);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line"></span><br><span class="line">    A a;</span><br><span class="line">    </span><br><span class="line">    A c = <span class="built_in">ff</span>(std::<span class="built_in">move</span>(a));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在上面的例子中 A 对象有两块内存，一块是栈内存，一块是堆内存。当给 ff 函数传将亡值时，由于形参是值，实参是右值引用，所以发生移动构造，此时会在 ff 的参数栈上构造一个 A 对象，但是 a 的堆内存是直接转移到 b 的，真正拷贝的是栈内存的那一部分；ff 函数返回结果类似，也是进行了栈内存拷贝，其实 ff 内部可以直接返回 b，不需要 move，因为有返回值优化；最后在通过 ff 返回值构造 c 时，由于 ff 返回一个临时值，所以也调用移动构造函数，再拷贝一次栈内存，堆内存转移，但是通常编译器会把这次对象构造优化掉，直接把 ff 返回值当作 c。</p>
+<p>参考：</p>
+<p><a href="https://www.cnblogs.com/zpcdbky/p/5275959.html">https://www.cnblogs.com/zpcdbky/p/5275959.html</a></p>
+<p><a href="https://nettee.github.io/posts/2018/Understanding-lvalues-and-rvalues-in-C-and-C/">https://nettee.github.io/posts/2018/Understanding-lvalues-and-rvalues-in-C-and-C/</a></p>
+<p><a href="http://irootlee.com/juicer_pointer_reference/">http://irootlee.com/juicer_pointer_reference&#x2F;</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/C%E8%AF%AD%E8%A8%80%E7%9A%84%E5%8F%98%E9%95%BF%E5%8F%82%E6%95%B0%E5%87%BD%E6%95%B0/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-22 09:48:15
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/22/move%E5%92%8Cforward/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

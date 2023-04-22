@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg filter之格式协商（format negotiation） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg filter之格式协商（format negotiation）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-12 20:10:09
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客接着上一篇介绍一下 filter 的格式协商。</p>
+<p>从个人的学习经验来看，格式协商算是 filter 中最不容易理解的一部分了，但反过来说，理解了格式协商那么 filter 就基本上摸清楚了。</p>
+<p>还是以上篇博客中的例子为研究对象，但是这次把目光聚焦在 avfilter_graph_config 函数上。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> AVFilter *buffersrc  = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;buffer&quot;</span>);</span><br><span class="line"><span class="type">const</span> AVFilter *buffersink = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;buffersink&quot;</span>);</span><br><span class="line"><span class="type">const</span> AVFilter *myfilter   = <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;myfilter&quot;</span>);</span><br><span class="line"></span><br><span class="line">AVFilterGraph *filter_graph = <span class="built_in">avfilter_graph_alloc</span>();</span><br><span class="line"></span><br><span class="line">AVFilterContext *in_video_filter = <span class="literal">NULL</span>;</span><br><span class="line">AVFilterContext *out_video_filter = <span class="literal">NULL</span>;</span><br><span class="line">AVFilterContext *my_video_filter = <span class="literal">NULL</span>;</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;in_video_filter, buffersrc, <span class="string">&quot;in&quot;</span>, args, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;out_video_filter, buffersink, <span class="string">&quot;out&quot;</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"><span class="built_in">avfilter_graph_create_filter</span>(&amp;my_video_filter, myfilter, <span class="string">&quot;myfilter&quot;</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, filter_graph);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avfilter_link</span>(in_video_filter, <span class="number">0</span>, my_video_filter, <span class="number">0</span>);</span><br><span class="line"><span class="built_in">avfilter_link</span>(my_video_filter, <span class="number">0</span>, out_video_filter, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avfilter_graph_config</span>(filter_graph, <span class="literal">NULL</span>);</span><br></pre></td></tr></table></figure>
+
+<p>为了简单起见，假设我们得到的 filtergraph 如下（下面的 filtergraph 涉及到多路连接，需要使用支持多路连接的 filter，这里省略了创建该 filtergraph 的过程，读者可以自己尝试）：</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/graph.jpg"></p>
+<h1 id="avfilter-graph-config"><a href="#avfilter-graph-config" class="headerlink" title="avfilter_graph_config"></a>avfilter_graph_config</h1><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_graph_config</span><span class="params">(AVFilterGraph *graphctx, <span class="type">void</span> *log_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">graph_check_validity</span>(graphctx, log_ctx)))</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">graph_config_formats</span>(graphctx, log_ctx)))</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">graph_config_links</span>(graphctx, log_ctx)))</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">graph_check_links</span>(graphctx, log_ctx)))</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">graph_config_pointers</span>(graphctx, log_ctx)))</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 avfilter_graph_config 函数分成了几个小函数。下面逐一分析每个小函数。</p>
+<h2 id="graph-check-validity"><a href="#graph-check-validity" class="headerlink" title="graph_check_validity"></a>graph_check_validity</h2><p>graph_check_validity 就是检查所有 input 和 output pad 是否都已经连接</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">graph_check_validity</span><span class="params">(AVFilterGraph *graph, <span class="type">void</span> *log_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterContext *filt;</span><br><span class="line">    <span class="type">int</span> i, j;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">        <span class="type">const</span> AVFilterPad *pad;</span><br><span class="line">        filt = graph-&gt;filters[i];</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filt-&gt;nb_inputs; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!filt-&gt;inputs[j] || !filt-&gt;inputs[j]-&gt;src) &#123;</span><br><span class="line">                pad = &amp;filt-&gt;input_pads[j];</span><br><span class="line">...</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filt-&gt;nb_outputs; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!filt-&gt;outputs[j] || !filt-&gt;outputs[j]-&gt;dst) &#123;</span><br><span class="line">                pad = &amp;filt-&gt;output_pads[j];</span><br><span class="line">...</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="graph-config-formats"><a href="#graph-config-formats" class="headerlink" title="graph_config_formats"></a>graph_config_formats</h2><p>graph_config_formats 中进行了格式协商，是 avfilter_graph_config 的核心</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">graph_config_formats</span><span class="params">(AVFilterGraph *graph, <span class="type">void</span> *log_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* find supported formats from sub-filters, and merge along links */</span></span><br><span class="line">    <span class="keyword">while</span> ((ret = <span class="built_in">query_formats</span>(graph, log_ctx)) == <span class="built_in">AVERROR</span>(EAGAIN))</span><br><span class="line">        <span class="built_in">av_log</span>(graph, AV_LOG_DEBUG, <span class="string">&quot;query_formats not finished\n&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Once everything is merged, it&#x27;s possible that we&#x27;ll still have</span></span><br><span class="line"><span class="comment">     * multiple valid media format choices. We try to minimize the amount</span></span><br><span class="line"><span class="comment">     * of format conversion inside filters */</span></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">reduce_formats</span>(graph)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* for audio filters, ensure the best format, sample rate and channel layout</span></span><br><span class="line"><span class="comment">     * is selected */</span></span><br><span class="line">    <span class="built_in">swap_sample_fmts</span>(graph);</span><br><span class="line">    <span class="built_in">swap_samplerates</span>(graph);</span><br><span class="line">    <span class="built_in">swap_channel_layouts</span>(graph);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">pick_formats</span>(graph)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>graph_config_formats 中最重要的三步</p>
+<ul>
+<li>1.query_formats()</li>
+<li>2.reduce_formats()</li>
+<li>3.pick_formats()</li>
+</ul>
+<h3 id="query-formats"><a href="#query-formats" class="headerlink" title="query_formats"></a>query_formats</h3><p>query_formats 主要的工作是</p>
+<ul>
+<li><p>查询 filter 上每个 input&#x2F;output 支持的 format</p>
+<ul>
+<li><p>如果每个 input&#x2F;output 上都有 format，就不继续 query</p>
+</li>
+<li><p>否则进行 query</p>
+<ul>
+<li>在 query 之前，如果没有定义 sanitize 方法，就尝试把 agreed format 复制到没有 format 的 input&#x2F;output 上，如果上一步复制 format 后所有 input&#x2F;output 都有了 format，那么跳过下面的 query 过程。这一步是为了优化，避免冗余的查询。对于运行前后过程中 format 会发生变化（比如有时候为空，有时候有值）的 filter，这里需要注意。</li>
+<li>执行 query，填充 link 上的 format</li>
+<li>如果没有 sanitize 方法，填充 query 后还没有 format 的 input&#x2F;output</li>
+</ul>
+</li>
+</ul>
+</li>
+<li><p>执行 sanitize 方法断开无效的 link</p>
+</li>
+<li><p>对每一个 link 上的 input&#x2F;output format 进行合并，如果无法合并，尝试插入 scale、resample filter 进行格式转换</p>
+</li>
+</ul>
+<h4 id="query"><a href="#query" class="headerlink" title="query"></a>query</h4><p>查询 format 可以简单的认为就是调用 filter 的 query_format 来给 filter 的每个 input&#x2F;output 上的 format 赋值，但实际查询时会作优化处理，比如：</p>
+<ul>
+<li>如果 filter 的每个输入输出都有格式，那么就不调用 query_format；</li>
+<li>如果 filter 没有定义 sanitize 方法，会尝试 ref_agreed_format 用协商好的 format 填充其他为空的 format，以及把 link 上为空的 input&#x2F;output format 自动填充</li>
+</ul>
+<p>经过查询之后，filter 的 input&#x2F;output 就有 format 了，如下图所示</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/negation.jpg"></p>
+<p>上图显示了两种可能的查询结果，通常来说经过查询后 filter 的每一个 input&#x2F;output 都会有 format，但是有些 filter 有动态输入输出的需求，会<strong>特意</strong>在某些情况下让 query_format 函数不设置某个 input&#x2F;output 的 format，让其保持为空。将 format 保持为空是为了让后续的 sanitize 过程能剔除这条 link，具体过程留到下面 sanitize 中再介绍。</p>
+<h4 id="sanitize-formats"><a href="#sanitize-formats" class="headerlink" title="sanitize_formats"></a>sanitize_formats</h4><p>sanitize_formats 会把一端有 format、一端没有 format 的 link 的 input&#x2F;output format 都清空，如果一个 link 的 input&#x2F;output format 都为空，那么这个 link 就是断开的。</p>
+<p>对一个 filter 的所有 link 都剔除一遍后，会执行 filter 自定义的 sanitize 方法（如果定义），给 filter 一个调整输入输出的机会，如果 filter 没有定义 sanitize 方法，会执行默认的 sanitize 方法：如果 filter 的 input&#x2F;output 有一端的 format 全部为空，则释放所有 input&#x2F;output 的 format。</p>
+<p>此外 sanitize 过程会反复执行，比如先剔除了一个 filter 的 output link，然后再通过该 filter 的 sanitize 函数改变他的 input link，接着这个 input link 又会影响到他连接的另一个 filter，这个过程会不断执行，直到整个 graph 不再发生变化。</p>
+<p>sanitize 过程可以用下图来表示</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/sanitize.jpg"></p>
+<p>第一幅图是 query 之后的初始 format；第二幅图是剔除了一端有 format，一端没有 format 的 link；第三幅图是 filter 默认的 sanitize 函数的作用：如果有一端全部为空，则释放所有的 format；第四幅图还是剔除了一端有 format，一端没有 format 的 link，但是这个是因为 filter 默认的 sanitize 函数剔除了 link 上某端的 format 而重新引起的。第四幅图就是最后的稳定状态，可以看到在稳定状态下只有最上面的链路是连通的，其他的都是断开的。</p>
+<p>下面是 sanitize_formats 的具体代码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">sanitize_formats</span><span class="params">(AVFilterGraph *graph)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterContext *f;</span><br><span class="line">    <span class="type">bool</span> changed = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">unsigned</span> i, j;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">        f = graph-&gt;filters[i];</span><br><span class="line">        <span class="comment">// 对每个filter，先剔除一端有format，一端没有format的input link</span></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; f-&gt;nb_inputs; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!f-&gt;inputs[j]-&gt;outcfg.formats &amp;&amp; f-&gt;inputs[j]-&gt;incfg.formats) &#123;</span><br><span class="line">                <span class="built_in">ff_avfilter_link_unref_formats</span>(f-&gt;inputs[j]);</span><br><span class="line">                changed = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 然后剔除一端有format，一端没有format的output link</span></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; f-&gt;nb_outputs; j++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!f-&gt;outputs[j]-&gt;incfg.formats &amp;&amp; f-&gt;outputs[j]-&gt;outcfg.formats) &#123;</span><br><span class="line">                <span class="built_in">ff_avfilter_link_unref_formats</span>(f-&gt;outputs[j]);</span><br><span class="line">                changed = <span class="literal">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 调用filter的sanitize_formats方法或者默认的sanitize_formats方法</span></span><br><span class="line">        <span class="keyword">if</span> (f-&gt;filter-&gt;sanitize_formats) &#123;</span><br><span class="line">            <span class="keyword">if</span> (f-&gt;filter-&gt;<span class="built_in">sanitize_formats</span>(f) == <span class="built_in">AVERROR</span>(EAGAIN))</span><br><span class="line">                changed = <span class="literal">true</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (formats_useless(f)) &#123;</span><br><span class="line">            <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; f-&gt;nb_inputs; j++)</span><br><span class="line">                <span class="built_in">ff_avfilter_link_unref_formats</span>(f-&gt;inputs[j]);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; f-&gt;nb_outputs; j++)</span><br><span class="line">                <span class="built_in">ff_avfilter_link_unref_formats</span>(f-&gt;outputs[j]);</span><br><span class="line"></span><br><span class="line">            changed = <span class="literal">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> changed;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 如果filter有一端全部没有format，那么整个filter是无用的</span></span><br><span class="line"><span class="comment">// 所以可以把输入、输出format全部置为空</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">bool</span> <span class="title">formats_useless</span><span class="params">(AVFilterContext *f)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">bool</span> in, out;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (f-&gt;nb_inputs == <span class="number">0</span> || f-&gt;nb_outputs == <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">    in = out = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; f-&gt;nb_inputs; i++)</span><br><span class="line">        <span class="keyword">if</span> (f-&gt;inputs[i]-&gt;outcfg.formats) &#123;</span><br><span class="line">            in = <span class="literal">false</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; f-&gt;nb_outputs; i++)</span><br><span class="line">        <span class="keyword">if</span> (f-&gt;outputs[i]-&gt;incfg.formats) &#123;</span><br><span class="line">            out = <span class="literal">false</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> in ^ out;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ff_avfilter_link_unref_formats</span><span class="params">(AVFilterLink *link)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">ff_formats_unref</span>(&amp;link-&gt;incfg.formats);</span><br><span class="line">    <span class="built_in">ff_formats_unref</span>(&amp;link-&gt;outcfg.formats);</span><br><span class="line">    <span class="built_in">ff_formats_unref</span>(&amp;link-&gt;incfg.samplerates);</span><br><span class="line">    <span class="built_in">ff_formats_unref</span>(&amp;link-&gt;outcfg.samplerates);</span><br><span class="line">    <span class="built_in">ff_channel_layouts_unref</span>(&amp;link-&gt;incfg.channel_layouts);</span><br><span class="line">    <span class="built_in">ff_channel_layouts_unref</span>(&amp;link-&gt;outcfg.channel_layouts);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="merge"><a href="#merge" class="headerlink" title="merge"></a>merge</h4><p>sanitize 之后是对同一个 link 上的 input&#x2F;output format 进行 merge，merge 的思路是：如果 input&#x2F;output format 有一个共有的 format，就把这个 format 移到最前面，并且让 input&#x2F;output format 都指向同一个 format</p>
+<p>如果无法合并，则尝试插入 scale 或者 resample filter 进行格式转换</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/merge.jpg"></p>
+<p>下面是 merge 的代码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">merge_pix_fmts</span><span class="params">(<span class="type">void</span> *a, <span class="type">void</span> *b)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">merge_formats_internal</span>(a, b, AVMEDIA_TYPE_VIDEO, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">merge_formats_internal</span><span class="params">(AVFilterFormats *a, AVFilterFormats *b,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  <span class="keyword">enum</span> AVMediaType type, <span class="type">int</span> check)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, j;</span><br><span class="line">    <span class="type">int</span> alpha1=<span class="number">0</span>, alpha2=<span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> chroma1=<span class="number">0</span>, chroma2=<span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert2</span>(check || (a-&gt;refcount &amp;&amp; b-&gt;refcount));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (a == b)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="built_in">MERGE_FORMATS</span>(a, b, formats, nb_formats, AVFilterFormats, check, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">    <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 把a和b共有的format添加到a中，然后让b的所有引用都指向a并且销毁b</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Add all formats common to a and b to a, add b&#x27;s refs to a and destroy b.</span></span><br><span class="line"><span class="comment"> * If check is set, nothing is modified and it is only checked whether</span></span><br><span class="line"><span class="comment"> * the formats are compatible.</span></span><br><span class="line"><span class="comment"> * If empty_allowed is set and one of a,b-&gt;nb is zero, the lists are</span></span><br><span class="line"><span class="comment"> * merged; otherwise, 0 (for nonmergeability) is returned.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> MERGE_FORMATS(a, b, fmts, nb, type, check, empty_allowed)          \</span></span><br><span class="line"><span class="meta">do &#123;                                                                       \</span></span><br><span class="line"><span class="meta">    int i, j, k = 0, skip = 0;                                             \</span></span><br><span class="line"><span class="meta">                                                                           \</span></span><br><span class="line"><span class="meta">    <span class="keyword">if</span> (empty_allowed) &#123;                                                   \</span></span><br><span class="line"><span class="meta">        <span class="keyword">if</span> (!a-&gt;nb || !b-&gt;nb) &#123;                                            \</span></span><br><span class="line"><span class="meta">            <span class="keyword">if</span> (check)                                                     \</span></span><br><span class="line"><span class="meta">                return 1;                                                  \</span></span><br><span class="line"><span class="meta">            <span class="keyword">if</span> (!a-&gt;nb)                                                    \</span></span><br><span class="line"><span class="meta">                FFSWAP(type *, a, b);                                      \</span></span><br><span class="line"><span class="meta">            skip = 1;                                                      \</span></span><br><span class="line"><span class="meta">        &#125;                                                                  \</span></span><br><span class="line"><span class="meta">    &#125;                                                                      \</span></span><br><span class="line"><span class="meta">    <span class="keyword">if</span> (!skip) &#123;                                                           \</span></span><br><span class="line"><span class="meta">        for (i = 0; i <span class="string">&lt; a-&gt;</span>nb; i++)                                        \</span></span><br><span class="line"><span class="meta">            for (j = 0; j <span class="string">&lt; b-&gt;</span>nb; j++)                                    \</span></span><br><span class="line"><span class="meta">                <span class="keyword">if</span> (a-&gt;fmts[i] == b-&gt;fmts[j]) &#123;                            \</span></span><br><span class="line"><span class="meta">                    <span class="keyword">if</span> (check)                                             \</span></span><br><span class="line"><span class="meta">                        return 1;                                          \</span></span><br><span class="line"><span class="meta">                    a-&gt;fmts[k++] = a-&gt;fmts[i];                             \</span></span><br><span class="line"><span class="meta">                    break;                                                 \</span></span><br><span class="line"><span class="meta">                &#125;                                                          \</span></span><br><span class="line"><span class="meta">        <span class="comment">/* Check that there was at least one common format.                \</span></span></span><br><span class="line"><span class="comment"><span class="meta">         * Notice that both a and b are unchanged if not. */</span>               \</span></span><br><span class="line"><span class="meta">        <span class="keyword">if</span> (!k)                                                            \</span></span><br><span class="line"><span class="meta">            return 0;                                                      \</span></span><br><span class="line"><span class="meta">        av_assert2(!check);                                                \</span></span><br><span class="line"><span class="meta">        a-&gt;nb = k;                                                         \</span></span><br><span class="line"><span class="meta">    &#125;                                                                      \</span></span><br><span class="line"><span class="meta">                                                                           \</span></span><br><span class="line"><span class="meta">    MERGE_REF(a, b, fmts, type, return AVERROR(ENOMEM););                  \</span></span><br><span class="line"><span class="meta">&#125; while (0)</span></span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Add all refs from a to ret and destroy a.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> MERGE_REF(ret, a, fmts, type, fail_statement)                      \</span></span><br><span class="line"><span class="meta">do &#123;                                                                       \</span></span><br><span class="line"><span class="meta">    type ***tmp;                                                           \</span></span><br><span class="line"><span class="meta">    int i;                                                                 \</span></span><br><span class="line"><span class="meta">                                                                           \</span></span><br><span class="line"><span class="meta">    <span class="keyword">if</span> (!(tmp = av_realloc_array(ret-&gt;refs, ret-&gt;refcount + a-&gt;refcount,   \</span></span><br><span class="line"><span class="meta">                                 sizeof(*tmp))))                           \</span></span><br><span class="line"><span class="meta">        &#123; fail_statement &#125;                                                 \</span></span><br><span class="line"><span class="meta">    ret-&gt;refs = tmp;                                                       \</span></span><br><span class="line"><span class="meta">                                                                           \</span></span><br><span class="line"><span class="meta">    for (i = 0; i <span class="string">&lt; a-&gt;</span>refcount; i ++) &#123;                                   \</span></span><br><span class="line"><span class="meta">        ret-&gt;refs[ret-&gt;refcount] = a-&gt;refs[i];                             \</span></span><br><span class="line"><span class="meta">        *ret-&gt;refs[ret-&gt;refcount++] = ret;                                 \</span></span><br><span class="line"><span class="meta">    &#125;                                                                      \</span></span><br><span class="line"><span class="meta">                                                                           \</span></span><br><span class="line"><span class="meta">    av_freep(&amp;a-&gt;refs);                                                    \</span></span><br><span class="line"><span class="meta">    av_freep(&amp;a-&gt;fmts);                                                    \</span></span><br><span class="line"><span class="meta">    av_freep(&amp;a);                                                          \</span></span><br><span class="line"><span class="meta">&#125; while (0)</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="reduce-formats"><a href="#reduce-formats" class="headerlink" title="reduce_formats"></a>reduce_formats</h3><p>reduce_formats 主要是对同一个 filter 的输入输出格式进行优化，减小在同一个 filter 内的格式转换次数，如下所示</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/reduce_formats.jpg"></p>
+<p>代码如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">reduce_formats</span><span class="params">(AVFilterGraph *graph)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, reduced, ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">do</span> &#123;</span><br><span class="line">        reduced = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">reduce_formats_on_filter</span>(graph-&gt;filters[i])) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            reduced |= ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">while</span> (reduced);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">reduce_formats_on_filter</span><span class="params">(AVFilterContext *filter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, j, k, ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">REDUCE_FORMATS</span>(<span class="type">int</span>,      AVFilterFormats,        formats,         formats,</span><br><span class="line">                   nb_formats, ff_add_format);</span><br><span class="line">    <span class="built_in">REDUCE_FORMATS</span>(<span class="type">int</span>,      AVFilterFormats,        samplerates,     formats,</span><br><span class="line">                   nb_formats, ff_add_format);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* reduce channel layouts */</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> REDUCE_FORMATS(fmt_type, list_type, list, var, nb, add_format) \</span></span><br><span class="line"><span class="meta">do &#123;                                                                   \</span></span><br><span class="line"><span class="meta">    for (i = 0; i <span class="string">&lt; filter-&gt;</span>nb_inputs; i++) &#123;                          \</span></span><br><span class="line"><span class="meta">        AVFilterLink *link = filter-&gt;inputs[i];                        \</span></span><br><span class="line"><span class="meta">        fmt_type fmt;                                                  \</span></span><br><span class="line"><span class="meta">                                                                       \</span></span><br><span class="line"><span class="meta">        <span class="keyword">if</span> (!link-&gt;outcfg.list || link-&gt;outcfg.list-&gt;nb != 1)          \</span></span><br><span class="line"><span class="meta">            continue;                                                  \</span></span><br><span class="line"><span class="meta">        fmt = link-&gt;outcfg.list-&gt;var[0];                               \</span></span><br><span class="line"><span class="meta">                                                                       \</span></span><br><span class="line"><span class="meta">        for (j = 0; j <span class="string">&lt; filter-&gt;</span>nb_outputs; j++) &#123;                     \</span></span><br><span class="line"><span class="meta">            AVFilterLink *out_link = filter-&gt;outputs[j];               \</span></span><br><span class="line"><span class="meta">            list_type *fmts;                                           \</span></span><br><span class="line"><span class="meta">                                                                       \</span></span><br><span class="line"><span class="meta">            <span class="keyword">if</span> (link-&gt;type != out_link-&gt;type ||                        \</span></span><br><span class="line"><span class="meta">                out_link-&gt;incfg.list-&gt;nb == 1)                         \</span></span><br><span class="line"><span class="meta">                continue;                                              \</span></span><br><span class="line"><span class="meta">            fmts = out_link-&gt;incfg.list;                               \</span></span><br><span class="line"><span class="meta">                                                                       \</span></span><br><span class="line"><span class="meta">            <span class="keyword">if</span> (!out_link-&gt;incfg.list-&gt;nb) &#123;                           \</span></span><br><span class="line"><span class="meta">                <span class="keyword">if</span> ((ret = add_format(&amp;out_link-&gt;incfg.list, fmt)) &lt; 0)\</span></span><br><span class="line"><span class="meta">                    return ret;                                        \</span></span><br><span class="line"><span class="meta">                ret = 1;                                               \</span></span><br><span class="line"><span class="meta">                break;                                                 \</span></span><br><span class="line"><span class="meta">            &#125;                                                          \</span></span><br><span class="line"><span class="meta">                                                                       \</span></span><br><span class="line"><span class="meta">            for (k = 0; k <span class="string">&lt; out_link-&gt;</span>incfg.list-&gt;nb; k++)             \</span></span><br><span class="line"><span class="meta">                <span class="keyword">if</span> (fmts-&gt;var[k] == fmt) &#123;                             \</span></span><br><span class="line"><span class="meta">                    fmts-&gt;var[0]  = fmt;                               \</span></span><br><span class="line"><span class="meta">                    fmts-&gt;nb = 1;                                      \</span></span><br><span class="line"><span class="meta">                    ret = 1;                                           \</span></span><br><span class="line"><span class="meta">                    break;                                             \</span></span><br><span class="line"><span class="meta">                &#125;                                                      \</span></span><br><span class="line"><span class="meta">        &#125;                                                              \</span></span><br><span class="line"><span class="meta">    &#125;                                                                  \</span></span><br><span class="line"><span class="meta">&#125; while (0)</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="pick-formats"><a href="#pick-formats" class="headerlink" title="pick_formats"></a>pick_formats</h3><p>pick_formats 主要是将每个 link 上的格式固定下来</p>
+<p>如果 link 上的 input format 或者 output format 的 number 只有一个，那么就使用那个格式作为最终格式，否则会借助<code>inputs[0]</code>的格式来决定输出 link 该选择哪个格式最优</p>
+<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAMAAABOo35HAAAABGdBTUEAAK/INwWK6QAAABl0RVh0U29mdHdhcmUAQWRvYmUgSW1hZ2VSZWFkeXHJZTwAAAC9UExURVlZWdPT07KysmRkZIWFhfT09JmZmWZmZm9vb39/fxkZGUxMTDMzM3p6epCQkKamppubm729venp6cjIyN7e3tbW1s/Pz8LCwnx8fLS0tFZWVoiIiI+Pj6GhoeTk5Glpabu7u93d3evr66CgoJSUlKqqqsnJyeDg4Hd3d8PDw+Xl5bi4uNHR0dvb26Ojo6urq+fn51hYWDg4OCgoKHBwcK2traenp0FBQe7u7vHx8U5OTre3t8zMzHV1df///7GrnpQAAAA/dFJOU///////////////////////////////////////////////////////////////////////////////////AI4mfBcAAAUGSURBVHja7NoJb6M4GMZxY0NCD64kve/pMZ2d3Z297+X7f6zFNmBAMUXa6URl/q9UJSWPUPzrizFWRUlNLgEBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYYIEFAVhggQUWWGBBABZYYIEFFlgQgAUWWGCBBRYEYIEFFlhggQUBWGCBBRZYYEEAFlhggQUWWBCABRZYYIEFFgRggQUWWGCBBQFYYIEFFlhgQQAWWGCBBRZYEIAFFlhggQUWBGCBBRZYn6cCIcRXgvX/h9qcIVBqDdbEM8RCxGCB9QqXYRwHYDHBgwXWl8eKZKiESHI3Ba1kWs3fKixcaJUl1YyeBm7Ocq+yLItUiVBGnXxenSHJolIKEcwHq6ikbOX1YGVzQCTN8LPmSLreghUl9sN4Uw7yajMrLC0TZ1ImzqY6FEop0+pIaEN5HaoOxVuwEqFyc4I46uSlzOLqgxlh6UaR9l3VYWl9Fdoxb1Q90KJtu41pwwFW/WHhTtW8i7TafLCqRsk6bsGw63L9qurXRmuIlbT9lDQnlXU+nBFW1Q2qnZbDprWa2tjR90LZFqx1/+Td/HpGWLlrLDvIwTcx6dQ1Vrntbig68cDms3JwbA5Y1azs1ger6sNV/bbIw1jU81MvNAGrl58RVn8ozW+btF08iGFoAlYvP3csfVur1gJBEIA1uBmue5dhZDOyO2epbmgCVi8/I6x0MMHH9pjsTfBhNzQBq5uPZoQlB0uH3DZG4EZqQ26fL3sZq5uf09Ih6qw3i/pm6BZO0qZX7rrUS68Xsbr5ZE4rePMk08pk9aUZugfqppvs6AM1Acvlo/StP+6EbW06z8hJqxbYp2BZPQUnFsLsKuhQdaHqn5ewbF7KXIn0jWO5MqOQ7RaNLPtbNMmmhimj0GUmYLl8Gs0Lq4wyPbTu1l2QKqHSouzs3OlDIslW5SQsnY/NXmFplyNvEuuLV/Tau9BzwiraDUSwXmysztYWWNtL1psXeumgIrDGaqXvBfUuvtqUYI3V2t1wk1e2msFluJJm6zDJXv/fIfjPP7DAAgsssCiwwAILLLDAosACCyywwAKLAgsssMACC6zt9fDz/v75tyOB+98PD2+ORgKffjw4OP1uJPDxl+Xy8v1I4MPF3t7VNyOB4/vF4uzdzrG+39f1kz/w66Guv/yBvw90KX/gZKkr8Qf+2dOV+gNHC12/7RxrabD2/a31bLAO/a11YbAO/K21MFhLf2s9Gqw9f2vdGqzFu11jnVusE2/gxmI9eQOnFuvYG7i0WH7uK4t15w2cWazrXWP9a7H8f/bQYvm/6IPF+sF/pVssf19Ii/WH/0K2WH/uGuvEWC39gSdj9Twy+Rqri5EZx1gt/IE7Y/XoD1wbq9vd3w1PlufnD2OBp+ebm/uxwPHF6emnscDR4vLy41jg7vHq6sNY4Pr27OyYdRaLUrDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssMCiwAILLLDAAosCCyywwAILLAossMACCyywKLDAAgsssL6u+k+AAQCR9eHtLKvLfwAAAABJRU5ErkJggg==" data-original="/images/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86/pick_formats.jpg"></p>
+<p>下面是具体代码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">pick_formats</span><span class="params">(AVFilterGraph *graph)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, j, ret;</span><br><span class="line">    <span class="type">int</span> change;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">do</span>&#123;</span><br><span class="line">        change = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">            AVFilterContext *filter = graph-&gt;filters[i];</span><br><span class="line">            <span class="keyword">if</span> (filter-&gt;nb_inputs)&#123;</span><br><span class="line">                <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filter-&gt;nb_inputs; j++)&#123;</span><br><span class="line">                    <span class="keyword">if</span> (filter-&gt;inputs[j]-&gt;incfg.formats &amp;&amp; filter-&gt;inputs[j]-&gt;incfg.formats-&gt;nb_formats == <span class="number">1</span>) &#123;</span><br><span class="line">                        <span class="keyword">if</span> ((ret = <span class="built_in">pick_format</span>(filter-&gt;inputs[j], <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">                            <span class="keyword">return</span> ret;</span><br><span class="line">                        change = <span class="number">1</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (filter-&gt;nb_outputs)&#123;</span><br><span class="line">                <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filter-&gt;nb_outputs; j++)&#123;</span><br><span class="line">                    <span class="keyword">if</span> (filter-&gt;outputs[j]-&gt;incfg.formats &amp;&amp; filter-&gt;outputs[j]-&gt;incfg.formats-&gt;nb_formats == <span class="number">1</span>) &#123;</span><br><span class="line">                        <span class="keyword">if</span> ((ret = <span class="built_in">pick_format</span>(filter-&gt;outputs[j], <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">                            <span class="keyword">return</span> ret;</span><br><span class="line">                        change = <span class="number">1</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (filter-&gt;nb_inputs &amp;&amp; filter-&gt;nb_outputs &amp;&amp; filter-&gt;inputs[<span class="number">0</span>]-&gt;format&gt;=<span class="number">0</span>) &#123;</span><br><span class="line">                <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filter-&gt;nb_outputs; j++) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (filter-&gt;outputs[j]-&gt;format&lt;<span class="number">0</span>) &#123;</span><br><span class="line">                        <span class="keyword">if</span> ((ret = <span class="built_in">pick_format</span>(filter-&gt;outputs[j], filter-&gt;inputs[<span class="number">0</span>])) &lt; <span class="number">0</span>)</span><br><span class="line">                            <span class="keyword">return</span> ret;</span><br><span class="line">                        change = <span class="number">1</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;<span class="keyword">while</span>(change);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">        AVFilterContext *filter = graph-&gt;filters[i];</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filter-&gt;nb_inputs; j++)</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">pick_format</span>(filter-&gt;inputs[j], <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; filter-&gt;nb_outputs; j++)</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">pick_format</span>(filter-&gt;outputs[j], <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">pick_format</span><span class="params">(AVFilterLink *link, AVFilterLink *ref)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!link || !link-&gt;incfg.formats)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (link-&gt;type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">        <span class="keyword">if</span>(ref &amp;&amp; ref-&gt;type == AVMEDIA_TYPE_VIDEO)&#123;</span><br><span class="line">            <span class="comment">//<span class="doctag">FIXME:</span> This should check for AV_PIX_FMT_FLAG_ALPHA after PAL8 pixel format without alpha is implemented</span></span><br><span class="line">            <span class="type">int</span> has_alpha= <span class="built_in">av_pix_fmt_desc_get</span>(ref-&gt;format)-&gt;nb_components % <span class="number">2</span> == <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">enum</span> <span class="title class_">AVPixelFormat</span> best= AV_PIX_FMT_NONE;</span><br><span class="line">            <span class="type">int</span> i;</span><br><span class="line">            <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; link-&gt;incfg.formats-&gt;nb_formats; i++) &#123;</span><br><span class="line">                <span class="keyword">enum</span> <span class="title class_">AVPixelFormat</span> p = link-&gt;incfg.formats-&gt;formats[i];</span><br><span class="line">                best= <span class="built_in">av_find_best_pix_fmt_of_2</span>(best, p, ref-&gt;format, has_alpha, <span class="literal">NULL</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="built_in">av_log</span>(link-&gt;src,AV_LOG_DEBUG, <span class="string">&quot;picking %s out of %d ref:%s alpha:%d\n&quot;</span>,</span><br><span class="line">                   <span class="built_in">av_get_pix_fmt_name</span>(best), link-&gt;incfg.formats-&gt;nb_formats,</span><br><span class="line">                   <span class="built_in">av_get_pix_fmt_name</span>(ref-&gt;format), has_alpha);</span><br><span class="line">            link-&gt;incfg.formats-&gt;formats[<span class="number">0</span>] = best;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (link-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">        <span class="keyword">if</span>(ref &amp;&amp; ref-&gt;type == AVMEDIA_TYPE_AUDIO)&#123;</span><br><span class="line">            <span class="keyword">enum</span> AVSampleFormat best= AV_SAMPLE_FMT_NONE;</span><br><span class="line">            <span class="type">int</span> i;</span><br><span class="line">            <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; link-&gt;incfg.formats-&gt;nb_formats; i++) &#123;</span><br><span class="line">                <span class="keyword">enum</span> <span class="title class_">AVSampleFormat</span> p = link-&gt;incfg.formats-&gt;formats[i];</span><br><span class="line">                best = <span class="built_in">find_best_sample_fmt_of_2</span>(best, p, ref-&gt;format);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="built_in">av_log</span>(link-&gt;src,AV_LOG_DEBUG, <span class="string">&quot;picking %s out of %d ref:%s\n&quot;</span>,</span><br><span class="line">                   <span class="built_in">av_get_sample_fmt_name</span>(best), link-&gt;incfg.formats-&gt;nb_formats,</span><br><span class="line">                   <span class="built_in">av_get_sample_fmt_name</span>(ref-&gt;format));</span><br><span class="line">            link-&gt;incfg.formats-&gt;formats[<span class="number">0</span>] = best;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    link-&gt;incfg.formats-&gt;nb_formats = <span class="number">1</span>;</span><br><span class="line">    link-&gt;format = link-&gt;incfg.formats-&gt;formats[<span class="number">0</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (link-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="graph-config-links"><a href="#graph-config-links" class="headerlink" title="graph_config_links"></a>graph_config_links</h2><p>这一步是配置 link，graph_config_links 函数会调用 src&#x2F;sink pad 上的 config props 函数传递 width、height 等信息。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">graph_config_links</span><span class="params">(AVFilterGraph *graph, <span class="type">void</span> *log_ctx)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFilterContext *filt;</span><br><span class="line">    <span class="type">int</span> i, ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; graph-&gt;nb_filters; i++) &#123;</span><br><span class="line">        filt = graph-&gt;filters[i];</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!filt-&gt;nb_outputs) &#123; <span class="comment">// 从sink filter开始从后向前</span></span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_config_links</span>(filt)))</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">avfilter_config_links</span><span class="params">(AVFilterContext *filter)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="built_in">int</span> (*config_link)(AVFilterLink *);</span><br><span class="line">    <span class="type">unsigned</span> i;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; filter-&gt;nb_inputs; i ++) &#123;</span><br><span class="line">        AVFilterLink *link = filter-&gt;inputs[i];</span><br><span class="line">        AVFilterLink *inlink;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!link || !link-&gt;incfg.formats || !link-&gt;outcfg.formats)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (!link-&gt;src || !link-&gt;dst) &#123;</span><br><span class="line">...</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        inlink = link-&gt;src-&gt;nb_inputs ? link-&gt;src-&gt;inputs[<span class="number">0</span>] : <span class="literal">NULL</span>;</span><br><span class="line">        link-&gt;current_pts =</span><br><span class="line">        link-&gt;current_pts_us = AV_NOPTS_VALUE;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">switch</span> (link-&gt;init_state) &#123;</span><br><span class="line">        <span class="keyword">case</span> AVLINK_INIT:</span><br><span class="line">            <span class="comment">/* For part graph re-negotiation.</span></span><br><span class="line"><span class="comment">               For example: output-filter link has config_props(),</span></span><br><span class="line"><span class="comment">               but the input-filter still need config_props(). */</span></span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_config_links</span>(link-&gt;src)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">case</span> AVLINK_STARTINIT:</span><br><span class="line">            <span class="built_in">av_log</span>(filter, AV_LOG_INFO, <span class="string">&quot;circular filter chain detected\n&quot;</span>);</span><br><span class="line">            <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">case</span> AVLINK_UNINIT:</span><br><span class="line">            link-&gt;init_state = AVLINK_STARTINIT;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_config_links</span>(link-&gt;src)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (!(config_link = link-&gt;srcpad-&gt;config_props)) &#123;</span><br><span class="line">                <span class="keyword">if</span> (link-&gt;src-&gt;nb_inputs != <span class="number">1</span>) &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(link-&gt;src, AV_LOG_ERROR, <span class="string">&quot;Source filters and filters &quot;</span></span><br><span class="line">                                                    <span class="string">&quot;with more than one input &quot;</span></span><br><span class="line">                                                    <span class="string">&quot;must set config_props() &quot;</span></span><br><span class="line">                                                    <span class="string">&quot;callbacks on all outputs\n&quot;</span>);</span><br><span class="line">                    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> ((ret = <span class="built_in">config_link</span>(link)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(link-&gt;src, AV_LOG_ERROR,</span><br><span class="line">                       <span class="string">&quot;Failed to configure output pad on %s\n&quot;</span>,</span><br><span class="line">                       link-&gt;src-&gt;name);</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">switch</span> (link-&gt;type) &#123;</span><br><span class="line">            <span class="keyword">case</span> AVMEDIA_TYPE_VIDEO:</span><br><span class="line">                <span class="keyword">if</span> (!link-&gt;time_base.num &amp;&amp; !link-&gt;time_base.den)</span><br><span class="line">                    link-&gt;time_base = inlink ? inlink-&gt;time_base : AV_TIME_BASE_Q;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (!link-&gt;sample_aspect_ratio.num &amp;&amp; !link-&gt;sample_aspect_ratio.den)</span><br><span class="line">                    link-&gt;sample_aspect_ratio = inlink ?</span><br><span class="line">                        inlink-&gt;sample_aspect_ratio : (AVRational)&#123;<span class="number">1</span>,<span class="number">1</span>&#125;;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (inlink) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!link-&gt;frame_rate.num &amp;&amp; !link-&gt;frame_rate.den)</span><br><span class="line">                        link-&gt;frame_rate = inlink-&gt;frame_rate;</span><br><span class="line">                    <span class="keyword">if</span> (!link-&gt;w)</span><br><span class="line">                        link-&gt;w = inlink-&gt;w;</span><br><span class="line">                    <span class="keyword">if</span> (!link-&gt;h)</span><br><span class="line">                        link-&gt;h = inlink-&gt;h;</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!link-&gt;w || !link-&gt;h) &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(link-&gt;src, AV_LOG_ERROR,</span><br><span class="line">                           <span class="string">&quot;Video source filters must set their output link&#x27;s &quot;</span></span><br><span class="line">                           <span class="string">&quot;width and height\n&quot;</span>);</span><br><span class="line">                    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">case</span> AVMEDIA_TYPE_AUDIO:</span><br><span class="line">                <span class="keyword">if</span> (inlink) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (!link-&gt;time_base.num &amp;&amp; !link-&gt;time_base.den)</span><br><span class="line">                        link-&gt;time_base = inlink-&gt;time_base;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                <span class="keyword">if</span> (!link-&gt;time_base.num &amp;&amp; !link-&gt;time_base.den)</span><br><span class="line">                    link-&gt;time_base = (AVRational) &#123;<span class="number">1</span>, link-&gt;sample_rate&#125;;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (link-&gt;src-&gt;nb_inputs &amp;&amp; link-&gt;src-&gt;inputs[<span class="number">0</span>]-&gt;hw_frames_ctx &amp;&amp;</span><br><span class="line">                !(link-&gt;src-&gt;filter-&gt;flags_internal &amp; FF_FILTER_FLAG_HWFRAME_AWARE)) &#123;</span><br><span class="line">                <span class="built_in">av_assert0</span>(!link-&gt;hw_frames_ctx &amp;&amp;</span><br><span class="line">                           <span class="string">&quot;should not be set by non-hwframe-aware filter&quot;</span>);</span><br><span class="line">                link-&gt;hw_frames_ctx = <span class="built_in">av_buffer_ref</span>(link-&gt;src-&gt;inputs[<span class="number">0</span>]-&gt;hw_frames_ctx);</span><br><span class="line">                <span class="keyword">if</span> (!link-&gt;hw_frames_ctx)</span><br><span class="line">                    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> ((config_link = link-&gt;dstpad-&gt;config_props))</span><br><span class="line">                <span class="keyword">if</span> ((ret = <span class="built_in">config_link</span>(link)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(link-&gt;dst, AV_LOG_ERROR,</span><br><span class="line">                           <span class="string">&quot;Failed to configure input pad on %s\n&quot;</span>,</span><br><span class="line">                           link-&gt;dst-&gt;name);</span><br><span class="line">                    <span class="keyword">return</span> ret;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">            link-&gt;init_state = AVLINK_INIT;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>graph_config_links 会从 sink filter 开始向前递归，然后从 src filter 开始配置 link，是一个 dfs 过程。</p>
+<p>graph_check_links 和 graph_config_pointers 都比较简单，这里就不再仔细介绍。</p>
+<p>参考资料：</p>
+<p><a href="https://www.cnblogs.com/TaigaCon/p/10111326.html">https://www.cnblogs.com/TaigaCon/p/10111326.html</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8B%E5%88%9B%E5%BB%BAfilter%E4%B8%8Efiltergraph/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-12 20:10:09
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/12/ffmpeg-filter%E4%B9%8B%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%B5%81%E8%BD%AC/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#avfilter-graph-config"><span class="toc-text">avfilter_graph_config</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#graph-check-validity"><span class="toc-text">graph_check_validity</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#graph-config-formats"><span class="toc-text">graph_config_formats</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#query-formats"><span class="toc-text">query_formats</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#query"><span class="toc-text">query</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#sanitize-formats"><span class="toc-text">sanitize_formats</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#merge"><span class="toc-text">merge</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#reduce-formats"><span class="toc-text">reduce_formats</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#pick-formats"><span class="toc-text">pick_formats</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#graph-config-links"><span class="toc-text">graph_config_links</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
