@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg AVFrame buffer的分配与对齐 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg AVFrame buffer的分配与对齐</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-23 21:42:47
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>之前有篇文章介绍了 AVFrame 的一些基本方法，最近遇到了需要确认 AVFrame 中数据的 stride 是否对齐的问题，于是又回过头去把 AVFrame 内存分配过程研究了一下，这篇文章就介绍一下 AVFrame buffer 的分配与对齐。</p>
+<p>在通过 <code>AVFrame *av_frame_alloc(void)</code> 函数分配 AVFrame 之后，需要通过 av_frame_get_buffer 函数分配用于存储 YUV 或者 RGB 格式图像的内存</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_frame_get_buffer</span><span class="params">(AVFrame *frame, <span class="type">int</span> align)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (frame-&gt;format &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (frame-&gt;width &gt; <span class="number">0</span> &amp;&amp; frame-&gt;height &gt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">get_video_buffer</span>(frame, align);</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (frame-&gt;nb_samples &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">             (<span class="built_in">av_channel_layout_check</span>(&amp;frame-&gt;ch_layout)</span><br><span class="line">...</span><br><span class="line">             ))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">get_audio_buffer</span>(frame, align);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_frame_get_buffer 函数内部调用 get_video_buffer 函数，下面就以 get_video_buffer 函数为研究对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">get_video_buffer</span><span class="params">(AVFrame *frame, <span class="type">int</span> align)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVPixFmtDescriptor *desc = <span class="built_in">av_pix_fmt_desc_get</span>(frame-&gt;format);</span><br><span class="line">    <span class="type">int</span> ret, i, padded_height, total_size;</span><br><span class="line">    <span class="type">int</span> plane_padding = <span class="built_in">FFMAX</span>(<span class="number">16</span> + <span class="number">16</span><span class="comment">/*STRIDE_ALIGN*/</span>, align);</span><br><span class="line">    <span class="type">ptrdiff_t</span> linesizes[<span class="number">4</span>];</span><br><span class="line">    <span class="type">size_t</span> sizes[<span class="number">4</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!desc)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_check_size</span>(frame-&gt;width, frame-&gt;height, <span class="number">0</span>, <span class="literal">NULL</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;linesize[<span class="number">0</span>]) &#123;</span><br><span class="line">        <span class="keyword">if</span> (align &lt;= <span class="number">0</span>)</span><br><span class="line">            align = <span class="number">32</span>; <span class="comment">/* STRIDE_ALIGN. Should be av_cpu_max_align() */</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span>(i=<span class="number">1</span>; i&lt;=align; i+=i) &#123;</span><br><span class="line">            ret = <span class="built_in">av_image_fill_linesizes</span>(frame-&gt;linesize, frame-&gt;format,</span><br><span class="line">                                          <span class="built_in">FFALIGN</span>(frame-&gt;width, i));</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (!(frame-&gt;linesize[<span class="number">0</span>] &amp; (align<span class="number">-1</span>)))</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span> &amp;&amp; frame-&gt;linesize[i]; i++)</span><br><span class="line">            frame-&gt;linesize[i] = <span class="built_in">FFALIGN</span>(frame-&gt;linesize[i], align);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++)</span><br><span class="line">        linesizes[i] = frame-&gt;linesize[i];</span><br><span class="line"></span><br><span class="line">    padded_height = <span class="built_in">FFALIGN</span>(frame-&gt;height, <span class="number">32</span>);</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_fill_plane_sizes</span>(sizes, frame-&gt;format,</span><br><span class="line">                                         padded_height, linesizes)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    total_size = <span class="number">4</span>*plane_padding;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (sizes[i] &gt; INT_MAX - total_size)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        total_size += sizes[i];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    frame-&gt;buf[<span class="number">0</span>] = <span class="built_in">av_buffer_alloc</span>(total_size);</span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        ret = <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_fill_pointers</span>(frame-&gt;data, frame-&gt;format, padded_height,</span><br><span class="line">                                      frame-&gt;buf[<span class="number">0</span>]-&gt;data, frame-&gt;linesize)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;data[i])</span><br><span class="line">            frame-&gt;data[i] += i * plane_padding;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    frame-&gt;extended_data = frame-&gt;data;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">fail:</span><br><span class="line">    <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="AVPixFmtDescriptor"><a href="#AVPixFmtDescriptor" class="headerlink" title="AVPixFmtDescriptor"></a>AVPixFmtDescriptor</h2><p>上面函数的第一步是查找 AVPixFmtDescriptor，AVPixFmtDescriptor 中有格式的存储信息，这些信息配合宽度高度可以计算需要多大的存储空间。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVPixFmtDescriptor</span> &#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *name;</span><br><span class="line">    <span class="type">uint8_t</span> nb_components;  <span class="comment">///&lt; The number of components each pixel has, (1-4)</span></span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Amount to shift the luma width right to find the chroma width.</span></span><br><span class="line"><span class="comment">     * For YV12 this is 1 for example.</span></span><br><span class="line"><span class="comment">     * chroma_width = AV_CEIL_RSHIFT(luma_width, log2_chroma_w)</span></span><br><span class="line"><span class="comment">     * The note above is needed to ensure rounding up.</span></span><br><span class="line"><span class="comment">     * This value only refers to the chroma components.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">uint8_t</span> log2_chroma_w;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Amount to shift the luma height right to find the chroma height.</span></span><br><span class="line"><span class="comment">     * For YV12 this is 1 for example.</span></span><br><span class="line"><span class="comment">     * chroma_height= AV_CEIL_RSHIFT(luma_height, log2_chroma_h)</span></span><br><span class="line"><span class="comment">     * The note above is needed to ensure rounding up.</span></span><br><span class="line"><span class="comment">     * This value only refers to the chroma components.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">uint8_t</span> log2_chroma_h;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Combination of AV_PIX_FMT_FLAG_... flags.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">uint64_t</span> flags;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Parameters that describe how pixels are packed.</span></span><br><span class="line"><span class="comment">     * If the format has 1 or 2 components, then luma is 0.</span></span><br><span class="line"><span class="comment">     * If the format has 3 or 4 components:</span></span><br><span class="line"><span class="comment">     *   if the RGB flag is set then 0 is red, 1 is green and 2 is blue;</span></span><br><span class="line"><span class="comment">     *   otherwise 0 is luma, 1 is chroma-U and 2 is chroma-V.</span></span><br><span class="line"><span class="comment">     *</span></span><br><span class="line"><span class="comment">     * If present, the Alpha channel is always the last component.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    AVComponentDescriptor comp[<span class="number">4</span>];</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Alternative comma-separated names.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *alias;</span><br><span class="line">&#125; AVPixFmtDescriptor;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>nb_components</code> 当前格式有多少个分量</li>
+<li><code>log2_chroma_w</code> 色度分量的宽度 &#x3D; 亮度分量的宽度 &gt;&gt; log2_chroma_w，比如 yuv420p 格式，U、V 分量的宽度是 Y 分量的宽度的一半，那这个值就是 1</li>
+<li><code>log2_chroma_h</code> 色度分量的高度 &#x3D; 亮度分量的高度 &gt;&gt; log2_chroma_w，和上面一样，比如 YUV420 格式，U、V 分量的宽度是 Y 分量的宽度的一半，那这个值就是 1</li>
+<li><code>AVComponentDescriptor</code> 是对每个不同分量的存储信息的描述</li>
+</ul>
+<p>AVComponentDescriptor 结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVComponentDescriptor</span> &#123;</span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Which of the 4 planes contains the component.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> plane;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Number of elements between 2 horizontally consecutive pixels.</span></span><br><span class="line"><span class="comment">     * Elements are bits for bitstream formats, bytes otherwise.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> step;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Number of elements before the component of the first pixel.</span></span><br><span class="line"><span class="comment">     * Elements are bits for bitstream formats, bytes otherwise.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> offset;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Number of least significant bits that must be shifted away</span></span><br><span class="line"><span class="comment">     * to get the value.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> shift;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Number of bits in the component.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="type">int</span> depth;</span><br><span class="line">&#125; AVComponentDescriptor;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><code>plane</code> 当前分量在那个平面上，比如 yuv420p 就分三个平面来存储不同的分量，那么 plane 分别是 0 1 2，而 yuyv422 是把三个分量在一个平面上存储，那么 plane 分别是 0 0 0</li>
+<li><code>step</code> 水平方向相邻两个像素点之间距离的字节数（如果是比特流类型则是比特数），注意他指的是相同分量的像素点，对于 yuv420p 这种分平面的格式来说，step 是 1 1 1，对 yuyv422 这种交错存储在一个平面的格式，step 是 2 4 4，因为他的存储格式是先保存一个像素点的 YUV 再保存下一个像素点的 YUV，比如 y u y v y u y v …，可以看到 y 之间相差两字节，u 和 v 都是相差 4 字节</li>
+<li><code>offset</code> 分量的第一个像素离起始地址的偏移，以上面的 yuyv422 交错存储格式，y 的 offset 是 0，u 的 offset 是 1，v 的 offset 是 3</li>
+<li><code>shift</code> 这个参数一般用在非 8 比特的格式</li>
+<li><code>depth</code> 像素的位深，比如 8 比特、10 比特</li>
+</ul>
+<p>具体看看 yuv420p 和 yuyv422 的 AVPixFmtDescriptor</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = &#123;</span><br><span class="line">    [AV_PIX_FMT_YUV420P] = &#123;</span><br><span class="line">        .name = <span class="string">&quot;yuv420p&quot;</span>,</span><br><span class="line">        .nb_components = <span class="number">3</span>,</span><br><span class="line">        .log2_chroma_w = <span class="number">1</span>,</span><br><span class="line">        .log2_chroma_h = <span class="number">1</span>,</span><br><span class="line">        .comp = &#123;</span><br><span class="line">            &#123; <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* Y */</span></span><br><span class="line">            &#123; <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* U */</span></span><br><span class="line">            &#123; <span class="number">2</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* V */</span></span><br><span class="line">        &#125;,</span><br><span class="line">        .flags = AV_PIX_FMT_FLAG_PLANAR,</span><br><span class="line">    &#125;,</span><br><span class="line">    [AV_PIX_FMT_YUYV422] = &#123;</span><br><span class="line">        .name = <span class="string">&quot;yuyv422&quot;</span>,</span><br><span class="line">        .nb_components = <span class="number">3</span>,</span><br><span class="line">        .log2_chroma_w = <span class="number">1</span>,</span><br><span class="line">        .log2_chroma_h = <span class="number">0</span>,</span><br><span class="line">        .comp = &#123;</span><br><span class="line">            &#123; <span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* Y */</span></span><br><span class="line">            &#123; <span class="number">0</span>, <span class="number">4</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* U */</span></span><br><span class="line">            &#123; <span class="number">0</span>, <span class="number">4</span>, <span class="number">3</span>, <span class="number">0</span>, <span class="number">8</span> &#125;,        <span class="comment">/* V */</span></span><br><span class="line">        &#125;,</span><br><span class="line">    &#125;,</span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>了解了具体格式后再看剩下的代码。</p>
+<p>av_image_check_size 函数就是检查宽高是否合理，不再赘述。</p>
+<p>av_image_fill_linesizes 函数则是计算每个平面的 linesize，linesize 就是行宽，很多编码器都要求输入 frame 的 linesize 对齐到 16 或者 32，经过对齐之后的 linesize 一般不等于图像的宽度</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_image_fill_linesizes</span><span class="params">(<span class="type">int</span> linesizes[<span class="number">4</span>], <span class="keyword">enum</span> AVPixelFormat pix_fmt, <span class="type">int</span> width)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, ret;</span><br><span class="line">    <span class="type">const</span> AVPixFmtDescriptor *desc = <span class="built_in">av_pix_fmt_desc_get</span>(pix_fmt);</span><br><span class="line">    <span class="type">int</span> max_step     [<span class="number">4</span>];       <span class="comment">/* max pixel step for each plane */</span></span><br><span class="line">    <span class="type">int</span> max_step_comp[<span class="number">4</span>];       <span class="comment">/* the component for each plane which has the max pixel step */</span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(linesizes, <span class="number">0</span>, <span class="number">4</span>*<span class="built_in">sizeof</span>(linesizes[<span class="number">0</span>]));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!desc || desc-&gt;flags &amp; AV_PIX_FMT_FLAG_HWACCEL)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_image_fill_max_pixsteps</span>(max_step, max_step_comp, desc);</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">image_get_linesize</span>(width, i, max_step[i], max_step_comp[i], desc)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        linesizes[i] = ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_image_fill_linesizes 先通过 av_image_fill_max_pixsteps 获取相邻像素间的 step，其实就是上面 AVComponentDescriptor 中的 step</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">av_image_fill_max_pixsteps</span><span class="params">(<span class="type">int</span> max_pixsteps[<span class="number">4</span>], <span class="type">int</span> max_pixstep_comps[<span class="number">4</span>],</span></span></span><br><span class="line"><span class="params"><span class="function">                                <span class="type">const</span> AVPixFmtDescriptor *pixdesc)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">    <span class="built_in">memset</span>(max_pixsteps, <span class="number">0</span>, <span class="number">4</span>*<span class="built_in">sizeof</span>(max_pixsteps[<span class="number">0</span>]));</span><br><span class="line">    <span class="keyword">if</span> (max_pixstep_comps)</span><br><span class="line">        <span class="built_in">memset</span>(max_pixstep_comps, <span class="number">0</span>, <span class="number">4</span>*<span class="built_in">sizeof</span>(max_pixstep_comps[<span class="number">0</span>]));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="type">const</span> AVComponentDescriptor *comp = &amp;(pixdesc-&gt;comp[i]);</span><br><span class="line">        <span class="keyword">if</span> (comp-&gt;step &gt; max_pixsteps[comp-&gt;plane]) &#123;</span><br><span class="line">            max_pixsteps[comp-&gt;plane] = comp-&gt;step;</span><br><span class="line">            <span class="keyword">if</span> (max_pixstep_comps)</span><br><span class="line">                max_pixstep_comps[comp-&gt;plane] = i;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>然后通过 image_get_linesize 计算未对齐时的 linesize</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span></span></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">image_get_linesize</span><span class="params">(<span class="type">int</span> width, <span class="type">int</span> plane,</span></span></span><br><span class="line"><span class="params"><span class="function">                       <span class="type">int</span> max_step, <span class="type">int</span> max_step_comp,</span></span></span><br><span class="line"><span class="params"><span class="function">                       <span class="type">const</span> AVPixFmtDescriptor *desc)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> s, shifted_w, linesize;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!desc)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (width &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    s = (max_step_comp == <span class="number">1</span> || max_step_comp == <span class="number">2</span>) ? desc-&gt;log2_chroma_w : <span class="number">0</span>;</span><br><span class="line">    shifted_w = ((width + (<span class="number">1</span> &lt;&lt; s) - <span class="number">1</span>)) &gt;&gt; s;</span><br><span class="line">    <span class="keyword">if</span> (shifted_w &amp;&amp; max_step &gt; INT_MAX / shifted_w)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    linesize = max_step * shifted_w;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (desc-&gt;flags &amp; AV_PIX_FMT_FLAG_BITSTREAM)</span><br><span class="line">        linesize = (linesize + <span class="number">7</span>) &gt;&gt; <span class="number">3</span>;</span><br><span class="line">    <span class="keyword">return</span> linesize;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面计算 linesize 对于不同分量不同平面，比如 yuv420p 格式比较好理解，但是对于所有分量同一平面的交错格式，比如 yuyv422，可能不是那么好理解，一起算算看：</p>
+<p>在 av_image_fill_max_pixsteps 之后，max_step 为 4 0 0 0，max_step_comp 为 2 0 0 0，因为 yuyv422 只有一个平面，所以函数中只会更新 max_pixsteps[0]和 max_pixstep_comps[0]。读者可以自己验证一下。</p>
+<p>在 image_get_linesize 中，由于只有一个平面，所以只有 linesizes[0]非 0，对第 0 个平面，输入参数 max_step 为 4，max_step_comp 为 2，那么 s 为 log2_chroma_w，也就是 1，shifted_w 就是 width&#x2F;2，最后 linesize 就是 2*width，刚好就是 yuyv422 存储一行需要的字节数。看来这种计算方法确实是经过精心设计的。</p>
+<p>注意上面函数传给 av_image_fill_linesizes 的 width 是 <code>FFALIGN(frame-&gt;width, i)</code>，也就是会把 <code>frame-&gt;width</code> 对齐到 1 或 2 或 4…或 align 的整数倍</p>
+<p>看下面这个循环，会在 <code>!(frame-&gt;linesize[0] &amp; (align-1))</code> 时退出，而这个条件其实是 frame-&gt;linesize[0]整除 align，也就是会在 1 或 2 或 4…或 align 这些对齐参数中，找到最小的让 frame-&gt;linesize[0]整除 align 的对齐参数。这样做是为了节约空间，让对齐得到宽度尽可能和 frame-&gt;width 接近</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span>(i=<span class="number">1</span>; i&lt;=align; i+=i) &#123;</span><br><span class="line">            ret = <span class="built_in">av_image_fill_linesizes</span>(frame-&gt;linesize, frame-&gt;format,</span><br><span class="line">                                          <span class="built_in">FFALIGN</span>(frame-&gt;width, i));</span><br><span class="line">            <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            <span class="keyword">if</span> (!(frame-&gt;linesize[<span class="number">0</span>] &amp; (align<span class="number">-1</span>)))</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        &#125;</span><br></pre></td></tr></table></figure>
+
+<p>通过 av_image_fill_linesizes 计算 linesize 后，会进行下面的对齐操作，这一步把 linesize 进行对齐，而上面是把 frame-&gt;width 进行对齐</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span> &amp;&amp; frame-&gt;linesize[i]; i++)</span><br><span class="line">            frame-&gt;linesize[i] = <span class="built_in">FFALIGN</span>(frame-&gt;linesize[i], align);</span><br></pre></td></tr></table></figure>
+
+<p>除了对宽度进行对齐，还会对高度进行对齐</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">padded_height = <span class="built_in">FFALIGN</span>(frame-&gt;height, <span class="number">32</span>);</span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_image_fill_plane_sizes</span>(sizes, frame-&gt;format,</span><br><span class="line">                                         padded_height, linesizes)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br></pre></td></tr></table></figure>
+
+<p>padded_height 就是把高度对齐到 32，av_image_fill_plane_sizes 则是计算每个平面需要的 size</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_image_fill_plane_sizes</span><span class="params">(<span class="type">size_t</span> sizes[<span class="number">4</span>], <span class="keyword">enum</span> AVPixelFormat pix_fmt,</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">int</span> height, <span class="type">const</span> <span class="type">ptrdiff_t</span> linesizes[<span class="number">4</span>])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, has_plane[<span class="number">4</span>] = &#123; <span class="number">0</span> &#125;;</span><br><span class="line"></span><br><span class="line">    <span class="type">const</span> AVPixFmtDescriptor *desc = <span class="built_in">av_pix_fmt_desc_get</span>(pix_fmt);</span><br><span class="line">    <span class="built_in">memset</span>(sizes    , <span class="number">0</span>, <span class="built_in">sizeof</span>(sizes[<span class="number">0</span>])*<span class="number">4</span>);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">    sizes[<span class="number">0</span>] = linesizes[<span class="number">0</span>] * (<span class="type">size_t</span>)height;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (desc-&gt;flags &amp; AV_PIX_FMT_FLAG_PAL) &#123;</span><br><span class="line">        sizes[<span class="number">1</span>] = <span class="number">256</span> * <span class="number">4</span>; <span class="comment">/* palette is stored here as 256 32 bits words */</span></span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++)</span><br><span class="line">        has_plane[desc-&gt;comp[i].plane] = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; <span class="number">4</span> &amp;&amp; has_plane[i]; i++) &#123;</span><br><span class="line">        <span class="type">int</span> h, s = (i == <span class="number">1</span> || i == <span class="number">2</span>) ? desc-&gt;log2_chroma_h : <span class="number">0</span>;</span><br><span class="line">        h = (height + (<span class="number">1</span> &lt;&lt; s) - <span class="number">1</span>) &gt;&gt; s;</span><br><span class="line">        <span class="keyword">if</span> (linesizes[i] &gt; SIZE_MAX / h)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        sizes[i] = (<span class="type">size_t</span>)h * linesizes[i];</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>av_image_fill_plane_sizes 就是把 linesizes 和 height 相乘计算 plane size，同样对于 yuv420p 这种高度也是降采样的格式需要考虑 log2_chroma_h 参数</p>
+<p>平面之间还会有一个 plane_padding 大小的间距，这个可能是避免平面之间连续，但是具体作用我也不清楚。计算总的 size 是将每个平面的 size 和 plane_padding 加起来。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">total_size = <span class="number">4</span>*plane_padding;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (sizes[i] &gt; INT_MAX - total_size)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        total_size += sizes[i];</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>计算完总 size 后会分配一整块大的 buffer，然后通过 av_image_fill_pointers 函数将不同平面的 data 指针指向这个大 buffer 的不同部分。av_image_fill_pointers 让 data[0]指向 buffer 起始地址，后续的 buffer 则依次加上 plane size 递增</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_image_fill_pointers</span><span class="params">(<span class="type">uint8_t</span> *data[<span class="number">4</span>], <span class="keyword">enum</span> AVPixelFormat pix_fmt, <span class="type">int</span> height,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">uint8_t</span> *ptr, <span class="type">const</span> <span class="type">int</span> linesizes[<span class="number">4</span>])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> i, ret;</span><br><span class="line">    <span class="type">ptrdiff_t</span> linesizes1[<span class="number">4</span>];</span><br><span class="line">    <span class="type">size_t</span> sizes[<span class="number">4</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++)</span><br><span class="line">        linesizes1[i] = linesizes[i];</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_image_fill_plane_sizes</span>(sizes, pix_fmt, height, linesizes1);</span><br><span class="line"></span><br><span class="line">    data[<span class="number">0</span>] = ptr;</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; <span class="number">4</span> &amp;&amp; sizes[i]; i++)</span><br><span class="line">        data[i] = data[i - <span class="number">1</span>] + sizes[i - <span class="number">1</span>];</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后对 data 指针的进行调整，加上之前说的 plane_padding</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; <span class="number">4</span>; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;data[i])</span><br><span class="line">            frame-&gt;data[i] += i * plane_padding;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>到这里就把 buffer 对齐介绍完了，可以看到 ffmpeg 在分配 buffer 的时候会把宽度、linesize、高度进行对齐，同时 plane 之间还会有一个 padding 间距。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/22/move%E5%92%8Cforward/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-23 21:42:47
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#AVPixFmtDescriptor"><span class="toc-text">AVPixFmtDescriptor</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
