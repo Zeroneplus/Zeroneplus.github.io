@@ -11,9 +11,9 @@
   
   <title>
     
-      Hello World 
+      Category 
       
-      
+       : ffmpeg
       |
     
      ZeronePlus&#39; Blog
@@ -106,200 +106,111 @@
 
 
       <div class="flex-container">
-        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
-<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+        <!-- 标签详情页，展示某个标签下的文章列表，url形式：https://yoursite/tags/某个标签/ -->
 
-
-  <!-- LaTex Display -->
-
+<div class="container category-details">
+  <div class="content-title">
+    <h2>
+      <span>ffmpeg</span>
+    </h2>
+  </div>
   
-    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
-  
-  <script>
-    MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']]
-      }
-    }
-  </script>
-
-
-
-
-
-  <!-- clipboard -->
-
-  
-    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
-  
-  
-<script src="/js/codeCopy.js"></script>
-
-
-
-
-
-
-
-  
-
-  
-
-  
-
-  
-  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
-  <div class="container post-details" id="post-details">
-    <div class="post-content">
-      <div class="post-title">Hello World</div>
-      <div class="post-attach">
-        <span class="post-pubtime">
-          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
-          2023-02-23 21:56:11
-        </span>
-        
-              <span class="post-categories">
-                <i class="iconfont icon-bookmark" title="分类"></i>
-                
-                <span class="span--category">
-                  <a href="/categories/HELLO/" title="HELLO">
-                    <b>#</b> HELLO
-                  </a>
-                </span>
-                
-              </span>
-          
-              <span class="post-tags">
-                <i class="iconfont icon-tags mr-10" title="标签"></i>
-                
-                <span class="span--tag mr-8">
-                  <a href="/tags/Welcome/" title="Welcome">
-                    #Welcome
-                  </a>
-                </span>
-                
-              </span>
-          
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg之YUV像素格式">
+        <span class="time-m-d">2023-04-26</span>
+        <a href="/2023/04/26/ffmpeg%E4%B9%8BYUV%E5%83%8F%E7%B4%A0%E6%A0%BC%E5%BC%8F/">
+          <span>ffmpeg之YUV像素格式</span>
+        </a>
       </div>
-      <div class="markdown-body">
-        <p>Welcome to <a href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
-<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/writing.html">Writing</a></p>
-<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/server.html">Server</a></p>
-<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/generating.html">Generating</a></p>
-<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
-
-<p>More info: <a href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
-
-      </div>
-      
-        <div class="prev-or-next">
-          <div class="post-foot-next">
-            
-          </div>
-          <div class="post-attach">
-            <span class="post-pubtime">
-              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
-              2023-02-23 21:56:11
-            </span>
-            
-                  <span class="post-categories">
-                    <i class="iconfont icon-bookmark" title="分类"></i>
-                    
-                    <span class="span--category">
-                      <a href="/categories/HELLO/" title="HELLO">
-                        <b>#</b> HELLO
-                      </a>
-                    </span>
-                    
-                  </span>
-              
-                  <span class="post-tags">
-                    <i class="iconfont icon-tags mr-10" title="标签"></i>
-                    
-                    <span class="span--tag mr-8">
-                      <a href="/tags/Welcome/" title="Welcome">
-                        #Welcome
-                      </a>
-                    </span>
-                    
-                  </span>
-              
-          </div>
-          <div class="post-foot-prev">
-            
-              <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bunique-ptr/" target="_self">
-                <span>下一页</span>
-                <i class="iconfont icon-chevronright"></i>
-              </a>
-            
-          </div>
-        </div>
-      
     </div>
-    
-  <div id="btn-catalog" class="btn-catalog">
-    <i class="iconfont icon-catalog"></i>
-  </div>
-  <div class="post-catalog hidden" id="catalog">
-    <div class="title">目录</div>
-    <div class="catalog-content">
-      
-        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#Quick-Start"><span class="toc-text">Quick Start</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Create-a-new-post"><span class="toc-text">Create a new post</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Run-server"><span class="toc-text">Run server</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Generate-static-files"><span class="toc-text">Generate static files</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Deploy-to-remote-sites"><span class="toc-text">Deploy to remote sites</span></a></li></ol></li></ol>
-      
-    </div>
-  </div>
-
   
-<script src="/js/catalog.js"></script>
-
-
-
-
-    
-      <div class="comments-container">
-        
-
-
-
-
-  
-    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
-  
-
-  <div id="vcomments"></div>
-
-  <script>
-    function loadValineSuc() {
-      new Valine({
-        el: '#vcomments',
-        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
-        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
-        placeholder: '说点什么吧',
-        avatar: 'retro',
-        lang: 'zh-CN'
-      })
-    }
-  </script>
-
-    <style>
-      .comments-container .v .vempty {
-        display: none!important;
-      }
-    </style>
-
-
-
-
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg AVFrame buffer的分配与对齐">
+        <span class="time-m-d">2023-04-23</span>
+        <a href="/2023/04/23/ffmpeg-AVFrame-buffer%E7%9A%84%E5%88%86%E9%85%8D%E4%B8%8E%E5%AF%B9%E9%BD%90/">
+          <span>ffmpeg AVFrame buffer的分配与对齐</span>
+        </a>
       </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg filter之AVFilterLink">
+        <span class="time-m-d">2023-03-28</span>
+        <a href="/2023/03/28/ffmpeg-filter%E4%B9%8BAVFilterLink/">
+          <span>ffmpeg filter之AVFilterLink</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg filter之dump排错">
+        <span class="time-m-d">2023-03-25</span>
+        <a href="/2023/03/25/ffmpeg-filter%E4%B9%8Bdump%E6%8E%92%E9%94%99/">
+          <span>ffmpeg filter之dump排错</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg filter之状态变化与数据流转">
+        <span class="time-m-d">2023-03-21</span>
+        <a href="/2023/03/21/ffmpeg-filter%E4%B9%8B%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%B5%81%E8%BD%AC/">
+          <span>ffmpeg filter之状态变化与数据流转</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg filter之格式协商（format negotiation）">
+        <span class="time-m-d">2023-03-19</span>
+        <a href="/2023/03/19/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86%EF%BC%88format-negotiation%EF%BC%89/">
+          <span>ffmpeg filter之格式协商（format negotiation）</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg filter之创建filter与filtergraph">
+        <span class="time-m-d">2023-03-16</span>
+        <a href="/2023/03/16/ffmpeg-filter%E4%B9%8B%E5%88%9B%E5%BB%BAfilter%E4%B8%8Efiltergraph/">
+          <span>ffmpeg filter之创建filter与filtergraph</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg之AVFrame和AVPacket">
+        <span class="time-m-d">2023-03-13</span>
+        <a href="/2023/03/13/ffmpeg%E4%B9%8BAVFrame%E5%92%8CAVPacket/">
+          <span>ffmpeg之AVFrame和AVPacket</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg之AVDictionary">
+        <span class="time-m-d">2023-03-10</span>
+        <a href="/2023/03/10/ffmpeg%E4%B9%8BAVDictionary/">
+          <span>ffmpeg之AVDictionary</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="ffmpeg之AVOption和AVClass">
+        <span class="time-m-d">2023-03-07</span>
+        <a href="/2023/03/07/ffmpeg%E4%B9%8BAVOption%E5%92%8CAVClass/">
+          <span>ffmpeg之AVOption和AVClass</span>
+        </a>
+      </div>
+    </div>
+  
+  <nav class="post-navigation">
     
-  </div>
-
+    <span class="page-num">1 / 1</span>
+    
+  </nav>
+</div>
 
         
 <div class="footer">

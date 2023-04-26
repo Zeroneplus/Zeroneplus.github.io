@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      auto和decltype 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">auto和decltype</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-26 20:50:01
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/C-C/" title="C/C++">
+                    <b>#</b> C/C++
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/C-%E6%96%B0%E7%89%B9%E6%80%A7/" title="C++新特性">
+                    <b>#</b> C++新特性
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>auto 和 decltype 是 C++ 的类型推导工具，利用好这两个工具能方便平时的编码工作。这篇博客总结一下自己对于 auto 和 decltype 的理解。</p>
+<h2 id="auto"><a href="#auto" class="headerlink" title="auto"></a>auto</h2><p>auto 推导出现在变量定义中，通过赋值语句右边的值的类型来推断左边要定义的变量的类型。</p>
+<p>广义上变量定义包括显式的变量定义语句和函数的参数传递，所以模板函数的模板参数推断和变量定义语句中的 auto 推导的原理是一致的，下面介绍的关于 auto 推导的原理也适用于模板函数的模板参数推断。</p>
+<p>先看不带任何修饰的 auto 推导。当 auto 不带任何修饰时，会把右边的变量类型经过退化（decay）后得到的类型作为 auto 的类型，退化操作包括：</p>
+<ul>
+<li>去掉引用</li>
+<li>去掉顶层 const</li>
+<li>数组自动转换为指针、函数名自动转换为指针</li>
+</ul>
+<p>看下面几个例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span> i = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> i , &amp;j = i;</span><br><span class="line"><span class="type">int</span> <span class="type">const</span> k, &amp;l = k;</span><br><span class="line"><span class="type">char</span> a[] = <span class="string">&quot;hello&quot;</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">auto</span> b = j; <span class="comment">// 去掉引用                 auto为int</span></span><br><span class="line"><span class="keyword">auto</span> b = k; <span class="comment">// 去掉顶层const            auto为int</span></span><br><span class="line"><span class="keyword">auto</span> b = l; <span class="comment">// 去掉引用、去掉顶层const    auto为int</span></span><br><span class="line"><span class="keyword">auto</span> b = a; <span class="comment">// 数组自动转换为指针         auto为char*</span></span><br></pre></td></tr></table></figure>
+
+<p>第一条操作：去掉引用。这个很好理解，因为如果右边是引用，那么应当将右边变量视为被他引用的变量，这是引用的语义，引用是变量的别名。右边是引用并不意味着左边要定义的变量也是引用，将左边推断为引用显然是不合理的</p>
+<p>第二条操作：去掉顶层 const。由于 auto 没有加任何修饰符，那么此时不会把左边推断为引用，所以是值传递，既然是值传递，那么右边是否是顶层 const 对左边也没有影响，同样右边是 const 并不意味着左边也是 const</p>
+<p>第三条操作：假设右边是一个数组，如果 auto 推断时不进行数组转换为指针，那么左边推断得到的类型也是数组，就出现了数组赋值给数组的操作。这个操作在原有的 C++ 赋值规则中是不允许的，所以要进行转换，语言的设计要满足一致性，新引入的规则不应该和已有的规则矛盾。函数名自动转换为指针也类似。</p>
+<p>再看带修饰的 auto 推导。先看不带&amp;的情况，此时和上面不带任何修饰的 auto 推导没有本质区别，给 auto 加非引用修饰只是表示我们能确定左边类型的部分信息，看下面的例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="type">const</span> * i = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">auto</span> t = i; <span class="comment">// auto是int const *</span></span><br><span class="line"><span class="keyword">auto</span> * s = i; <span class="comment">// auto是int const</span></span><br><span class="line"><span class="keyword">auto</span> <span class="type">const</span> * k = i; <span class="comment">// auto是int</span></span><br></pre></td></tr></table></figure>
+
+<p>所以此时还是会对右边类型进行退化处理，然后将退化后的类型“减去”左边的已知部分得到 auto。此时 auto 就像一个<strong>占位符</strong>一样。</p>
+<p>带修饰的 auto 推导和不带修饰的 auto 推导还是有一点区别：带修饰的 auto 推导可以显式的添加 const 来把变量声明为顶层 const，但是不带修饰的 auto 由于类型退化不可能推断得到顶层 const；此外带修饰的 const 还可以让左边类型比右边类型更严格，比如加上额外的 const 修饰</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> * <span class="type">const</span> i = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">auto</span> <span class="type">const</span> *<span class="type">const</span> k = i; <span class="comment">// 左边类型比右边更严格</span></span><br></pre></td></tr></table></figure>
+
+<p>最后分析带&amp;的 auto 推导。给 auto 加上&amp;修饰后，表示左边想要定义一个引用，那么此时还需要对右边类型做退化吗？</p>
+<p>首先，引用要去掉，因为始终应该把右边的引用视为他绑定的对象，也就是右边的类型应该追溯到真正对象的类型，这一点在所有 auto 推导中都是一样的</p>
+<p>那剩余两个操作，去掉 const 和自动转换是否要执行呢？显然是不可以的，因为此时定义的是引用，而引用的语义是变量的别名，做了自动转换后引用指向的是转换后的类型，显然是错误的。看下面的例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> * <span class="type">const</span> i = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">auto</span>&amp; t = i; <span class="comment">// auto是int *const，不能去掉const</span></span><br><span class="line">             <span class="comment">// 如果去掉const， 那么t是int *&amp;，一个非const绑定到const，非法</span></span><br></pre></td></tr></table></figure>
+
+<p>所以带&amp;的 auto 推导不会执行退化的后两步，而是把右边类型去除引用后加上左边修饰的引用组成一个引用类型。</p>
+<p>再看几个例子加深一下印象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> a[<span class="number">3</span>] = &#123;<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>&#125;;</span><br><span class="line"><span class="keyword">auto</span> b = a; <span class="comment">// b 是int*</span></span><br><span class="line"><span class="keyword">auto</span>&amp; c = a; <span class="comment">// auto是int[3]，b是 int(&amp;)[3]</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">f</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">auto</span> d = f; <span class="comment">// auto是函数指针 int(*)()</span></span><br><span class="line"><span class="keyword">auto</span>&amp; e = f; <span class="comment">// auto是函数类型，e是函数引用</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="type">const</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span> j = i; <span class="comment">// j是int类型</span></span><br><span class="line"><span class="keyword">auto</span>&amp; k = i; <span class="comment">// k是int const&amp;类型</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="type">const</span>* <span class="type">const</span> p = <span class="literal">nullptr</span>;</span><br><span class="line"><span class="keyword">auto</span> q = p; <span class="comment">// q是int const*</span></span><br><span class="line"><span class="keyword">auto</span>&amp; r = p; <span class="comment">// q是int const* const &amp;</span></span><br></pre></td></tr></table></figure>
+
+<p>最后来看看 auto &amp;&amp;。auto &amp;&amp;被称为万能引用，他和模板函数中 T&amp;&amp;是一样的，可以接受左值或者右值参数，看下面的例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">auto</span>&amp;&amp; a = <span class="number">1</span>; <span class="comment">// 接受右值 auto是int，a是int&amp;&amp;类型</span></span><br><span class="line"><span class="type">int</span> b = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">auto</span>&amp;&amp; c = b; <span class="comment">// 接受左值，auto是int&amp;，根据引用折叠，c是int&amp;类型</span></span><br></pre></td></tr></table></figure>
+
+<p>auto&amp;&amp;推断时</p>
+<ul>
+<li>如果右边是左值，先按照 auto&amp;进行推断，推断得到 auto 后，在 auto 右边加一个&amp;组合成新的 auto，然后将这个新 auto 和&amp;&amp;组合，所以实际的类型是 auto&amp; &amp;&amp;，这里的 auto 是按照常规的 auto&amp;进行推断得到的，而&amp; &amp;&amp;最终会折叠为&amp;，所以当右边是左值时 audo&amp;&amp;等价于 auto&amp;</li>
+<li>如果右边是右值（包括纯右值和将亡值），先按照常规的 auto&amp;进行推断，推断得到 auto 之后不做处理，直接和&amp;&amp;组合，所以最后的类型是 auto &amp;&amp;</li>
+</ul>
+<p>auto&amp;&amp;推断时，右边类型也不会做退化的后两步，因为也是引用推断：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> <span class="type">const</span> i = <span class="number">1</span>;</span><br><span class="line"><span class="keyword">auto</span> &amp;&amp; j = i; <span class="comment">// auto是 int const&amp;, j经过折叠是int const&amp;</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="decltype"><a href="#decltype" class="headerlink" title="decltype"></a>decltype</h2><p>decltype 是另一种类型推导工具，他对表达式、变量进行推导，把表达式结果的类型、变量的类型作为自己的结果。</p>
+<p>如果 decltype 中只有单个变量，那么 decltype 推断得到的类型就是该变量在源码定义时的类型，比如</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i) k = i; <span class="comment">// k是int类型</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="type">const</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i) k = i; <span class="comment">// k是int const类型</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> <span class="type">const</span>* <span class="type">const</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i) k = i; <span class="comment">// k是int const* const类型</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> &amp;&amp;i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i) k = i; <span class="comment">// k是int &amp;&amp;类型</span></span><br><span class="line"></span><br><span class="line"><span class="type">int</span> &amp;i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i) k = i; <span class="comment">// k是int &amp;类型</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span> &#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">&#125;</span><br><span class="line"><span class="type">const</span> A a;</span><br><span class="line"><span class="keyword">decltype</span>(a.i) k = i; <span class="comment">// k是int类型，不是const int</span></span><br></pre></td></tr></table></figure>
+
+<p>注意‘单个变量’包含 <code>a-&gt;b, a.b</code> 这种形式</p>
+<p>所有其他的情况，decltype 推断规则如下：假设 decltype 中的表达式的类型为 T</p>
+<ul>
+<li>如果 decltype 中的表达式结果是左值，那么 decltype 推断得到的类型是 T&amp;</li>
+<li>如果 decltype 中的表达式结果是将亡值，那么 decltype 推断得到的类型是 T&amp;&amp;</li>
+<li>如果 decltype 中的表达式结果是纯右值，那么 decltype 推断得到的类型是 T</li>
+</ul>
+<p>左值、将亡值、纯右值的概念可以参见另一篇文章。</p>
+<p>我们通过具体例子分析上面的规则。</p>
+<p>第一条规则。<code>++p</code> 返回的是引用，即 <code>int *&amp;</code>，是左值，所以 decltype 推断是 <code>int *&amp; &amp;</code>，折叠得到 <code>int *&amp;</code>。<code>p[0]</code> 返回的也是引用，即 <code>int&amp;</code>，decltype 推断是 <code>int &amp; &amp;</code>，折叠得到 <code>int &amp;</code>。<code>f2()</code> 返回的也是引用，即 <code>int&amp;</code>，是左值，decltype 推断是 <code>int &amp; &amp;</code>，折叠得到 <code>int &amp;</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> *p;</span><br><span class="line"><span class="keyword">decltype</span>(++p) <span class="comment">// int *&amp;</span></span><br><span class="line"><span class="keyword">decltype</span>(p[<span class="number">0</span>]) <span class="comment">// int &amp;</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span>&amp; <span class="title">f2</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">decltype</span>(<span class="built_in">f2</span>()) <span class="comment">// int&amp;</span></span><br></pre></td></tr></table></figure>
+
+<p>第二条规则。<code>f1()</code> 返回将亡值，所以 decltype 推断得到 <code>int&amp;&amp; &amp;&amp;</code>，折叠得到 <code>int&amp;&amp;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span>&amp;&amp; <span class="title">f1</span><span class="params">()</span></span>;</span><br><span class="line"><span class="keyword">decltype</span>(<span class="built_in">f1</span>()) <span class="comment">/// int&amp;&amp;</span></span><br></pre></td></tr></table></figure>
+
+<p>第三条规则。<code>i+0</code> 返回纯右值，是 int 类型，所以 decltype 推断得到 int</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="keyword">decltype</span>(i+<span class="number">0</span>)  <span class="comment">// int</span></span><br></pre></td></tr></table></figure>
+
+<p>在 decltype 中最让人迷惑的是括号对 decltype 推断的影响。</p>
+<p>括号运算符本身不对括号内表达式结果的属性做任何修改，就好像没有括号一样，如果括号内表达式是左值、将亡值、纯右值，那么括号表达式的结果也是左值、将亡值、纯右值，但是有了括号之后就是表达式了，不能再使用之前单个变量的推导规则（哪怕括号内只有一个变量）。</p>
+<p>还是通过具体例子分析括号对 decltype 推断的影响。</p>
+<p>下面的例子中，对单个变量加了括号，此时 decltype 内部表达式的类型还是 <code>int</code> <code>int&amp;</code> <code>int&amp;&amp;</code>，但是加了括号之后需要按表达式的规则进行推断，由于他们都是左值（括号不会改变内部表达式结果的值属性），所以要加&amp;，即 <code>int&amp;</code> <code>int&amp; &amp;</code> <code>int&amp;&amp; &amp;</code>，经过折叠就是 <code>int&amp;</code> <code>int&amp;</code> <code>int&amp;</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line"><span class="type">int</span>&amp; j = i;</span><br><span class="line"><span class="type">int</span>&amp;&amp; k = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">decltype</span>((i))  <span class="comment">// int&amp;</span></span><br><span class="line"><span class="keyword">decltype</span>((j))  <span class="comment">// int&amp;</span></span><br><span class="line"><span class="keyword">decltype</span>((k))  <span class="comment">// int&amp;</span></span><br></pre></td></tr></table></figure>
+
+<p>下面例子则展示了括号对 <code>a.b</code> 推断的影响，此时要把 a 的类型考虑在内，即 <code>a.i</code> 得到 <code>int const&amp;</code> 类型，因为 a 是 const，而 <code>.</code> 运算符返回引用，最后 decltype 是 <code>int const&amp; &amp;</code>，折叠得到 <code>int const&amp;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">A</span> &#123;</span><br><span class="line">    <span class="type">int</span> i;</span><br><span class="line">&#125;</span><br><span class="line"><span class="type">const</span> A a;</span><br><span class="line"><span class="keyword">decltype</span>((a.i)) k = i; <span class="comment">// k是int const&amp;类型</span></span><br></pre></td></tr></table></figure>
+
+<p>下面的例子中，f1()返回将亡值，括号之后还是将亡值，decltype 推断时会加&amp;&amp;，即 <code>int&amp;&amp; &amp;&amp;</code>，折叠后就是 <code>int&amp;&amp;</code>，f2()返回左值引用，括号之后还是左值引用，decltype 推断时会加&amp;，即 <code>int&amp; &amp;</code>，折叠后就是 <code>int&amp;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span>&amp;&amp; <span class="title">f1</span><span class="params">()</span></span>;</span><br><span class="line"><span class="function"><span class="type">int</span>&amp; <span class="title">f2</span><span class="params">()</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">decltype</span>((<span class="built_in">f1</span>())) <span class="comment">// int&amp;&amp;</span></span><br><span class="line"><span class="keyword">decltype</span>((<span class="built_in">f2</span>())) <span class="comment">// int&amp;</span></span><br></pre></td></tr></table></figure>
+
+<p>括号遇到纯右值的情况比较简单，就好像没有括号一样</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">decltype</span>((<span class="number">1</span>+i)) <span class="comment">// int</span></span><br><span class="line"><span class="keyword">decltype</span>((<span class="number">1</span>))   <span class="comment">// int</span></span><br></pre></td></tr></table></figure>
+
+<p>最后注意 decltype 推断时不需要像 auto 一样做退化处理，上面分析时是没有对表达式结果的类型做退化处理的。</p>
+<p>参考资料：</p>
+<p><a href="https://magodo.github.io/cpp-auto-decltype/">https://magodo.github.io/cpp-auto-decltype/</a></p>
+<p><a href="http://thbecker.net/articles/auto_and_decltype/section_01.html">http://thbecker.net/articles/auto_and_decltype&#x2F;section_01.html</a></p>
+<p><a href="https://learn.microsoft.com/en-us/cpp/cpp/decltype-cpp?view=msvc-170">https://learn.microsoft.com/en-us/cpp/cpp/decltype-cpp?view=msvc-170</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/23/ffmpeg-AVFrame-buffer%E7%9A%84%E5%88%86%E9%85%8D%E4%B8%8E%E5%AF%B9%E9%BD%90/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-26 20:50:01
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-C/" title="C/C++">
+                        <b>#</b> C/C++
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-%E6%96%B0%E7%89%B9%E6%80%A7/" title="C++新特性">
+                        <b>#</b> C++新特性
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/26/%E4%BD%BF%E7%94%A8-gdb-%E8%BF%9B%E8%A1%8C%E8%B0%83%E8%AF%95%EF%BC%88%E5%88%9D%E7%BA%A7%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#auto"><span class="toc-text">auto</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#decltype"><span class="toc-text">decltype</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

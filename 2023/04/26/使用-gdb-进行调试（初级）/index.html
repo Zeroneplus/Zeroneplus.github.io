@@ -11,7 +11,7 @@
   
   <title>
     
-      archive_a: 2023/3 
+      使用 gdb 进行调试（初级） 
       
       
       |
@@ -106,203 +106,194 @@
 
 
       <div class="flex-container">
-        <!-- 归档页，展示本站所有文章，按照年份降序归类，url形式：https://yoursite/archives/ -->
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
 
-<!-- last: 按年份把文章分组，当前遍历到的年份 -->
-<!-- now: 当前遍历到的文章的发布年份 -->
 
-<div class="container archives">
-  <div class="post-list">
-    
-        <!-- 后续文章的发布年份呈现 -->
-        <div class="content-title">
-          <h2>
-            <span>2023</span>
-          </h2>
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">使用 gdb 进行调试（初级）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-26 20:51:42
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7/" title="编程工具">
+                    <b>#</b> 编程工具
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>最近使用了 gdb 对程序进行调试，使用体验非常好，有种相见恨晚的感觉。其实之前就知道这个工具，但是它是命令行工具没有图形界面，心里有种畏惧感所以一直没有使用。</p>
+<p>使用 gdb 调试比之前加 log 调试要舒服太多了，后面进行调试时要以 gdb 调试为主，加 log 为辅助手段。这篇文章就简要记录一下目前用到的 gdb 调试方法，后面用到更高级的调试方法会继续更新。</p>
+<h2 id="基本命令"><a href="#基本命令" class="headerlink" title="基本命令"></a>基本命令</h2><p>要想使用 gdb 进行调试，程序编译时必须带 <code>-g</code> 选项，比如 <code>gcc main.c -o main -g</code></p>
+<p>启动调试，可以直接 <code>gdb exefile</code>，也可以先进入 gdb 然后在 gdb 命令行内执行 <code>file exefile</code> 来加载可执行文件，如果可执行文件是可调试的，那么会出现 <code>Reading symbols from xxx...done.</code></p>
+<p>通过 run 命令开始执行程序，run 的简写为 r。如果没有设断点，run 之后会一直执行到程序结束。如果程序有命令行参数，则可在 run 的后面指定</p>
+<p>除了 run 还可以通过 start 指令让程序开始运行，但是 start 会停在程序的 main 函数的最开始</p>
+<p>设置断点通过 break 指令，简写为 b。设置断点可以是文件名加行号的方式，如 <code>b filename.c:122</code>，这适合工程很大，源文件很多的情况。还可以设置条件断点，让程序只有在一定条件下才会停下：<code>b filename.c:122 condition</code>，这个我没有使用过，就不细说。</p>
+<p>查看断点是通过 <code>info breakpoints</code>，删除断点通过 <code>delete breakpoint_num</code>，<code>breakpoint_num</code> 是 <code>info breakpoints</code> 时打印出的 <code>Num</code></p>
+<p>info 指令有很多子选项，比如 <code>info locals</code> 可以查看当前函数中的局部变量，<code>info frame</code> 查看当前函数调用栈，更多功能可以在 gdb 命令行中输入 info 查看</p>
+<p>查看断点附近源码，通过 <code>list</code> 命令，简写为 <code>l</code>，这个功能我也很少用，基本上都是对着源码调试</p>
+<p>查看当前函数调用栈通过 backtrace 指令，简写为 bt，这个指令也非常有用，可以方便的查看当前函数的调用层次，对于复杂的工程通过 bt 可以很快确定函数调用逻辑</p>
+<p>单步调试通过 next 命令，简写为 n，每一个 next 会执行当前上下文&#x2F;函数单元内的一条语句，比如某个语句是函数调用，那么 next 会执行这个函数，而不会进入到函数里面，再比如某个 <code>if (statement)</code> 的 <code>statement</code> 是复杂的语句，那么 next 会执行整个 <code>statement</code>。还可以在 next 后面加数字，比如 <code>n 2</code>，表示往后执行两条语句再停下。next 在分析复杂函数的执行流程时很有用，通过 next 可以清晰的看到程序的每个 if 分支走了哪里。</p>
+<p>单步调试的另一个指令是 step，这个指令比 next 要更细一些，他遇到函数时会进入函数，要想从函数中返回，即跳过后面的语句，可以通过 finish 指令，finish 会从当前函数调用点返回，并在下一条语句处停住</p>
+<p>continue 指令是让程序执行到下个断点，简写为 c</p>
+<p>skip 指令可以指定某个函数在 step 时不会进入，比如 <code>skip function hello</code>，那么在 step 时遇到 hello 函数将不会进入</p>
+<p>查看变量通过 print 指令，简写为 p，比如 <code>p var</code>，如果 var 是 char 类型指针，那么 p 会把字符串内容打印出来。如果 var 是 int 类型指针，那么可以对他解引用然后打印 <code>p *var</code></p>
+<p>除了查看变量，还可以设置变量，通过 set 指令，但是目前我还没有使用过这个变量，这里略过，等用到了再介绍</p>
+<p>最后要退出调试可以通过 quit 指令，简写为 q</p>
+<h2 id="value-optimized-out"><a href="#value-optimized-out" class="headerlink" title="value optimized out"></a>value optimized out</h2><p>使用 gdb 调试时，打印变量时可能会出现 <code>$30 = &lt;value optimized out&gt;</code> 的提示，这是因为编译器在编译时开了优化 <code>gcc -O3</code>，把变量优化掉了。</p>
+<p>此时可以关闭优化使用 <code>gcc -O0</code> 重新编译，也可以使用加 log 方法进行辅助。新版本的 gcc 有个优化选项 <code>gcc -Og</code>，这个优化选项的意思是在不影响 debug 的前提下尽可能去做优化（但是这个选项可能还是会出现 <code>value optimized out</code>，此时使用 <code>gcc -O0</code>）。除了上面的思路，还可以给变量加 volatile 限定，编译器不会对被这个限定符修饰的变量做优化，但是其他变量的优化还是会做的。</p>
+<p>除了优化导致 <code>value optimized out</code>，还可能由于变量覆盖导致 <code>value optimized out</code>，对于变量被覆盖时如何查看变量请参见 <a href="https://stackoverflow.com/questions/5497855/what-does-value-optimized-out-mean-in-gdb">What does <value optimized out> mean in gdb?</a> 。</p>
+<p>参考资料：</p>
+<p><a href="https://blog.csdn.net/chen1415886044/article/details/105094688">https://blog.csdn.net/chen1415886044/article/details/105094688</a></p>
+<p><a href="https://stackoverflow.com/questions/5497855/what-does-value-optimized-out-mean-in-gdb">What does <value optimized out> mean in gdb?</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/26/auto%E5%92%8Cdecltype/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-26 20:51:42
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7/" title="编程工具">
+                        <b>#</b> 编程工具
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/26/ffmpeg%E4%B9%8BYUV%E5%83%8F%E7%B4%A0%E6%A0%BC%E5%BC%8F/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
         </div>
       
-      <div class="post-item" title="ffmpeg之YUV像素格式">
-        <div class="time-m-d">04-26</div>
-        <div class="title">
-          <a href="/2023/04/26/ffmpeg%E4%B9%8BYUV%E5%83%8F%E7%B4%A0%E6%A0%BC%E5%BC%8F/">
-            <span>ffmpeg之YUV像素格式</span>
-          </a>
-        </div>
-      </div>
+    </div>
     
-      <div class="post-item" title="使用 gdb 进行调试（初级）">
-        <div class="time-m-d">04-26</div>
-        <div class="title">
-          <a href="/2023/04/26/%E4%BD%BF%E7%94%A8-gdb-%E8%BF%9B%E8%A1%8C%E8%B0%83%E8%AF%95%EF%BC%88%E5%88%9D%E7%BA%A7%EF%BC%89/">
-            <span>使用 gdb 进行调试（初级）</span>
-          </a>
-        </div>
-      </div>
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E5%91%BD%E4%BB%A4"><span class="toc-text">基本命令</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#value-optimized-out"><span class="toc-text">value optimized out</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
     
-      <div class="post-item" title="auto和decltype">
-        <div class="time-m-d">04-26</div>
-        <div class="title">
-          <a href="/2023/04/26/auto%E5%92%8Cdecltype/">
-            <span>auto和decltype</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg AVFrame buffer的分配与对齐">
-        <div class="time-m-d">04-23</div>
-        <div class="title">
-          <a href="/2023/04/23/ffmpeg-AVFrame-buffer%E7%9A%84%E5%88%86%E9%85%8D%E4%B8%8E%E5%AF%B9%E9%BD%90/">
-            <span>ffmpeg AVFrame buffer的分配与对齐</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="move和forward">
-        <div class="time-m-d">04-22</div>
-        <div class="title">
-          <a href="/2023/04/22/move%E5%92%8Cforward/">
-            <span>move和forward</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="左值、右值、左值引用、右值引用">
-        <div class="time-m-d">04-22</div>
-        <div class="title">
-          <a href="/2023/04/22/%E5%B7%A6%E5%80%BC%E3%80%81%E5%8F%B3%E5%80%BC%E3%80%81%E5%B7%A6%E5%80%BC%E5%BC%95%E7%94%A8%E3%80%81%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8/">
-            <span>左值、右值、左值引用、右值引用</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="C语言的变长参数函数">
-        <div class="time-m-d">04-06</div>
-        <div class="title">
-          <a href="/2023/04/06/C%E8%AF%AD%E8%A8%80%E7%9A%84%E5%8F%98%E9%95%BF%E5%8F%82%E6%95%B0%E5%87%BD%E6%95%B0/">
-            <span>C语言的变长参数函数</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="delete[]和delete">
-        <div class="time-m-d">04-02</div>
-        <div class="title">
-          <a href="/2023/04/02/delete-%E5%92%8Cdelete/">
-            <span>delete[]和delete</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg filter之AVFilterLink">
-        <div class="time-m-d">03-28</div>
-        <div class="title">
-          <a href="/2023/03/28/ffmpeg-filter%E4%B9%8BAVFilterLink/">
-            <span>ffmpeg filter之AVFilterLink</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg filter之dump排错">
-        <div class="time-m-d">03-25</div>
-        <div class="title">
-          <a href="/2023/03/25/ffmpeg-filter%E4%B9%8Bdump%E6%8E%92%E9%94%99/">
-            <span>ffmpeg filter之dump排错</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg filter之状态变化与数据流转">
-        <div class="time-m-d">03-21</div>
-        <div class="title">
-          <a href="/2023/03/21/ffmpeg-filter%E4%B9%8B%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%B5%81%E8%BD%AC/">
-            <span>ffmpeg filter之状态变化与数据流转</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg filter之格式协商（format negotiation）">
-        <div class="time-m-d">03-19</div>
-        <div class="title">
-          <a href="/2023/03/19/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86%EF%BC%88format-negotiation%EF%BC%89/">
-            <span>ffmpeg filter之格式协商（format negotiation）</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg filter之创建filter与filtergraph">
-        <div class="time-m-d">03-16</div>
-        <div class="title">
-          <a href="/2023/03/16/ffmpeg-filter%E4%B9%8B%E5%88%9B%E5%BB%BAfilter%E4%B8%8Efiltergraph/">
-            <span>ffmpeg filter之创建filter与filtergraph</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVFrame和AVPacket">
-        <div class="time-m-d">03-13</div>
-        <div class="title">
-          <a href="/2023/03/13/ffmpeg%E4%B9%8BAVFrame%E5%92%8CAVPacket/">
-            <span>ffmpeg之AVFrame和AVPacket</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVDictionary">
-        <div class="time-m-d">03-10</div>
-        <div class="title">
-          <a href="/2023/03/10/ffmpeg%E4%B9%8BAVDictionary/">
-            <span>ffmpeg之AVDictionary</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVOption和AVClass">
-        <div class="time-m-d">03-07</div>
-        <div class="title">
-          <a href="/2023/03/07/ffmpeg%E4%B9%8BAVOption%E5%92%8CAVClass/">
-            <span>ffmpeg之AVOption和AVClass</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="declval是什么">
-        <div class="time-m-d">03-04</div>
-        <div class="title">
-          <a href="/2023/03/04/declval%E6%98%AF%E4%BB%80%E4%B9%88/">
-            <span>declval是什么</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="decltype(auto)用法">
-        <div class="time-m-d">03-04</div>
-        <div class="title">
-          <a href="/2023/03/04/decltype-auto-%E7%94%A8%E6%B3%95/">
-            <span>decltype(auto)用法</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="C++标准库智能指针之shared_ptr和weak_ptr">
-        <div class="time-m-d">03-01</div>
-        <div class="title">
-          <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bshared-ptr%E5%92%8Cweak-ptr/">
-            <span>C++标准库智能指针之shared_ptr和weak_ptr</span>
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="C++标准库智能指针之unique_ptr">
-        <div class="time-m-d">03-01</div>
-        <div class="title">
-          <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bunique-ptr/">
-            <span>C++标准库智能指针之unique_ptr</span>
-          </a>
-        </div>
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
       </div>
     
   </div>
-</div>
+
 
         
 <div class="footer">
