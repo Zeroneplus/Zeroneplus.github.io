@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Gobject初始化之类型注册 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Gobject初始化之类型注册</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-17 10:17:50
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/gobject/" title="gobject">
+                    <b>#</b> gobject
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客介绍 Gobject 的初始化流程，由于 Gobject 初始化的内容比较多，所以先介绍类型注册。</p>
+<p>要使用一个 Gobject 类，我们必须将他注册到 Gobject 中，以前面博客中的代码为例，注册是在 my_obj_get_type_once 中调用 g_type_register_static_simple 实现的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> GType </span></span><br><span class="line"><span class="function"><span class="title">my_obj_get_type_once</span> <span class="params">(<span class="type">void</span>)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">  GType g_define_type_id = </span><br><span class="line">        <span class="built_in">g_type_register_static_simple</span> (G_TYPE_OBJECT, </span><br><span class="line">                                       <span class="built_in">g_intern_static_string</span> (<span class="string">&quot;MyObj&quot;</span>), </span><br><span class="line">                                       <span class="built_in">sizeof</span> (MyObjClass), </span><br><span class="line">                                       (GClassInitFunc)(<span class="built_in">void</span> (*)(<span class="type">void</span>)) my_obj_class_intern_init, </span><br><span class="line">                                       <span class="built_in">sizeof</span> (MyObj), </span><br><span class="line">                                       (GInstanceInitFunc)(<span class="built_in">void</span> (*)(<span class="type">void</span>)) my_obj_init, </span><br><span class="line">                                       (GTypeFlags) <span class="number">0</span>); </span><br><span class="line">    &#123; <span class="comment">/* custom code follows */</span> </span><br><span class="line">    </span><br><span class="line">      <span class="comment">/* following custom code */</span> </span><br><span class="line">    &#125; </span><br><span class="line">  <span class="keyword">return</span> g_define_type_id; </span><br><span class="line">&#125; <span class="comment">/* closes my_obj_get_type_once() */</span></span><br></pre></td></tr></table></figure>
+
+<h1 id="g-type-register-static-simple"><a href="#g-type-register-static-simple" class="headerlink" title="g_type_register_static_simple"></a>g_type_register_static_simple</h1><p>看看 g_type_register_static_simple 到底做了什么</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GType</span></span><br><span class="line"><span class="function"><span class="title">g_type_register_static_simple</span> <span class="params">(GType             parent_type,</span></span></span><br><span class="line"><span class="params"><span class="function">             <span class="type">const</span> gchar      *type_name,</span></span></span><br><span class="line"><span class="params"><span class="function">             guint             class_size,</span></span></span><br><span class="line"><span class="params"><span class="function">             GClassInitFunc    class_init,</span></span></span><br><span class="line"><span class="params"><span class="function">             guint             instance_size,</span></span></span><br><span class="line"><span class="params"><span class="function">             GInstanceInitFunc instance_init,</span></span></span><br><span class="line"><span class="params"><span class="function">             GTypeFlags  flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GTypeInfo info;</span><br><span class="line">...</span><br><span class="line">  info.class_size = class_size;</span><br><span class="line">  info.base_init = <span class="literal">NULL</span>;</span><br><span class="line">  info.base_finalize = <span class="literal">NULL</span>;</span><br><span class="line">  info.class_init = class_init;</span><br><span class="line">  info.class_finalize = <span class="literal">NULL</span>;</span><br><span class="line">  info.class_data = <span class="literal">NULL</span>;</span><br><span class="line">  info.instance_size = instance_size;</span><br><span class="line">  info.n_preallocs = <span class="number">0</span>;</span><br><span class="line">  info.instance_init = instance_init;</span><br><span class="line">  info.value_table = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">g_type_register_static</span> (parent_type, type_name, &amp;info, flags);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_GTypeInfo</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="comment">/* interface types, classed types, instantiated types */</span></span><br><span class="line">  guint16                class_size;</span><br><span class="line">  </span><br><span class="line">  GBaseInitFunc          base_init;</span><br><span class="line">  GBaseFinalizeFunc      base_finalize;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* interface types, classed types, instantiated types */</span></span><br><span class="line">  GClassInitFunc         class_init;</span><br><span class="line">  GClassFinalizeFunc     class_finalize;</span><br><span class="line">  gconstpointer          class_data;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* instantiated types */</span></span><br><span class="line">  guint16                instance_size;</span><br><span class="line">  guint16                n_preallocs;</span><br><span class="line">  GInstanceInitFunc      instance_init;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* value handling */</span></span><br><span class="line">  <span class="type">const</span> GTypeValueTable *value_table;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="g-type-register-static"><a href="#g-type-register-static" class="headerlink" title="g_type_register_static"></a>g_type_register_static</h2><p>g_type_register_static_simple 函数内部把参数组装成 GTypeInfo 结构，然后调用 g_type_register_static 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GType</span></span><br><span class="line"><span class="function"><span class="title">g_type_register_static</span> <span class="params">(GType            parent_type,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> gchar     *type_name,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> GTypeInfo *info,</span></span></span><br><span class="line"><span class="params"><span class="function">      GTypeFlags   flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *pnode, *node;</span><br><span class="line">  GType type = <span class="number">0</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert_type_system_initialized</span> ();</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (parent_type &gt; <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">check_type_name_I</span> (type_name) ||</span><br><span class="line">      !<span class="built_in">check_derivation_I</span> (parent_type, type_name))</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">if</span> (info-&gt;class_finalize)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;class finalizer specified for static type &#x27;%s&#x27;&quot;</span>,</span><br><span class="line">     type_name);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  pnode = <span class="built_in">lookup_type_node_I</span> (parent_type);</span><br><span class="line">  <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  <span class="built_in">type_data_ref_Wm</span> (pnode);</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">check_type_info_I</span> (pnode, <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (pnode), type_name, info))</span><br><span class="line">    &#123;</span><br><span class="line">      node = <span class="built_in">type_node_new_W</span> (pnode, type_name, <span class="literal">NULL</span>);</span><br><span class="line">      <span class="built_in">type_add_flags_W</span> (node, flags);</span><br><span class="line">      type = <span class="built_in">NODE_TYPE</span> (node);</span><br><span class="line">      <span class="built_in">type_data_make_W</span> (node, info,</span><br><span class="line">      <span class="built_in">check_value_table_I</span> (type_name, info-&gt;value_table) ? info-&gt;value_table : <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> type;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="check-type-name-I-x2F-check-derivation-I"><a href="#check-type-name-I-x2F-check-derivation-I" class="headerlink" title="check_type_name_I&#x2F;check_derivation_I"></a>check_type_name_I&#x2F;check_derivation_I</h3><p>简单看看 check_type_name_I 和 check_derivation_I，check_type_name_I 就是从全局静态的 hash 表 static_type_nodes_ht 中查找是否已经有同名类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> gboolean</span></span><br><span class="line"><span class="function"><span class="title">check_type_name_I</span> <span class="params">(<span class="type">const</span> gchar *type_name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">g_type_from_name</span> (type_name))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot register existing type &#x27;%s&#x27;&quot;</span>, type_name);</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function">GType</span></span><br><span class="line"><span class="function"><span class="title">g_type_from_name</span> <span class="params">(<span class="type">const</span> gchar *name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GType type = <span class="number">0</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (name != <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_READ_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  type = (GType) <span class="built_in">g_hash_table_lookup</span> (static_type_nodes_ht, name);</span><br><span class="line">  <span class="built_in">G_READ_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> type;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>check_derivation_I 则是检查父类是否能被继承</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> gboolean</span></span><br><span class="line"><span class="function"><span class="title">check_derivation_I</span> <span class="params">(GType        parent_type,</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">const</span> gchar *type_name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *pnode;</span><br><span class="line">  GTypeFundamentalInfo* finfo;</span><br><span class="line">  </span><br><span class="line">  pnode = <span class="built_in">lookup_type_node_I</span> (parent_type);</span><br><span class="line">  <span class="keyword">if</span> (!pnode)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot derive type &#x27;%s&#x27; from invalid parent type &#x27;%s&#x27;&quot;</span>, ...);</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">    &#125;</span><br><span class="line">  finfo = <span class="built_in">type_node_fundamental_info_I</span> (pnode);</span><br><span class="line">  <span class="comment">/* ensure flat derivability */</span></span><br><span class="line">  <span class="keyword">if</span> (!(finfo-&gt;type_flags &amp; G_TYPE_FLAG_DERIVABLE))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot derive &#x27;%s&#x27; from non-derivable parent type &#x27;%s&#x27;&quot;</span>, ...);</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="comment">/* ensure deep derivability */</span></span><br><span class="line">  <span class="keyword">if</span> (parent_type != <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (pnode) &amp;&amp;</span><br><span class="line">      !(finfo-&gt;type_flags &amp; G_TYPE_FLAG_DEEP_DERIVABLE))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot derive &#x27;%s&#x27; from non-fundamental parent type &#x27;%s&#x27;&quot;</span>, ...);</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">if</span> ((G_TYPE_FLAG_FINAL &amp; <span class="built_in">GPOINTER_TO_UINT</span> (<span class="built_in">type_get_qdata_L</span> (pnode, static_quark_type_flags))) == G_TYPE_FLAG_FINAL)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot derive &#x27;%s&#x27; from final parent type &#x27;%s&#x27;&quot;</span>, ...);</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="lookup-type-node-I"><a href="#lookup-type-node-I" class="headerlink" title="lookup_type_node_I"></a>lookup_type_node_I</h4><p>lookup_type_node_I 通过输入的 GType 返回 TypeNode<em>，对于非基本类型，输入的 utype 经过掩码还原之后得到一个 TypeNode</em>，对于基本类型，输入的 utype 是全局数组 static_fundamental_type_nodes 的索引</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> TypeNode*</span></span><br><span class="line"><span class="function"><span class="title">lookup_type_node_I</span> <span class="params">(GType utype)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (utype &gt; G_TYPE_FUNDAMENTAL_MAX)</span><br><span class="line">    <span class="keyword">return</span> (TypeNode*) (utype &amp; ~TYPE_ID_MASK);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="keyword">return</span> static_fundamental_type_nodes[utype &gt;&gt; G_TYPE_FUNDAMENTAL_SHIFT];</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> TYPE_ID_MASK        ((GType) ((1 &lt;&lt; G_TYPE_FUNDAMENTAL_SHIFT) - 1))</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="type-node-fundamental-info-I"><a href="#type-node-fundamental-info-I" class="headerlink" title="type_node_fundamental_info_I"></a>type_node_fundamental_info_I</h4><p>如果输入的 node 不是他继承体系中最顶层的 fundamental type，就获得最顶层的 fundamental type，然后从 fundamental type 中获得 GTypeFundamentalInfo</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> GTypeFundamentalInfo*</span></span><br><span class="line"><span class="function"><span class="title">type_node_fundamental_info_I</span> <span class="params">(TypeNode *node)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GType ftype = <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (node);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (ftype != <span class="built_in">NODE_TYPE</span> (node))</span><br><span class="line">    node = <span class="built_in">lookup_type_node_I</span> (ftype);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> node ? <span class="built_in">G_STRUCT_MEMBER_P</span> (node, -SIZEOF_FUNDAMENTAL_INFO) : <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 这几个宏涉及到父子类继承关系的表示，下面再分析</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_TYPE(node)       (node-&gt;supers[0])</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_PARENT_TYPE(node)      (node-&gt;supers[1])</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_FUNDAMENTAL_TYPE(node)   (node-&gt;supers[node-&gt;n_supers])</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="type-data-ref-Wm"><a href="#type-data-ref-Wm" class="headerlink" title="type_data_ref_Wm"></a>type_data_ref_Wm</h3><p>g_type_register_static 函数通过 lookup_type_node_I 查找到父类的 TypeNode 指针后，type_data_ref_Wm 父类 TypeNode 指针</p>
+<p>type_data_ref_Wm 是一个递归的过程，如果传入的 node 指针指向的 TypeNode 还没初始化（识别条件为 node-&gt;data 为空），那么会对当前 node 进行初始化，初始化时又需要 type_data_ref_Wm 当前 node 的父类，如此递归向上逐级初始化父类，当父类初始化并 type_data_ref_Wm 结束后，再初始化当前 node，初始化 node 所需要的 GTypeInfo、GTypeValueTable 来自 node 关联的 plugin，一般在 plugin 加载时会创建 node 节点，但是 node 节点不会立即初始化，直到使用时才初始化</p>
+<p>当 type_data_ref_Wm 执行时，如果当前 node 已经初始化，则增加他的引用计数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">type_data_ref_Wm</span> <span class="params">(TypeNode *node)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!node-&gt;data)</span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (node));</span><br><span class="line">      GTypeInfo tmp_info;</span><br><span class="line">      GTypeValueTable tmp_value_table;</span><br><span class="line">      </span><br><span class="line">      <span class="built_in">g_assert</span> (node-&gt;plugin != <span class="literal">NULL</span>);</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (pnode)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="built_in">type_data_ref_Wm</span> (pnode);</span><br><span class="line">    <span class="keyword">if</span> (node-&gt;data)</span><br><span class="line">      <span class="built_in">INVALID_RECURSION</span> (<span class="string">&quot;g_type_plugin_*&quot;</span>, node-&gt;plugin, <span class="built_in">NODE_NAME</span> (node));</span><br><span class="line">  &#125;</span><br><span class="line">      </span><br><span class="line">      <span class="built_in">memset</span> (&amp;tmp_info, <span class="number">0</span>, <span class="built_in">sizeof</span> (tmp_info));</span><br><span class="line">      <span class="built_in">memset</span> (&amp;tmp_value_table, <span class="number">0</span>, <span class="built_in">sizeof</span> (tmp_value_table));</span><br><span class="line">      </span><br><span class="line">      <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line">      <span class="built_in">g_type_plugin_use</span> (node-&gt;plugin);</span><br><span class="line">      <span class="built_in">g_type_plugin_complete_type_info</span> (node-&gt;plugin, <span class="built_in">NODE_TYPE</span> (node), &amp;tmp_info, &amp;tmp_value_table);</span><br><span class="line">      <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line">      <span class="keyword">if</span> (node-&gt;data)</span><br><span class="line">  <span class="built_in">INVALID_RECURSION</span> (<span class="string">&quot;g_type_plugin_*&quot;</span>, node-&gt;plugin, <span class="built_in">NODE_NAME</span> (node));</span><br><span class="line">      </span><br><span class="line">      <span class="built_in">check_type_info_I</span> (pnode, <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (node), <span class="built_in">NODE_NAME</span> (node), &amp;tmp_info);</span><br><span class="line">      <span class="built_in">type_data_make_W</span> (node, &amp;tmp_info,</span><br><span class="line">      <span class="built_in">check_value_table_I</span> (<span class="built_in">NODE_NAME</span> (node),</span><br><span class="line">               &amp;tmp_value_table) ? &amp;tmp_value_table : <span class="literal">NULL</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_assert</span> (<span class="built_in">NODE_REFCOUNT</span> (node) &gt; <span class="number">0</span>);</span><br><span class="line">      </span><br><span class="line">      <span class="built_in">g_atomic_int_inc</span> ((<span class="type">int</span> *) &amp;node-&gt;ref_count);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="type-node-new-W"><a href="#type-node-new-W" class="headerlink" title="type_node_new_W"></a>type_node_new_W</h3><p>对父类的 TypeNode 指针调用 type_data_ref_Wm 之后，会调用 type_node_new_W 函数创建来创建子类的 TypeNode。由于 type_data_ref_Wm 会递归向上检查所有父类是否初始化，所以 type_data_ref_Wm 执行完成后保证父类处于已经初始化的状态。</p>
+<p>这里要注意，node 要先创建才能初始化，但这两个过程不需要同时执行，比如上面 type_data_ref_Wm 里面的 node 就已经创建了但是可能没有初始化，所以只用调用 type_data_make_W 来初始化 node，但是在 g_type_register_static 中，当前的逻辑就是要创建并初始化 node，所以先通过 type_node_new_W 创建当前节点，然后同 type_data_make_W 初始化</p>
+<p>还可以看到 type_node_new_W 传了一个 GTypePlugin *参数，这就和之前对上了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> TypeNode*</span></span><br><span class="line"><span class="function"><span class="title">type_node_new_W</span> <span class="params">(TypeNode    *pnode,</span></span></span><br><span class="line"><span class="params"><span class="function">     <span class="type">const</span> gchar *name,</span></span></span><br><span class="line"><span class="params"><span class="function">     GTypePlugin *plugin)</span></span></span><br><span class="line"><span class="function">     </span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="built_in">g_assert</span> (pnode);</span><br><span class="line">  <span class="built_in">g_assert</span> (pnode-&gt;n_supers &lt; MAX_N_SUPERS);</span><br><span class="line">  <span class="built_in">g_assert</span> (pnode-&gt;n_children &lt; MAX_N_CHILDREN);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">type_node_any_new_W</span> (pnode, <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (pnode), name, plugin, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_TYPE(node)       (node-&gt;supers[0])</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_PARENT_TYPE(node)      (node-&gt;supers[1])</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> NODE_FUNDAMENTAL_TYPE(node)   (node-&gt;supers[node-&gt;n_supers])</span></span><br></pre></td></tr></table></figure>
+
+<h4 id="type-node-any-new-W"><a href="#type-node-any-new-W" class="headerlink" title="type_node_any_new_W"></a>type_node_any_new_W</h4><p>type_node_new_W 内部调用 type_node_any_new_W 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> TypeNode*</span></span><br><span class="line"><span class="function"><span class="title">type_node_any_new_W</span> <span class="params">(TypeNode             *pnode,</span></span></span><br><span class="line"><span class="params"><span class="function">         GType                 ftype, <span class="comment">// FUNDAMENTAL_TYPE</span></span></span></span><br><span class="line"><span class="params"><span class="function">         <span class="type">const</span> gchar          *name,</span></span></span><br><span class="line"><span class="params"><span class="function">         GTypePlugin          *plugin,</span></span></span><br><span class="line"><span class="params"><span class="function">         GTypeFundamentalFlags type_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  guint n_supers;</span><br><span class="line">  GType type;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  guint i, node_size = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">  n_supers = pnode ? pnode-&gt;n_supers + <span class="number">1</span> : <span class="number">0</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/*</span></span><br><span class="line"><span class="comment">  如果想注册基本类型时，那么传入的pnode指针需要为空</span></span><br><span class="line"><span class="comment">  此时会额外增加一个SIZEOF_FUNDAMENTAL_INFO大小的内存存储基本类型信息</span></span><br><span class="line"><span class="comment">  同时如果是注册基本类型，会把node指针放到static_fundamental_type_nodes数组中</span></span><br><span class="line"><span class="comment">  这和之前lookup_type_node逻辑对应</span></span><br><span class="line"><span class="comment">  */</span></span><br><span class="line">  <span class="keyword">if</span> (!pnode)</span><br><span class="line">    node_size += SIZEOF_FUNDAMENTAL_INFO;       <span class="comment">/* fundamental type info */</span></span><br><span class="line">  node_size += <span class="built_in">SIZEOF_BASE_TYPE_NODE</span> ();        <span class="comment">/* TypeNode structure */</span></span><br><span class="line">  node_size += (<span class="built_in">sizeof</span> (GType) * (<span class="number">1</span> + n_supers + <span class="number">1</span>)); <span class="comment">/* self + ancestors + (0) for -&gt;supers[] */</span></span><br><span class="line">  node = <span class="built_in">g_malloc0</span> (node_size);</span><br><span class="line">  <span class="keyword">if</span> (!pnode)               <span class="comment">/* offset fundamental types */</span></span><br><span class="line">    &#123;</span><br><span class="line">      node = <span class="built_in">G_STRUCT_MEMBER_P</span> (node, SIZEOF_FUNDAMENTAL_INFO);</span><br><span class="line">      static_fundamental_type_nodes[ftype &gt;&gt; G_TYPE_FUNDAMENTAL_SHIFT] = node;</span><br><span class="line">      type = ftype;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    type = (GType) node;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert</span> ((type &amp; TYPE_ID_MASK) == <span class="number">0</span>);</span><br><span class="line">  </span><br><span class="line">  node-&gt;n_supers = n_supers;</span><br><span class="line">  <span class="keyword">if</span> (!pnode)</span><br><span class="line">    &#123; <span class="comment">// 如果是注册基本类型，那么他没有super</span></span><br><span class="line">      node-&gt;supers[<span class="number">0</span>] = type;</span><br><span class="line">      node-&gt;supers[<span class="number">1</span>] = <span class="number">0</span>;</span><br><span class="line">      </span><br><span class="line">      node-&gt;is_classed = (type_flags &amp; G_TYPE_FLAG_CLASSED) != <span class="number">0</span>;</span><br><span class="line">      node-&gt;is_instantiatable = (type_flags &amp; G_TYPE_FLAG_INSTANTIATABLE) != <span class="number">0</span>;</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">NODE_IS_IFACE</span> (node))</span><br><span class="line">  &#123;</span><br><span class="line">          <span class="built_in">IFACE_NODE_N_PREREQUISITES</span> (node) = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">IFACE_NODE_PREREQUISITES</span> (node) = <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">  _g_atomic_array_init (<span class="built_in">CLASSED_NODE_IFACES_ENTRIES</span> (node));</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      node-&gt;supers[<span class="number">0</span>] = type;</span><br><span class="line">      <span class="built_in">memcpy</span> (node-&gt;supers + <span class="number">1</span>, pnode-&gt;supers, <span class="built_in">sizeof</span> (GType) * (<span class="number">1</span> + pnode-&gt;n_supers + <span class="number">1</span>));</span><br><span class="line">      </span><br><span class="line">      node-&gt;is_classed = pnode-&gt;is_classed;</span><br><span class="line">      node-&gt;is_instantiatable = pnode-&gt;is_instantiatable;</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">NODE_IS_IFACE</span> (node))</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="built_in">IFACE_NODE_N_PREREQUISITES</span> (node) = <span class="number">0</span>;</span><br><span class="line">    <span class="built_in">IFACE_NODE_PREREQUISITES</span> (node) = <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">  &#123;</span><br><span class="line">    guint j;</span><br><span class="line">    IFaceEntries *entries;</span><br><span class="line"></span><br><span class="line">    entries = _g_atomic_array_copy (<span class="built_in">CLASSED_NODE_IFACES_ENTRIES</span> (pnode),</span><br><span class="line">            IFACE_ENTRIES_HEADER_SIZE,</span><br><span class="line">            <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> (entries)</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; <span class="built_in">IFACE_ENTRIES_N_ENTRIES</span> (entries); j++)</span><br><span class="line">    &#123;</span><br><span class="line">      entries-&gt;entry[j].vtable = <span class="literal">NULL</span>;</span><br><span class="line">      entries-&gt;entry[j].init_state = UNINITIALIZED;</span><br><span class="line">    &#125;</span><br><span class="line">        _g_atomic_array_update (<span class="built_in">CLASSED_NODE_IFACES_ENTRIES</span> (node),</span><br><span class="line">              entries);</span><br><span class="line">      &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 把当前node加到pnode的子类中</span></span><br><span class="line">      i = pnode-&gt;n_children++;</span><br><span class="line">      pnode-&gt;children = <span class="built_in">g_renew</span> (GType, pnode-&gt;children, pnode-&gt;n_children);</span><br><span class="line">      pnode-&gt;children[i] = type;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">TRACE</span>(<span class="built_in">GOBJECT_TYPE_NEW</span>(name, node-&gt;supers[<span class="number">1</span>], type));</span><br><span class="line"></span><br><span class="line">  node-&gt;plugin = plugin;</span><br><span class="line">  node-&gt;n_children = <span class="number">0</span>;</span><br><span class="line">  node-&gt;children = <span class="literal">NULL</span>;</span><br><span class="line">  node-&gt;data = <span class="literal">NULL</span>;</span><br><span class="line">  node-&gt;qname = <span class="built_in">g_quark_from_string</span> (name);</span><br><span class="line">  node-&gt;global_gdata = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="built_in">g_hash_table_insert</span> (static_type_nodes_ht,</span><br><span class="line">           (gpointer) <span class="built_in">g_quark_to_string</span> (node-&gt;qname),</span><br><span class="line">           (gpointer) type);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_atomic_int_inc</span> ((gint *)&amp;type_registration_serial);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>type_node_any_new_W 函数最主要的工作是配置父子类之间的继承关系，继承关系是通过 TypeNode 中的 n_supers、supers、n_children、children 成员来控制的：</p>
+<ul>
+<li><p>n_supers 是个整数，代表当前 TypeNode 有多少个父类</p>
+</li>
+<li><p>supers 是数组，他的第 0 项代表自己，第 1 到 n_supers 项代表父类的 TypeNode 指针，最后一项固定为 0</p>
+<ul>
+<li>对于基本类型，其没有父类，所以 supers 数组只有两项，0 项为自己，第 1 项为 0</li>
+</ul>
+</li>
+<li><p>n_children 是个整数，代表当前 TypeNode 有多少个子类</p>
+</li>
+<li><p>children 是数组，每一项指向一个子类 TypeNode</p>
+</li>
+</ul>
+<p>TypeNode 结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">_TypeNode</span></span><br><span class="line">&#123;</span><br><span class="line">  guint        ref_count;  <span class="comment">/* (atomic) */</span></span><br><span class="line"><span class="meta">#<span class="keyword">ifdef</span> G_ENABLE_DEBUG</span></span><br><span class="line">  guint        instance_count;  <span class="comment">/* (atomic) */</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  GTypePlugin *plugin;</span><br><span class="line">  guint        n_children; <span class="comment">/* writable with lock */</span></span><br><span class="line">  guint        n_supers : <span class="number">8</span>;</span><br><span class="line">  guint        n_prerequisites : <span class="number">9</span>;</span><br><span class="line">  guint        is_classed : <span class="number">1</span>;</span><br><span class="line">  guint        is_instantiatable : <span class="number">1</span>;</span><br><span class="line">  guint        mutatable_check_cache : <span class="number">1</span>; <span class="comment">/* combines some common path checks */</span></span><br><span class="line">  GType       *children; <span class="comment">/* writable with lock */</span></span><br><span class="line">  TypeData    *data;</span><br><span class="line">  GQuark       qname;</span><br><span class="line">  GData       *global_gdata;</span><br><span class="line">  <span class="keyword">union</span> &#123;</span><br><span class="line">    GAtomicArray iface_entries;   <span class="comment">/* for !iface types */</span></span><br><span class="line">    GAtomicArray offsets;</span><br><span class="line">  &#125; _prot;</span><br><span class="line">  GType       *prerequisites;</span><br><span class="line">  GType        supers[<span class="number">1</span>]; <span class="comment">/* flexible array */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="type-data-make-W"><a href="#type-data-make-W" class="headerlink" title="type_data_make_W"></a>type_data_make_W</h3><p>TypeNode 创建好之后，调用 type_data_make_W 函数将 GTypeInfo 结构中的信息写入到 TypeNode 中，完成初始化。info 参数比较好理解，value_table 目前不知道是干什么</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">type_data_make_W</span> <span class="params">(TypeNode              *node,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> GTypeInfo       *info,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> GTypeValueTable *value_table)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeData *data;</span><br><span class="line">  GTypeValueTable *vtable = <span class="literal">NULL</span>;</span><br><span class="line">  guint vtable_size = <span class="number">0</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert</span> (node-&gt;data == <span class="literal">NULL</span> &amp;&amp; info != <span class="literal">NULL</span>);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (!value_table)</span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (node));</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (pnode)</span><br><span class="line">  vtable = pnode-&gt;data-&gt;common.value_table;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">  &#123;</span><br><span class="line">          <span class="type">static</span> <span class="type">const</span> GTypeValueTable zero_vtable =</span><br><span class="line">            &#123; <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span> &#125;;</span><br><span class="line">    </span><br><span class="line">    value_table = &amp;zero_vtable;</span><br><span class="line">  &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">if</span> (value_table)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">/* need to setup vtable_size since we have to allocate it with data in one chunk */</span></span><br><span class="line">      vtable_size = <span class="built_in">sizeof</span> (GTypeValueTable);</span><br><span class="line">      <span class="keyword">if</span> (value_table-&gt;collect_format)</span><br><span class="line">  vtable_size += <span class="built_in">strlen</span> (value_table-&gt;collect_format);</span><br><span class="line">      <span class="keyword">if</span> (value_table-&gt;lcopy_format)</span><br><span class="line">  vtable_size += <span class="built_in">strlen</span> (value_table-&gt;lcopy_format);</span><br><span class="line">      vtable_size += <span class="number">2</span>;</span><br><span class="line">    &#125;</span><br><span class="line">   </span><br><span class="line">  <span class="keyword">if</span> (node-&gt;is_instantiatable) <span class="comment">/* careful, is_instantiatable is also is_classed */</span></span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (node));</span><br><span class="line"></span><br><span class="line">      data = <span class="built_in">g_malloc0</span> (<span class="built_in">sizeof</span> (InstanceData) + vtable_size);</span><br><span class="line">      <span class="keyword">if</span> (vtable_size)</span><br><span class="line">  vtable = <span class="built_in">G_STRUCT_MEMBER_P</span> (data, <span class="built_in">sizeof</span> (InstanceData));</span><br><span class="line">      data-&gt;instance.class_size = info-&gt;class_size;</span><br><span class="line">      data-&gt;instance.class_init_base = info-&gt;base_init;</span><br><span class="line">      data-&gt;instance.class_finalize_base = info-&gt;base_finalize;</span><br><span class="line">      data-&gt;instance.class_init = info-&gt;class_init;</span><br><span class="line">      data-&gt;instance.class_finalize = info-&gt;class_finalize;</span><br><span class="line">      data-&gt;instance.class_data = info-&gt;class_data;</span><br><span class="line">      data-&gt;instance.<span class="keyword">class</span> = <span class="literal">NULL</span>;</span><br><span class="line">      data-&gt;instance.init_state = UNINITIALIZED;</span><br><span class="line">      data-&gt;instance.instance_size = info-&gt;instance_size;</span><br><span class="line">      <span class="comment">/* We&#x27;ll set the final value for data-&gt;instance.private size</span></span><br><span class="line"><span class="comment">       * after the parent class has been initialized</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">      data-&gt;instance.private_size = <span class="number">0</span>;</span><br><span class="line">      data-&gt;instance.class_private_size = <span class="number">0</span>;</span><br><span class="line">      <span class="keyword">if</span> (pnode)</span><br><span class="line">        data-&gt;instance.class_private_size = pnode-&gt;data-&gt;instance.class_private_size;</span><br><span class="line">      data-&gt;instance.n_preallocs = <span class="built_in">MIN</span> (info-&gt;n_preallocs, <span class="number">1024</span>);</span><br><span class="line">      data-&gt;instance.instance_init = info-&gt;instance_init;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (node-&gt;is_classed) <span class="comment">/* only classed */</span></span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (node));</span><br><span class="line"></span><br><span class="line">      data = <span class="built_in">g_malloc0</span> (<span class="built_in">sizeof</span> (ClassData) + vtable_size);</span><br><span class="line">      <span class="keyword">if</span> (vtable_size)</span><br><span class="line">  vtable = <span class="built_in">G_STRUCT_MEMBER_P</span> (data, <span class="built_in">sizeof</span> (ClassData));</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_size = info-&gt;class_size;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_init_base = info-&gt;base_init;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_finalize_base = info-&gt;base_finalize;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_init = info-&gt;class_init;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_finalize = info-&gt;class_finalize;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_data = info-&gt;class_data;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span> = <span class="literal">NULL</span>;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.class_private_size = <span class="number">0</span>;</span><br><span class="line">      <span class="keyword">if</span> (pnode)</span><br><span class="line">        data-&gt;<span class="keyword">class</span>.class_private_size = pnode-&gt;data-&gt;<span class="keyword">class</span>.class_private_size;</span><br><span class="line">      data-&gt;<span class="keyword">class</span>.init_state = UNINITIALIZED;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">NODE_IS_IFACE</span> (node))</span><br><span class="line">    &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span> <span class="keyword">if</span> (<span class="built_in">NODE_IS_BOXED</span> (node))</span><br><span class="line">    &#123;</span><br><span class="line">      data = <span class="built_in">g_malloc0</span> (<span class="built_in">sizeof</span> (BoxedData) + vtable_size);</span><br><span class="line">      <span class="keyword">if</span> (vtable_size)</span><br><span class="line">  vtable = <span class="built_in">G_STRUCT_MEMBER_P</span> (data, <span class="built_in">sizeof</span> (BoxedData));</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      data = <span class="built_in">g_malloc0</span> (<span class="built_in">sizeof</span> (CommonData) + vtable_size);</span><br><span class="line">      <span class="keyword">if</span> (vtable_size)</span><br><span class="line">  vtable = <span class="built_in">G_STRUCT_MEMBER_P</span> (data, <span class="built_in">sizeof</span> (CommonData));</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  node-&gt;data = data;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (vtable_size)</span><br><span class="line">    &#123;</span><br><span class="line">      gchar *p;</span><br><span class="line">      </span><br><span class="line">      <span class="comment">/* we allocate the vtable and its strings together with the type data, so</span></span><br><span class="line"><span class="comment">       * children can take over their parent&#x27;s vtable pointer, and we don&#x27;t</span></span><br><span class="line"><span class="comment">       * need to worry freeing it or not when the child data is destroyed</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">      *vtable = *value_table;</span><br><span class="line">      p = <span class="built_in">G_STRUCT_MEMBER_P</span> (vtable, <span class="built_in">sizeof</span> (*vtable));</span><br><span class="line">      p[<span class="number">0</span>] = <span class="number">0</span>;</span><br><span class="line">      vtable-&gt;collect_format = p;</span><br><span class="line">      <span class="keyword">if</span> (value_table-&gt;collect_format)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="built_in">strcat</span> (p, value_table-&gt;collect_format);</span><br><span class="line">    p += <span class="built_in">strlen</span> (value_table-&gt;collect_format);</span><br><span class="line">  &#125;</span><br><span class="line">      p++;</span><br><span class="line">      p[<span class="number">0</span>] = <span class="number">0</span>;</span><br><span class="line">      vtable-&gt;lcopy_format = p;</span><br><span class="line">      <span class="keyword">if</span> (value_table-&gt;lcopy_format)</span><br><span class="line">  <span class="built_in">strcat</span>  (p, value_table-&gt;lcopy_format);</span><br><span class="line">    &#125;</span><br><span class="line">  node-&gt;data-&gt;common.value_table = vtable;</span><br><span class="line">  node-&gt;mutatable_check_cache = (node-&gt;data-&gt;common.value_table-&gt;value_init != <span class="literal">NULL</span> &amp;&amp;</span><br><span class="line">         !((G_TYPE_FLAG_VALUE_ABSTRACT | G_TYPE_FLAG_ABSTRACT) &amp;</span><br><span class="line">           <span class="built_in">GPOINTER_TO_UINT</span> (<span class="built_in">type_get_qdata_L</span> (node, static_quark_type_flags))));</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert</span> (node-&gt;data-&gt;common.value_table != <span class="literal">NULL</span>); <span class="comment">/* paranoid */</span></span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> ((<span class="type">int</span> *) &amp;node-&gt;ref_count, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>type_data_make_W 函数会创建 TypeData 实例，并把 GTypeInfo 的内容保存到 TypeData 实例中，最后会把创建的 TypeData 指针赋给 TypeNode 中的 TypeData 指针。TypeData 是个 union</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">union</span> <span class="title class_">_TypeData</span></span><br><span class="line">&#123;</span><br><span class="line">  CommonData         common;</span><br><span class="line">  BoxedData          boxed;</span><br><span class="line">  IFaceData          iface;</span><br><span class="line">  ClassData          <span class="keyword">class</span>;</span><br><span class="line">  InstanceData       instance;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>只看 InstanceData</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">_InstanceData</span></span><br><span class="line">&#123;</span><br><span class="line">  CommonData         common;</span><br><span class="line">  guint16            class_size;</span><br><span class="line">  guint16            class_private_size;</span><br><span class="line">  <span class="type">int</span>                init_state;  <span class="comment">/* (atomic) - g_type_class_ref reads it unlocked */</span></span><br><span class="line">  GBaseInitFunc      class_init_base;</span><br><span class="line">  GBaseFinalizeFunc  class_finalize_base;</span><br><span class="line">  GClassInitFunc     class_init;</span><br><span class="line">  GClassFinalizeFunc class_finalize;</span><br><span class="line">  gconstpointer      class_data;</span><br><span class="line">  gpointer           <span class="keyword">class</span>;</span><br><span class="line">  guint16            instance_size;</span><br><span class="line">  guint16            private_size;</span><br><span class="line">  guint16            n_preallocs;</span><br><span class="line">  GInstanceInitFunc  instance_init;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>TypeNode 是类型注册中最重要的结构，父子继承关系、class_init、base_init、instance_init 等函数指针都保存在 TypeNode 中。TypeNode 还有一个 private_size 变量，和类的私有结构相关，他代表私有结构的大小，之前说的定义带私有结构的类会用到这个变量。</p>
+<h1 id="基本类型的注册"><a href="#基本类型的注册" class="headerlink" title="基本类型的注册"></a>基本类型的注册</h1><p>最后再看一下基本类型的注册流程，以 G_TYPE_OBJECT 为例子。</p>
+<h2 id="g-object-type-init"><a href="#g-object-type-init" class="headerlink" title="_g_object_type_init"></a>_g_object_type_init</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_g_object_type_init (<span class="type">void</span>)</span><br><span class="line">&#123;</span><br><span class="line">  <span class="type">static</span> gboolean initialized = FALSE;</span><br><span class="line">  <span class="type">static</span> <span class="type">const</span> GTypeFundamentalInfo finfo = &#123;</span><br><span class="line">    G_TYPE_FLAG_CLASSED | G_TYPE_FLAG_INSTANTIATABLE | G_TYPE_FLAG_DERIVABLE | G_TYPE_FLAG_DEEP_DERIVABLE,</span><br><span class="line">  &#125;;</span><br><span class="line">  GTypeInfo info = &#123;</span><br><span class="line">    <span class="built_in">sizeof</span> (GObjectClass),</span><br><span class="line">    (GBaseInitFunc) g_object_base_class_init,</span><br><span class="line">    (GBaseFinalizeFunc) g_object_base_class_finalize,</span><br><span class="line">    (GClassInitFunc) g_object_do_class_init,</span><br><span class="line">    <span class="literal">NULL</span>  <span class="comment">/* class_destroy */</span>,</span><br><span class="line">    <span class="literal">NULL</span>  <span class="comment">/* class_data */</span>,</span><br><span class="line">    <span class="built_in">sizeof</span> (GObject),</span><br><span class="line">    <span class="number">0</span>   <span class="comment">/* n_preallocs */</span>,</span><br><span class="line">    (GInstanceInitFunc) g_object_init,</span><br><span class="line">    <span class="literal">NULL</span>, <span class="comment">/* value_table */</span></span><br><span class="line">  &#125;;</span><br><span class="line">  <span class="type">static</span> <span class="type">const</span> GTypeValueTable value_table = &#123;</span><br><span class="line">    g_value_object_init,    <span class="comment">/* value_init */</span></span><br><span class="line">    g_value_object_free_value,    <span class="comment">/* value_free */</span></span><br><span class="line">    g_value_object_copy_value,    <span class="comment">/* value_copy */</span></span><br><span class="line">    g_value_object_peek_pointer,  <span class="comment">/* value_peek_pointer */</span></span><br><span class="line">    <span class="string">&quot;p&quot;</span>,        <span class="comment">/* collect_format */</span></span><br><span class="line">    g_value_object_collect_value, <span class="comment">/* collect_value */</span></span><br><span class="line">    <span class="string">&quot;p&quot;</span>,        <span class="comment">/* lcopy_format */</span></span><br><span class="line">    g_value_object_lcopy_value,   <span class="comment">/* lcopy_value */</span></span><br><span class="line">  &#125;;</span><br><span class="line">  GType type G_GNUC_UNUSED  <span class="comment">/* when compiling with G_DISABLE_ASSERT */</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_return_if_fail</span> (initialized == FALSE);</span><br><span class="line">  initialized = TRUE;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* G_TYPE_OBJECT</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  info.value_table = &amp;value_table;</span><br><span class="line">  type = <span class="built_in">g_type_register_fundamental</span> (G_TYPE_OBJECT, <span class="built_in">g_intern_static_string</span> (<span class="string">&quot;GObject&quot;</span>), &amp;info, &amp;finfo, <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_assert</span> (type == G_TYPE_OBJECT);</span><br><span class="line">  <span class="built_in">g_value_register_transform_func</span> (G_TYPE_OBJECT, G_TYPE_OBJECT, g_value_object_transform_value);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="g-type-register-fundamental"><a href="#g-type-register-fundamental" class="headerlink" title="g_type_register_fundamental"></a>g_type_register_fundamental</h3><p>基本类型注册使用的是 g_type_register_fundamental 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GType</span></span><br><span class="line"><span class="function"><span class="title">g_type_register_fundamental</span> <span class="params">(GType                       type_id,</span></span></span><br><span class="line"><span class="params"><span class="function">           <span class="type">const</span> gchar                *type_name,</span></span></span><br><span class="line"><span class="params"><span class="function">           <span class="type">const</span> GTypeInfo            *info,</span></span></span><br><span class="line"><span class="params"><span class="function">           <span class="type">const</span> GTypeFundamentalInfo *finfo,</span></span></span><br><span class="line"><span class="params"><span class="function">           GTypeFlags      flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert_type_system_initialized</span> ();</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (type_id &gt; <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (type_name != <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (info != <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (finfo != <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">check_type_name_I</span> (type_name))</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">if</span> ((type_id &amp; TYPE_ID_MASK) ||</span><br><span class="line">      type_id &gt; G_TYPE_FUNDAMENTAL_MAX)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;attempt to register fundamental type &#x27;%s&#x27; with invalid type id (%&quot;</span> G_GSIZE_FORMAT <span class="string">&quot;)&quot;</span>,</span><br><span class="line">     type_name,</span><br><span class="line">     type_id);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">if</span> ((finfo-&gt;type_flags &amp; G_TYPE_FLAG_INSTANTIATABLE) &amp;&amp;</span><br><span class="line">      !(finfo-&gt;type_flags &amp; G_TYPE_FLAG_CLASSED))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot register instantiatable fundamental type &#x27;%s&#x27; as non-classed&quot;</span>,</span><br><span class="line">     type_name);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">lookup_type_node_I</span> (type_id))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (<span class="string">&quot;cannot register existing fundamental type &#x27;%s&#x27; (as &#x27;%s&#x27;)&quot;</span>,</span><br><span class="line">     <span class="built_in">type_descriptive_name_I</span> (type_id),</span><br><span class="line">     type_name);</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  node = <span class="built_in">type_node_fundamental_new_W</span> (type_id, type_name, finfo-&gt;type_flags);</span><br><span class="line">  <span class="built_in">type_add_flags_W</span> (node, flags);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">check_type_info_I</span> (<span class="literal">NULL</span>, <span class="built_in">NODE_FUNDAMENTAL_TYPE</span> (node), type_name, info))</span><br><span class="line">    <span class="built_in">type_data_make_W</span> (node, info,</span><br><span class="line">          <span class="built_in">check_value_table_I</span> (type_name, info-&gt;value_table) ? info-&gt;value_table : <span class="literal">NULL</span>);</span><br><span class="line">  <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">NODE_TYPE</span> (node);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="type-node-fundamental-new-W"><a href="#type-node-fundamental-new-W" class="headerlink" title="type_node_fundamental_new_W"></a>type_node_fundamental_new_W</h4><p>g_type_register_fundamental 函数使用 type_node_fundamental_new_W 函数创建 TypeNode，内部也是调用了 type_node_any_new_W 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> TypeNode*</span></span><br><span class="line"><span class="function"><span class="title">type_node_fundamental_new_W</span> <span class="params">(GType                 ftype,</span></span></span><br><span class="line"><span class="params"><span class="function">           <span class="type">const</span> gchar          *name,</span></span></span><br><span class="line"><span class="params"><span class="function">           GTypeFundamentalFlags type_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GTypeFundamentalInfo *finfo;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_assert</span> ((ftype &amp; TYPE_ID_MASK) == <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_assert</span> (ftype &lt;= G_TYPE_FUNDAMENTAL_MAX);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (ftype &gt;&gt; G_TYPE_FUNDAMENTAL_SHIFT == static_fundamental_next)</span><br><span class="line">    static_fundamental_next++;</span><br><span class="line">  </span><br><span class="line">  type_flags &amp;= TYPE_FUNDAMENTAL_FLAG_MASK;</span><br><span class="line">  </span><br><span class="line">  node = <span class="built_in">type_node_any_new_W</span> (<span class="literal">NULL</span>, ftype, name, <span class="literal">NULL</span>, type_flags);</span><br><span class="line">  </span><br><span class="line">  finfo = <span class="built_in">type_node_fundamental_info_I</span> (node);</span><br><span class="line">  finfo-&gt;type_flags = type_flags;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> node;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="type-data-make-W-1"><a href="#type-data-make-W-1" class="headerlink" title="type_data_make_W"></a>type_data_make_W</h4><p>g_type_register_fundamental 函数创建 TypeNode 后也是使用 type_data_make_W 函数初始化 TypeNode，和普通类型一样。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> G_TYPE_OBJECT     G_TYPE_MAKE_FUNDAMENTAL (20)</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> G_TYPE_MAKE_FUNDAMENTAL(x)  ((GType) ((x) &lt;&lt; G_TYPE_FUNDAMENTAL_SHIFT))</span></span><br></pre></td></tr></table></figure>
+
+<p>可以看到 G_TYPE_OBJECT 宏返回值是 20 左移 G_TYPE_FUNDAMENTAL_SHIFT。这是因为 Gobject 内部会把基本类型的 TypeNode 指针放在一个全局的数组中，类型注册时返回的 GType 是该数组的索引，对自定义类型，类型注册时返回的 GType 就是 TypeNode 指针。</p>
+<p>参考资料：</p>
+<p><a href="http://garfileo.is-programmer.com/2011/7/14/gobject-notes.27977.html">http://garfileo.is-programmer.com/2011/7/14/gobject-notes.27977.html</a></p>
+<p><a href="https://docs.gtk.org/gobject/index.html">https://docs.gtk.org/gobject/index.html</a></p>
+<p><a href="https://www.jianshu.com/p/a5103d08a7f0">https://www.jianshu.com/p/a5103d08a7f0</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/14/Gobject%E4%B9%8B%E5%AE%9A%E4%B9%89%E5%B8%A6%E7%A7%81%E6%9C%89%E7%BB%93%E6%9E%84%E7%9A%84%E7%B1%BB/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-17 10:17:50
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/gobject/" title="gobject">
+                        <b>#</b> gobject
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/22/%E5%B7%A6%E5%80%BC%E3%80%81%E5%8F%B3%E5%80%BC%E3%80%81%E5%B7%A6%E5%80%BC%E5%BC%95%E7%94%A8%E3%80%81%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#g-type-register-static-simple"><span class="toc-text">g_type_register_static_simple</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-type-register-static"><span class="toc-text">g_type_register_static</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#check-type-name-I-x2F-check-derivation-I"><span class="toc-text">check_type_name_I&#x2F;check_derivation_I</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#lookup-type-node-I"><span class="toc-text">lookup_type_node_I</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#type-node-fundamental-info-I"><span class="toc-text">type_node_fundamental_info_I</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#type-data-ref-Wm"><span class="toc-text">type_data_ref_Wm</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#type-node-new-W"><span class="toc-text">type_node_new_W</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#type-node-any-new-W"><span class="toc-text">type_node_any_new_W</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#type-data-make-W"><span class="toc-text">type_data_make_W</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%9F%BA%E6%9C%AC%E7%B1%BB%E5%9E%8B%E7%9A%84%E6%B3%A8%E5%86%8C"><span class="toc-text">基本类型的注册</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-object-type-init"><span class="toc-text">_g_object_type_init</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-type-register-fundamental"><span class="toc-text">g_type_register_fundamental</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#type-node-fundamental-new-W"><span class="toc-text">type_node_fundamental_new_W</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#type-data-make-W-1"><span class="toc-text">type_data_make_W</span></a></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

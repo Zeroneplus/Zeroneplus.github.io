@@ -13,7 +13,7 @@
     
       Category 
       
-      
+       : gobject
       |
     
      ZeronePlus&#39; Blog
@@ -106,55 +106,84 @@
 
 
       <div class="flex-container">
-        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
-<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+        <!-- 标签详情页，展示某个标签下的文章列表，url形式：https://yoursite/tags/某个标签/ -->
 
-
-  <!-- LaTex Display -->
-
-  
-    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
-  
-  <script>
-    MathJax = {
-      tex: {
-        inlineMath: [['$', '$'], ['\\(', '\\)']]
-      }
-    }
-  </script>
-
-
-
-
-
-  <!-- clipboard -->
-
-  
-    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
-  
-  
-<script src="/js/codeCopy.js"></script>
-
-
-
-
-
-
-
-  
-  <!-- 分类页 url形式：https://yoursite/categories/ -->
-  <div class="container category-index">
-    <div>
-      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/ffmpeg/">ffmpeg</a><span class="category-list-count">10</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/C-C/">C/C++</a><span class="category-list-count">9</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/gobject/">gobject</a><span class="category-list-count">7</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/C-%E6%96%B0%E7%89%B9%E6%80%A7/">C++新特性</a><span class="category-list-count">5</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/ffmpeg-filter/">ffmpeg filter</a><span class="category-list-count">5</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/">C++标准库</a><span class="category-list-count">2</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/C-%E5%AF%B9%E8%B1%A1%E6%A8%A1%E5%9E%8B/">C++对象模型</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E7%BC%96%E7%A8%8B%E5%B7%A5%E5%85%B7/">编程工具</a><span class="category-list-count">1</span></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%AA%92%E4%BD%93%E6%A0%BC%E5%BC%8F/">媒体格式</a><span class="category-list-count">1</span></li></ul>
-    </div>
+<div class="container category-details">
+  <div class="content-title">
+    <h2>
+      <span>gobject</span>
+    </h2>
   </div>
   
-
+    <div class="post-list">
+      <div class="post-item" title="Gobject之属性get/set">
+        <span class="time-m-d">2023-04-29</span>
+        <a href="/2023/04/29/Gobject%E4%B9%8B%E5%B1%9E%E6%80%A7get-set/">
+          <span>Gobject之属性get/set</span>
+        </a>
+      </div>
+    </div>
   
-
+    <div class="post-list">
+      <div class="post-item" title="Gobject之引用计数">
+        <span class="time-m-d">2023-04-29</span>
+        <a href="/2023/04/29/Gobject%E4%B9%8B%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0/">
+          <span>Gobject之引用计数</span>
+        </a>
+      </div>
+    </div>
   
-
+    <div class="post-list">
+      <div class="post-item" title="Gobject初始化之实例struct初始化">
+        <span class="time-m-d">2023-04-29</span>
+        <a href="/2023/04/29/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E5%AE%9E%E4%BE%8Bstruct%E5%88%9D%E5%A7%8B%E5%8C%96/">
+          <span>Gobject初始化之实例struct初始化</span>
+        </a>
+      </div>
+    </div>
   
+    <div class="post-list">
+      <div class="post-item" title="Gobject初始化之类结构struct初始化">
+        <span class="time-m-d">2023-04-29</span>
+        <a href="/2023/04/29/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E7%B1%BB%E7%BB%93%E6%9E%84struct%E5%88%9D%E5%A7%8B%E5%8C%96/">
+          <span>Gobject初始化之类结构struct初始化</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="Gobject初始化之类型注册">
+        <span class="time-m-d">2023-04-17</span>
+        <a href="/2023/04/17/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E7%B1%BB%E5%9E%8B%E6%B3%A8%E5%86%8C/">
+          <span>Gobject初始化之类型注册</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="Gobject之定义带私有结构的类">
+        <span class="time-m-d">2023-04-14</span>
+        <a href="/2023/04/14/Gobject%E4%B9%8B%E5%AE%9A%E4%B9%89%E5%B8%A6%E7%A7%81%E6%9C%89%E7%BB%93%E6%9E%84%E7%9A%84%E7%B1%BB/">
+          <span>Gobject之定义带私有结构的类</span>
+        </a>
+      </div>
+    </div>
+  
+    <div class="post-list">
+      <div class="post-item" title="Gobject之定义类">
+        <span class="time-m-d">2023-04-10</span>
+        <a href="/2023/04/10/Gobject%E4%B9%8B%E5%AE%9A%E4%B9%89%E7%B1%BB/">
+          <span>Gobject之定义类</span>
+        </a>
+      </div>
+    </div>
+  
+  <nav class="post-navigation">
+    
+    <span class="page-num">1 / 1</span>
+    
+  </nav>
+</div>
 
         
 <div class="footer">

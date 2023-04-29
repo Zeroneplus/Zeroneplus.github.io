@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Gobject初始化之实例struct初始化 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Gobject初始化之实例struct初始化</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-29 19:48:21
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/gobject/" title="gobject">
+                    <b>#</b> gobject
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客接着上一篇 类结构 struct 初始化 来介绍实例 struct 的初始化过程，希望从源码的角度理清 instance_init 函数的调用以及私有结构的存储。</p>
+<h1 id="g-object-new-with-properties"><a href="#g-object-new-with-properties" class="headerlink" title="g_object_new_with_properties"></a>g_object_new_with_properties</h1><p>g_object_new_with_properties 函数在调用 g_type_class_ref 函数创建类结构 struct 后会调用 g_object_new_internal 函数创建实例 struct 的实例</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GObject *</span></span><br><span class="line"><span class="function"><span class="title">g_object_new_with_properties</span> <span class="params">(GType          object_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                              guint          n_properties,</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">const</span> <span class="type">char</span>    *names[],</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">const</span> GValue   values[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectClass *<span class="keyword">class</span>, *unref_class = <span class="literal">NULL</span>;</span><br><span class="line">  GObject *object;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">class</span> = <span class="built_in">g_type_class_peek_static</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">class</span> == <span class="literal">NULL</span>)</span><br><span class="line">    <span class="keyword">class</span> = unref_class = <span class="built_in">g_type_class_ref</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (n_properties &gt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">    ...</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    object = <span class="built_in">g_object_new_internal</span> (<span class="keyword">class</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (unref_class != <span class="literal">NULL</span>)</span><br><span class="line">    <span class="built_in">g_type_class_unref</span> (unref_class);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="g-object-new-internal"><a href="#g-object-new-internal" class="headerlink" title="g_object_new_internal"></a>g_object_new_internal</h2><p>g_object_new_internal 函数如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_object_new_internal</span> <span class="params">(GObjectClass          *<span class="keyword">class</span>,</span></span></span><br><span class="line"><span class="params"><span class="function">                       GObjectConstructParam *params,</span></span></span><br><span class="line"><span class="params"><span class="function">                       guint                  n_params)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectNotifyQueue *nqueue = <span class="literal">NULL</span>;</span><br><span class="line">  GObject *object;</span><br><span class="line">  guint i;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">if</span> <span class="title">G_UNLIKELY</span> <span class="params">(CLASS_HAS_CUSTOM_CONSTRUCTOR (<span class="keyword">class</span>))</span></span></span><br><span class="line"><span class="function">    <span class="keyword">return</span> <span class="title">g_object_new_with_custom_constructor</span> <span class="params">(<span class="keyword">class</span>, params, n_params)</span></span>;</span><br><span class="line"></span><br><span class="line">  object = (GObject *) <span class="built_in">g_type_create_instance</span> (<span class="keyword">class</span>-&gt;g_type_class.g_type);</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="built_in">unset_object_in_construction</span> (object);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CLASS_HAS_PROPS</span> (<span class="keyword">class</span>))</span><br><span class="line">    &#123;</span><br><span class="line">      GSList *node;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (_g_object_has_notify_handler_X (object))</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="comment">/* This may or may not have been setup in g_object_init().</span></span><br><span class="line"><span class="comment">           * If it hasn&#x27;t, we do it now.</span></span><br><span class="line"><span class="comment">           */</span></span><br><span class="line">          nqueue = <span class="built_in">g_datalist_id_get_data</span> (&amp;object-&gt;qdata, quark_notify_queue);</span><br><span class="line">          <span class="keyword">if</span> (!nqueue)</span><br><span class="line">            nqueue = <span class="built_in">g_object_notify_queue_freeze</span> (object, FALSE);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* We will set exactly n_construct_properties construct</span></span><br><span class="line"><span class="comment">       * properties, but they may come from either the class default</span></span><br><span class="line"><span class="comment">       * values or the passed-in parameter list.</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">      <span class="keyword">for</span> (node = <span class="keyword">class</span>-&gt;construct_properties; node; node = node-&gt;next)</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="type">const</span> GValue *value;</span><br><span class="line">          GParamSpec *pspec;</span><br><span class="line">          guint j;</span><br><span class="line"></span><br><span class="line">          pspec = node-&gt;data;</span><br><span class="line">          value = <span class="literal">NULL</span>; <span class="comment">/* to silence gcc... */</span></span><br><span class="line"></span><br><span class="line">          <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; n_params; j++)</span><br><span class="line">            <span class="keyword">if</span> (params[j].pspec == pspec)</span><br><span class="line">              &#123;</span><br><span class="line">                value = params[j].value;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">              &#125;</span><br><span class="line"></span><br><span class="line">          <span class="keyword">if</span> (value == <span class="literal">NULL</span>)</span><br><span class="line">            value = <span class="built_in">g_param_spec_get_default_value</span> (pspec);</span><br><span class="line"></span><br><span class="line">          <span class="built_in">object_set_property</span> (object, pspec, value, nqueue);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* run &#x27;constructed&#x27; handler if there is a custom one */</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CLASS_HAS_CUSTOM_CONSTRUCTED</span> (<span class="keyword">class</span>))</span><br><span class="line">    <span class="keyword">class</span>-&gt;<span class="built_in">constructed</span> (object);</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* Set remaining properties.  The construct properties will</span></span><br><span class="line"><span class="comment">   * already have been taken, so set only the non-construct ones.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n_params; i++)</span><br><span class="line">    <span class="keyword">if</span> (!(params[i].pspec-&gt;flags &amp; (G_PARAM_CONSTRUCT | G_PARAM_CONSTRUCT_ONLY)))</span><br><span class="line">      <span class="built_in">object_set_property</span> (object, params[i].pspec, params[i].value, nqueue);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (nqueue)</span><br><span class="line">    <span class="built_in">g_object_notify_queue_thaw</span> (object, nqueue);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>CLASS_HAS_CUSTOM_CONSTRUCTOR</code> 宏，判断用户是否自己定义了 constructor，自定义 constructor 用得非常少。如果用户自己定义了 constructor，那么使用自定义的 constructor 来创建实例。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> CLASS_HAS_CUSTOM_CONSTRUCTOR(class) \</span></span><br><span class="line"><span class="meta">    ((class)-&gt;constructor != g_object_constructor)</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="g-type-create-instance"><a href="#g-type-create-instance" class="headerlink" title="g_type_create_instance"></a>g_type_create_instance</h3><p>g_object_new_internal 中调用 g_type_create_instance 函数创建实例 struct 的实例，g_type_create_instance 也会 g_type_class_ref 一下，但是这次的就没有 unref 了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GTypeInstance*</span></span><br><span class="line"><span class="function"><span class="title">g_type_create_instance</span> <span class="params">(GType type)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  GTypeInstance *instance;</span><br><span class="line">  GTypeClass *<span class="keyword">class</span>;</span><br><span class="line">  gchar *allocated;</span><br><span class="line">  gint private_size;</span><br><span class="line">  gint ivar_size;</span><br><span class="line">  guint i;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  node = <span class="built_in">lookup_type_node_I</span> (type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">class</span> = <span class="built_in">g_type_class_ref</span> (type);</span><br><span class="line"></span><br><span class="line">  private_size = node-&gt;data-&gt;instance.private_size;</span><br><span class="line">  ivar_size = node-&gt;data-&gt;instance.instance_size;</span><br><span class="line"></span><br><span class="line">  allocated = <span class="built_in">g_slice_alloc0</span> (private_size + ivar_size);</span><br><span class="line"></span><br><span class="line">  instance = (GTypeInstance *) (allocated + private_size);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = node-&gt;n_supers; i &gt; <span class="number">0</span>; i--)</span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode;</span><br><span class="line">      </span><br><span class="line">      pnode = <span class="built_in">lookup_type_node_I</span> (node-&gt;supers[i]);</span><br><span class="line">      <span class="keyword">if</span> (pnode-&gt;data-&gt;instance.instance_init)</span><br><span class="line">  &#123;</span><br><span class="line">    instance-&gt;g_class = pnode-&gt;data-&gt;instance.<span class="keyword">class</span>;</span><br><span class="line">    pnode-&gt;data-&gt;instance.<span class="built_in">instance_init</span> (instance, <span class="keyword">class</span>);</span><br><span class="line">  &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  instance-&gt;g_class = <span class="keyword">class</span>;</span><br><span class="line">  <span class="keyword">if</span> (node-&gt;data-&gt;instance.instance_init)</span><br><span class="line">    node-&gt;data-&gt;instance.<span class="built_in">instance_init</span> (instance, <span class="keyword">class</span>);</span><br><span class="line">  <span class="keyword">return</span> instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>g_type_create_instance 函数主要：</p>
+<ul>
+<li>分配 instance_size+private_size 大小的内存，在这里会处理私有结构的内存</li>
+<li>从最顶层父类到自己，依次调用每一个 instance_init 函数初始化当前的实例 struct 的实例</li>
+</ul>
+<p>g_type_create_instance 函数创建实例后，如果类上定义有属性，会设置这些属性，这部分放到属性 get&#x2F;set 中介绍。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> CLASS_HAS_PROPS_FLAG 0x1</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> CLASS_HAS_PROPS(class) \</span></span><br><span class="line"><span class="meta">    ((class)-&gt;flags &amp; CLASS_HAS_PROPS_FLAG)</span></span><br></pre></td></tr></table></figure>
+
+<p>最后在对象构造完成后，如果定义了 constructed 函数，则会调用该函数。</p>
+<h1 id="g-object-init"><a href="#g-object-init" class="headerlink" title="g_object_init"></a>g_object_init</h1><p>最后看一下 GObject 的 instance_init 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_object_init</span> <span class="params">(GObject    *object,</span></span></span><br><span class="line"><span class="params"><span class="function">         GObjectClass *<span class="keyword">class</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  object-&gt;ref_count = <span class="number">1</span>;</span><br><span class="line">  object-&gt;qdata = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CLASS_HAS_PROPS</span> (<span class="keyword">class</span>) &amp;&amp; <span class="built_in">CLASS_NEEDS_NOTIFY</span> (<span class="keyword">class</span>))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">/* freeze object&#x27;s notification queue, g_object_new_internal() preserves pairedness */</span></span><br><span class="line">      <span class="built_in">g_object_notify_queue_freeze</span> (object, FALSE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* mark object in-construction for notify_queue_thaw() and to allow construct-only properties */</span></span><br><span class="line">  <span class="built_in">set_object_in_construction</span> (object);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数中初始化了引用计数。</p>
+<h1 id="实例-struct-初始化、类-struct-初始化与-xx-base-init、xx-class-init、xx-init-函数"><a href="#实例-struct-初始化、类-struct-初始化与-xx-base-init、xx-class-init、xx-init-函数" class="headerlink" title="实例 struct 初始化、类 struct 初始化与 xx_base_init、xx_class_init、xx_init 函数"></a>实例 struct 初始化、类 struct 初始化与 xx_base_init、xx_class_init、xx_init 函数</h1><p>结合前一篇文章的内容，我们总结一下创建 gobject 时 xx_base_init、xx_class_init、xx_init 这些函数的调用时机。</p>
+<p>第一次调用 g_object_new：</p>
+<ul>
+<li><p>创建类 struct 的实例</p>
+<ul>
+<li>把父类的类结构复制一份，然后从基类从上到下开始调用 base_init</li>
+<li>调用目标类结构的 class_init 函数</li>
+</ul>
+</li>
+<li><p>创建实例 struct 的实例</p>
+<ul>
+<li>把 instance_init 函数（就是 xx_init）从上往下调用一遍</li>
+</ul>
+</li>
+</ul>
+<p>非第一次调用 g_object_new：</p>
+<ul>
+<li><p>不用再创建类 struct 的实例</p>
+</li>
+<li><p>直接创建实例 struct 的实例</p>
+<ul>
+<li>把 instance_init 函数从上往下调用一遍</li>
+</ul>
+</li>
+</ul>
+<p>那么 xx_base_init、xx_class_init、xx_init 函数的作用就一清二楚了：</p>
+<ul>
+<li>xx_base_init 就像 C++ 中的构造函数（仅仅对类 struct 来说），会从上到下调用</li>
+<li>xx_class_init 是仅仅特定类型所属的 xx_class_init 函数会调用，父类的不会调用</li>
+<li>上面两个函数是类 struct 初始化时用到，而 xx_init 时实例 struct 初始化时用到，xx_init 也是从上往下都要调用一次</li>
+</ul>
+<p>gstelement 里面定义了 xx_base_init 函数，这个函数在 gstelement 里面是把 padtemplates 和 metadata 复制一份，因为上面创建类 struct 的实例时，会发生“父类类结构复制到子类”的操作，那么此时子类和父类使用了相同的 padtemplates 和 metadata 指针，这肯定是不行的。事实上 base_init 的作用大概率就是防止复制父类结构时复制的是指针，从而出现浅拷贝的情况。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/29/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E7%B1%BB%E7%BB%93%E6%9E%84struct%E5%88%9D%E5%A7%8B%E5%8C%96/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-29 19:48:21
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/gobject/" title="gobject">
+                        <b>#</b> gobject
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/29/Gobject%E4%B9%8B%E5%BC%95%E7%94%A8%E8%AE%A1%E6%95%B0/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-new-with-properties"><span class="toc-text">g_object_new_with_properties</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-object-new-internal"><span class="toc-text">g_object_new_internal</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-type-create-instance"><span class="toc-text">g_type_create_instance</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-init"><span class="toc-text">g_object_init</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#%E5%AE%9E%E4%BE%8B-struct-%E5%88%9D%E5%A7%8B%E5%8C%96%E3%80%81%E7%B1%BB-struct-%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B8%8E-xx-base-init%E3%80%81xx-class-init%E3%80%81xx-init-%E5%87%BD%E6%95%B0"><span class="toc-text">实例 struct 初始化、类 struct 初始化与 xx_base_init、xx_class_init、xx_init 函数</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

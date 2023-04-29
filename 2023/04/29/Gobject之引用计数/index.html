@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Gobject之引用计数 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Gobject之引用计数</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-29 19:49:05
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/gobject/" title="gobject">
+                    <b>#</b> gobject
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇博客介绍一下 Gobject 的引用计数。</p>
+<p>要让 Gobject 类支持引用计数，需要让类继承 GObject 类，之后通过下面的 api 管理对象：</p>
+<ul>
+<li>使用 g_object_new 创建对象</li>
+<li>使用 g_object_ref 增加引用计数</li>
+<li>使用 g_object_unref 减少引用计数</li>
+</ul>
+<h1 id="g-object-new"><a href="#g-object-new" class="headerlink" title="g_object_new"></a>g_object_new</h1><p>在 g_object_new 时会调用 g_type_create_instance 创建并初始化对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_object_new</span> <span class="params">(GType    object_type,</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">const</span> gchar *first_property_name,</span></span></span><br><span class="line"><span class="params"><span class="function">        ...)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="built_in">va_start</span> (var_args, first_property_name);</span><br><span class="line">  object = <span class="built_in">g_object_new_valist</span> (object_type, first_property_name, var_args);</span><br><span class="line">  <span class="built_in">va_end</span> (var_args);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">GObject*</span></span><br><span class="line"><span class="function"><span class="title">g_object_new_valist</span> <span class="params">(GType        object_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                     <span class="type">const</span> gchar *first_property_name,</span></span></span><br><span class="line"><span class="params"><span class="function">                     va_list      var_args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectClass *<span class="keyword">class</span>, *unref_class = <span class="literal">NULL</span>;</span><br><span class="line">  GObject *object;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">class</span> = <span class="built_in">g_type_class_peek_static</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!<span class="keyword">class</span>)</span><br><span class="line">    <span class="keyword">class</span> = unref_class = <span class="built_in">g_type_class_ref</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (first_property_name)</span><br><span class="line">    &#123;</span><br><span class="line">...</span><br><span class="line">      GObjectConstructParam *params = params_stack;</span><br><span class="line">...</span><br><span class="line">      guint n_params = <span class="number">0</span>;</span><br><span class="line">...</span><br><span class="line">      object = <span class="built_in">g_object_new_internal</span> (<span class="keyword">class</span>, params, n_params);</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_object_new_internal</span> <span class="params">(GObjectClass          *<span class="keyword">class</span>,</span></span></span><br><span class="line"><span class="params"><span class="function">                       GObjectConstructParam *params,</span></span></span><br><span class="line"><span class="params"><span class="function">                       guint                  n_params)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectNotifyQueue *nqueue = <span class="literal">NULL</span>;</span><br><span class="line">  GObject *object;</span><br><span class="line">  guint i;</span><br><span class="line">...</span><br><span class="line">  object = (GObject *) <span class="built_in">g_type_create_instance</span> (<span class="keyword">class</span>-&gt;g_type_class.g_type);</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CLASS_HAS_PROPS</span> (<span class="keyword">class</span>))</span><br><span class="line">    &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">GTypeInstance*</span></span><br><span class="line"><span class="function"><span class="title">g_type_create_instance</span> <span class="params">(GType type)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  GTypeInstance *instance;</span><br><span class="line">  GTypeClass *<span class="keyword">class</span>;</span><br><span class="line">  gchar *allocated;</span><br><span class="line">  gint private_size;</span><br><span class="line">  gint ivar_size;</span><br><span class="line">  guint i;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  node = <span class="built_in">lookup_type_node_I</span> (type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">class</span> = <span class="built_in">g_type_class_ref</span> (type);</span><br><span class="line"></span><br><span class="line">  private_size = node-&gt;data-&gt;instance.private_size;</span><br><span class="line">  ivar_size = node-&gt;data-&gt;instance.instance_size;</span><br><span class="line"></span><br><span class="line">  allocated = <span class="built_in">g_slice_alloc0</span> (private_size + ivar_size);</span><br><span class="line"></span><br><span class="line">  instance = (GTypeInstance *) (allocated + private_size);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (i = node-&gt;n_supers; i &gt; <span class="number">0</span>; i--)</span><br><span class="line">    &#123;</span><br><span class="line">      TypeNode *pnode;</span><br><span class="line">      </span><br><span class="line">      pnode = <span class="built_in">lookup_type_node_I</span> (node-&gt;supers[i]);</span><br><span class="line">      <span class="keyword">if</span> (pnode-&gt;data-&gt;instance.instance_init)</span><br><span class="line">  &#123;</span><br><span class="line">    instance-&gt;g_class = pnode-&gt;data-&gt;instance.<span class="keyword">class</span>;</span><br><span class="line">    pnode-&gt;data-&gt;instance.<span class="built_in">instance_init</span> (instance, <span class="keyword">class</span>);</span><br><span class="line">  &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  instance-&gt;g_class = <span class="keyword">class</span>;</span><br><span class="line">  <span class="keyword">if</span> (node-&gt;data-&gt;instance.instance_init)</span><br><span class="line">    node-&gt;data-&gt;instance.<span class="built_in">instance_init</span> (instance, <span class="keyword">class</span>);</span><br><span class="line">  <span class="keyword">return</span> instance;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 g_type_create_instance 中可以清楚的看到：</p>
+<ul>
+<li>先分配内存（包括私有结构）</li>
+<li>然后从上往下调用 instance_init</li>
+</ul>
+<h2 id="g-object-init"><a href="#g-object-init" class="headerlink" title="g_object_init"></a>g_object_init</h2><p>而 GObject 的 instance_init 函数 g_object_init 会初始化引用计数为 1</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_object_init</span> <span class="params">(GObject    *object,</span></span></span><br><span class="line"><span class="params"><span class="function">         GObjectClass *<span class="keyword">class</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  object-&gt;ref_count = <span class="number">1</span>;</span><br><span class="line">  object-&gt;qdata = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CLASS_HAS_PROPS</span> (<span class="keyword">class</span>) &amp;&amp; <span class="built_in">CLASS_NEEDS_NOTIFY</span> (<span class="keyword">class</span>))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="comment">/* freeze object&#x27;s notification queue, g_object_new_internal() preserves pairedness */</span></span><br><span class="line">      <span class="built_in">g_object_notify_queue_freeze</span> (object, FALSE);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* mark object in-construction for notify_queue_thaw() and to allow construct-only properties */</span></span><br><span class="line">  <span class="built_in">set_object_in_construction</span> (object);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>根据 instance_init 的调用时机，每个 GObject 或其子类的实例在创建时都会执行 g_object_init 函数，所以继承 GObject 的类在创建实例时就会初始化引用计数。</p>
+<h1 id="g-object-ref"><a href="#g-object-ref" class="headerlink" title="g_object_ref"></a>g_object_ref</h1><p>再看看 g_object_ref 函数，该函数主要是将 ref_count 加 1</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">gpointer</span></span><br><span class="line">(g_object_ref) (gpointer _object)</span><br><span class="line">&#123;</span><br><span class="line">  GObject *object = _object;</span><br><span class="line">  gint old_val;</span><br><span class="line">  gboolean object_already_finalized;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (<span class="built_in">G_IS_OBJECT</span> (object), <span class="literal">NULL</span>);</span><br><span class="line">  </span><br><span class="line">  old_val = <span class="built_in">g_atomic_int_add</span> (&amp;object-&gt;ref_count, <span class="number">1</span>);</span><br><span class="line">  object_already_finalized = (old_val &lt;= <span class="number">0</span>);</span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (!object_already_finalized, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (old_val == <span class="number">1</span> &amp;&amp; <span class="built_in">OBJECT_HAS_TOGGLE_REF</span> (object))</span><br><span class="line">    <span class="built_in">toggle_refs_notify</span> (object, FALSE);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">TRACE</span> (<span class="built_in">GOBJECT_OBJECT_REF</span>(object,<span class="built_in">G_TYPE_FROM_INSTANCE</span>(object),old_val));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="g-object-unref"><a href="#g-object-unref" class="headerlink" title="g_object_unref"></a>g_object_unref</h1><p>g_object_unref 则是释放引用，同时可能会执行 dispose 和 finalize 函数。</p>
+<p>当引用计数大于 1，表示当前可能即便 unref，引用计数也不为 0，此时的逻辑比较简单，尝试进行 CAS 操作来竞争并减小引用计数，如果竞争成功就返回（因为此时肯定不是最后一个 unref 的），竞争失败就重试，此时有可能是最后一个引用</p>
+<p>如果重试的时候发现自己的引用计数为 1，那么表示当前是最后一个引用，那么有可能需要析构。此时情况比较复杂，因为可能在析构的时候其他地方发生了 ref 操作。</p>
+<p>检查 weak_ref 是否进行了 promote，weak_ref 提升之后引用计数会增加</p>
+<p>如果当前引用计数为 1，那么会进行 dispose 操作</p>
+<p>dispose 后再判断引用计数，因为在 dispose 时有可能又在其他地方进行了 ref</p>
+<blockquote>
+<p>但是感觉不太应该，因为没有 weak_ref 的话，如果当前自己是最后一个引用，那么其他地方是不可能提升引用的，因为其他地方已经没有指针可用了</p>
+</blockquote>
+<p>如果 ref 大于 1，则尝试 CAS 操作来竞争并减小引用计数，和上面一样，竞争成功则返回，竞争失败就在这里重试。重试之后发现自己就是最后一个引用，那么减小引用计数，减小引用计数之后再判断一下引用计数，因为可能此时其他地方又发生了 ref（这里也不应该，理由同上，在没有 weak_ref 的情况下其他地方不应该增加引用）</p>
+<p>如果上一步获取引用计数发现其他地方进行了 ref，就返回，否则执行 finalize 和 g_type_free_instance</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_object_unref</span> <span class="params">(gpointer _object)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObject *object = _object;</span><br><span class="line">  gint old_ref;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* here we want to atomically do: if (ref_count&gt;1) &#123; ref_count--; return; &#125; */</span></span><br><span class="line"> retry_atomic_decrement1:</span><br><span class="line">  old_ref = <span class="built_in">g_atomic_int_get</span> (&amp;object-&gt;ref_count);</span><br><span class="line">  <span class="keyword">if</span> (old_ref &gt; <span class="number">1</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">if</span> (!<span class="built_in">g_atomic_int_compare_and_exchange</span> ((<span class="type">int</span> *)&amp;object-&gt;ref_count, old_ref, old_ref - <span class="number">1</span>))</span><br><span class="line">    <span class="keyword">goto</span> retry_atomic_decrement1;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      GSList **weak_locations;</span><br><span class="line">      GObjectNotifyQueue *nqueue;</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* The only way that this object can live at this point is if</span></span><br><span class="line"><span class="comment">       * there are outstanding weak references already established</span></span><br><span class="line"><span class="comment">       * before we got here.</span></span><br><span class="line"><span class="comment">       *</span></span><br><span class="line"><span class="comment">       * If there were not already weak references then no more can be</span></span><br><span class="line"><span class="comment">       * established at this time, because the other thread would have</span></span><br><span class="line"><span class="comment">       * to hold a strong ref in order to call</span></span><br><span class="line"><span class="comment">       * g_object_add_weak_pointer() and then we wouldn&#x27;t be here.</span></span><br><span class="line"><span class="comment">       *</span></span><br><span class="line"><span class="comment">       * Other GWeakRef&#x27;s (weak locations) instead may still be added</span></span><br><span class="line"><span class="comment">       * before the object is finalized, but in such case we&#x27;ll unset</span></span><br><span class="line"><span class="comment">       * them as part of the qdata removal.</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">      weak_locations = <span class="built_in">g_datalist_id_get_data</span> (&amp;object-&gt;qdata, quark_weak_locations);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (weak_locations != <span class="literal">NULL</span>)</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="built_in">g_rw_lock_writer_lock</span> (&amp;weak_locations_lock);</span><br><span class="line"></span><br><span class="line">          <span class="comment">/* It is possible that one of the weak references beat us to</span></span><br><span class="line"><span class="comment">           * the lock. Make sure the refcount is still what we expected</span></span><br><span class="line"><span class="comment">           * it to be.</span></span><br><span class="line"><span class="comment">           */</span></span><br><span class="line">          old_ref = <span class="built_in">g_atomic_int_get</span> (&amp;object-&gt;ref_count);</span><br><span class="line">          <span class="keyword">if</span> (old_ref != <span class="number">1</span>)</span><br><span class="line">            &#123;</span><br><span class="line">              <span class="built_in">g_rw_lock_writer_unlock</span> (&amp;weak_locations_lock);</span><br><span class="line">              <span class="keyword">goto</span> retry_atomic_decrement1;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">          <span class="comment">/* We got the lock first, so the object will definitely die</span></span><br><span class="line"><span class="comment">           * now. Clear out all the weak references, if they&#x27;re still set.</span></span><br><span class="line"><span class="comment">           */</span></span><br><span class="line">          weak_locations = <span class="built_in">g_datalist_id_remove_no_notify</span> (&amp;object-&gt;qdata,</span><br><span class="line">                                                           quark_weak_locations);</span><br><span class="line">          <span class="built_in">g_clear_pointer</span> (&amp;weak_locations, weak_locations_free_unlocked);</span><br><span class="line"></span><br><span class="line">          <span class="built_in">g_rw_lock_writer_unlock</span> (&amp;weak_locations_lock);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* freeze the notification queue, so we don&#x27;t accidentally emit</span></span><br><span class="line"><span class="comment">       * notifications during dispose() and finalize().</span></span><br><span class="line"><span class="comment">       *</span></span><br><span class="line"><span class="comment">       * The notification queue stays frozen unless the instance acquires</span></span><br><span class="line"><span class="comment">       * a reference during dispose(), in which case we thaw it and</span></span><br><span class="line"><span class="comment">       * dispatch all the notifications. If the instance gets through</span></span><br><span class="line"><span class="comment">       * to finalize(), the notification queue gets automatically</span></span><br><span class="line"><span class="comment">       * drained when g_object_finalize() is reached and</span></span><br><span class="line"><span class="comment">       * the qdata is cleared.</span></span><br><span class="line"><span class="comment">       */</span></span><br><span class="line">      nqueue = <span class="built_in">g_object_notify_queue_freeze</span> (object, FALSE);</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* we are about to remove the last reference */</span></span><br><span class="line">      <span class="built_in">G_OBJECT_GET_CLASS</span> (object)-&gt;<span class="built_in">dispose</span> (object);</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* may have been re-referenced meanwhile */</span></span><br><span class="line">    retry_atomic_decrement2:</span><br><span class="line">      old_ref = <span class="built_in">g_atomic_int_get</span> ((<span class="type">int</span> *)&amp;object-&gt;ref_count);</span><br><span class="line">      <span class="keyword">if</span> (old_ref &gt; <span class="number">1</span>)</span><br><span class="line">        &#123;</span><br><span class="line">          <span class="keyword">if</span> (!<span class="built_in">g_atomic_int_compare_and_exchange</span> ((<span class="type">int</span> *)&amp;object-&gt;ref_count, old_ref, old_ref - <span class="number">1</span>))</span><br><span class="line">        <span class="keyword">goto</span> retry_atomic_decrement2;</span><br><span class="line">          <span class="comment">/* emit all notifications that have been queued during dispose() */</span></span><br><span class="line">          <span class="built_in">g_object_notify_queue_thaw</span> (object, nqueue);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* we are still in the process of taking away the last ref */</span></span><br><span class="line">      <span class="built_in">g_datalist_id_set_data</span> (&amp;object-&gt;qdata, quark_closure_array, <span class="literal">NULL</span>);</span><br><span class="line">      <span class="built_in">g_signal_handlers_destroy</span> (object);</span><br><span class="line">      <span class="built_in">g_datalist_id_set_data</span> (&amp;object-&gt;qdata, quark_weak_refs, <span class="literal">NULL</span>);</span><br><span class="line">      <span class="built_in">g_datalist_id_set_data</span> (&amp;object-&gt;qdata, quark_weak_locations, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* decrement the last reference */</span></span><br><span class="line">      old_ref = <span class="built_in">g_atomic_int_add</span> (&amp;object-&gt;ref_count, <span class="number">-1</span>);</span><br><span class="line">      <span class="built_in">g_return_if_fail</span> (old_ref &gt; <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">      <span class="comment">/* may have been re-referenced meanwhile */</span></span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">G_LIKELY</span> (old_ref == <span class="number">1</span>))</span><br><span class="line">    &#123;</span><br><span class="line">          <span class="built_in">G_OBJECT_GET_CLASS</span> (object)-&gt;<span class="built_in">finalize</span> (object);</span><br><span class="line"></span><br><span class="line">          <span class="built_in">g_type_free_instance</span> ((GTypeInstance*) object);</span><br><span class="line">    &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">          <span class="comment">/* The instance acquired a reference between dispose() and</span></span><br><span class="line"><span class="comment">           * finalize(), so we need to thaw the notification queue</span></span><br><span class="line"><span class="comment">           */</span></span><br><span class="line">          <span class="built_in">g_object_notify_queue_thaw</span> (object, nqueue);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>有点不理解上面的函数为什么这么设计，既然进入了 dispose 分支，那么当前就是最后一个引用，而 weakref 也是在第 17 行后立马就判断了的，后面代码逻辑似乎是不必要的，如果 weakref 成功 promote，那么当前不应该析构，直接返回，如果 weakref 和当前操作竞争失败，weakref 的 promote 应该返回空，当前操作直接 dispose+finalize。这里的思路和 C++ 标准库的 shared_ptr&#x2F;weak_ptr 不太一样。</p>
+<h1 id="dispose-x2F-finalize-的链式调用"><a href="#dispose-x2F-finalize-的链式调用" class="headerlink" title="dispose&#x2F;finalize 的链式调用"></a>dispose&#x2F;finalize 的链式调用</h1><p>关于析构还有一点要注意，我们定义的 dispose、finalize 函数需要链式调用父类的 dispose、finalize 函数，这是因为当前类继承了父类，在初始化时依次调用了父类的 instance_init 函数，所以也需要调用每个父类的 dispose、finalize 函数来释放可能的资源。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/29/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E5%AE%9E%E4%BE%8Bstruct%E5%88%9D%E5%A7%8B%E5%8C%96/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-29 19:49:05
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/gobject/" title="gobject">
+                        <b>#</b> gobject
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/29/Gobject%E4%B9%8B%E5%B1%9E%E6%80%A7get-set/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-new"><span class="toc-text">g_object_new</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-object-init"><span class="toc-text">g_object_init</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-ref"><span class="toc-text">g_object_ref</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-unref"><span class="toc-text">g_object_unref</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#dispose-x2F-finalize-%E7%9A%84%E9%93%BE%E5%BC%8F%E8%B0%83%E7%94%A8"><span class="toc-text">dispose&#x2F;finalize 的链式调用</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

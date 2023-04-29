@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Gobject初始化之类结构struct初始化 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Gobject初始化之类结构struct初始化</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-04-29 19:48:00
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/gobject/" title="gobject">
+                    <b>#</b> gobject
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>上篇博客介绍了类型注册的过程，类型注册的结果就是创建并初始化类对应的 TypeNode 实例。之前在介绍如何定义一个 Gobject 类时提到了类的 <code>结构struct</code>，这个 struct 每个类全局只有一个实例，用于实现类似 C++ 虚函数覆盖的效果。这篇博客就介绍一下类结构 struct 的初始化过程，同时通过代码分析一下 base_init、class_init 等函数的调用时机。</p>
+<p>当通过 g_object_new 创建 <code>实例struct</code> 的实例时，如果类 <code>结构struct</code> 的实例没有被创建，会先创建该实例</p>
+<h1 id="g-object-new"><a href="#g-object-new" class="headerlink" title="g_object_new"></a>g_object_new</h1><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_object_new</span> <span class="params">(GType    object_type,</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="type">const</span> gchar *first_property_name,</span></span></span><br><span class="line"><span class="params"><span class="function">        ...)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObject *object;</span><br><span class="line">  va_list var_args;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* short circuit for calls supplying no properties */</span></span><br><span class="line">  <span class="keyword">if</span> (!first_property_name)</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">g_object_new_with_properties</span> (object_type, <span class="number">0</span>, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">va_start</span> (var_args, first_property_name);</span><br><span class="line">  object = <span class="built_in">g_object_new_valist</span> (object_type, first_property_name, var_args);</span><br><span class="line">  <span class="built_in">va_end</span> (var_args);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>简单起见，假设上面函数调用时没有传递属性参数，于是调用的是 g_object_new_with_properties()</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GObject *</span></span><br><span class="line"><span class="function"><span class="title">g_object_new_with_properties</span> <span class="params">(GType          object_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                              guint          n_properties,</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">const</span> <span class="type">char</span>    *names[],</span></span></span><br><span class="line"><span class="params"><span class="function">                              <span class="type">const</span> GValue   values[])</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectClass *<span class="keyword">class</span>, *unref_class = <span class="literal">NULL</span>;</span><br><span class="line">  GObject *object;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">class</span> = <span class="built_in">g_type_class_peek_static</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="keyword">class</span> == <span class="literal">NULL</span>)</span><br><span class="line">    <span class="keyword">class</span> = unref_class = <span class="built_in">g_type_class_ref</span> (object_type);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (n_properties &gt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">    ...</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    object = <span class="built_in">g_object_new_internal</span> (<span class="keyword">class</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (unref_class != <span class="literal">NULL</span>)</span><br><span class="line">    <span class="built_in">g_type_class_unref</span> (unref_class);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> object;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="g-type-class-peek-static"><a href="#g-type-class-peek-static" class="headerlink" title="g_type_class_peek_static"></a>g_type_class_peek_static</h2><p>g_object_new_with_properties 先调用 g_type_class_peek_static 尝试得到 <code>结构struct</code> 的实例</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_type_class_peek_static</span> <span class="params">(GType type)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  gpointer <span class="keyword">class</span>;</span><br><span class="line">  </span><br><span class="line">  node = <span class="built_in">lookup_type_node_I</span> (type);</span><br><span class="line">  <span class="keyword">if</span> (node &amp;&amp; node-&gt;is_classed &amp;&amp; <span class="built_in">NODE_REFCOUNT</span> (node) &amp;&amp;</span><br><span class="line">      <span class="comment">/* peek only static types: */</span> node-&gt;plugin == <span class="literal">NULL</span> &amp;&amp;</span><br><span class="line">      <span class="built_in">g_atomic_int_get</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state) == INITIALIZED)</span><br><span class="line">    <span class="comment">/* ref_count _may_ be 0 */</span></span><br><span class="line">    <span class="keyword">class</span> = node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span>;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="keyword">class</span> = <span class="literal">NULL</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">class</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="g-type-class-ref"><a href="#g-type-class-ref" class="headerlink" title="g_type_class_ref"></a>g_type_class_ref</h2><p>如果 g_type_class_peek_static 返回的是空指针，代表此时还没有创建结构 struct 的实例，g_object_new_with_properties 会调用 g_type_class_ref 函数创建类结构 struct 的实例。g_type_class_ref 函数会：</p>
+<blockquote>
+<p>Increments the reference count of the class structure belonging to @type. This function will demand-create the class if it doesn’t exist already.</p>
+</blockquote>
+<p>由于 g_type_class_ref 和 g_object_new_internal 都会增加引用计数，所以引用计数会 +2，于是 g_object_new_with_properties 的最后还做了一个 unref 动作</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">gpointer</span></span><br><span class="line"><span class="function"><span class="title">g_type_class_ref</span> <span class="params">(GType type)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  TypeNode *node;</span><br><span class="line">  GType ptype;</span><br><span class="line">  gboolean holds_ref;</span><br><span class="line">  GTypeClass *pclass;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* optimize for common code path */</span></span><br><span class="line">  node = <span class="built_in">lookup_type_node_I</span> (type);</span><br><span class="line">  <span class="keyword">if</span> (!node || !node-&gt;is_classed)</span><br><span class="line">  &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">G_LIKELY</span> (<span class="built_in">type_data_ref_U</span> (node)))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">G_LIKELY</span> (<span class="built_in">g_atomic_int_get</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state) == INITIALIZED))</span><br><span class="line">        <span class="keyword">return</span> node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span>;</span><br><span class="line">      holds_ref = TRUE;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    holds_ref = FALSE;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* here, we either have node-&gt;data-&gt;class.class == NULL, or a recursive</span></span><br><span class="line"><span class="comment">   * call to g_type_class_ref() with a partly initialized class, or</span></span><br><span class="line"><span class="comment">   * node-&gt;data-&gt;class.init_state == INITIALIZED, because any</span></span><br><span class="line"><span class="comment">   * concurrently running initialization was guarded by class_init_rec_mutex.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="built_in">g_rec_mutex_lock</span> (&amp;class_init_rec_mutex); <span class="comment">/* required locking order: 1) class_init_rec_mutex, 2) type_rw_lock */</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">g_type_class_ref也是一个递归向上的函数，他在初始化当前node时，</span></span><br><span class="line"><span class="comment">会先判断父类的结构struct已经创建，如果没有，对父类node调用g_type_class_ref</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">  <span class="comment">/* we need an initialized parent class for initializing derived classes */</span></span><br><span class="line">  ptype = <span class="built_in">NODE_PARENT_TYPE</span> (node);</span><br><span class="line">  pclass = ptype ? <span class="built_in">g_type_class_ref</span> (ptype) : <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!holds_ref)</span><br><span class="line">    <span class="built_in">type_data_ref_Wm</span> (node);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span>) <span class="comment">/* class uninitialized */</span></span><br><span class="line">    <span class="built_in">type_class_init_Wm</span> (node, pclass);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (pclass)</span><br><span class="line">    <span class="built_in">g_type_class_unref</span> (pclass);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_rec_mutex_unlock</span> (&amp;class_init_rec_mutex);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="type-data-ref-U"><a href="#type-data-ref-U" class="headerlink" title="type_data_ref_U"></a>type_data_ref_U</h3><p>g_type_class_ref 函数先通过 type_data_ref_U 函数增加当前 TypeNode 的引用计数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> gboolean</span></span><br><span class="line"><span class="function"><span class="title">type_data_ref_U</span> <span class="params">(TypeNode *node)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  guint current;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">do</span> &#123;</span><br><span class="line">    current = <span class="built_in">NODE_REFCOUNT</span> (node);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (current &lt; <span class="number">1</span>)</span><br><span class="line">      <span class="keyword">return</span> FALSE;</span><br><span class="line">  &#125; <span class="keyword">while</span> (!<span class="built_in">g_atomic_int_compare_and_exchange</span> ((<span class="type">int</span> *) &amp;node-&gt;ref_count, current, current + <span class="number">1</span>));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> TRUE;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果 type_data_ref_U 函数失败，表明 TypeNode 可能没有初始化，此时将调用 type_data_ref_Wm 函数初始化 TypeNode，和之前的类型注册过程一样</p>
+<h3 id="type-class-init-Wm"><a href="#type-class-init-Wm" class="headerlink" title="type_class_init_Wm"></a>type_class_init_Wm</h3><p>TypeNode 初始化好之后，调用 type_class_init_Wm 函数创建结构 struct 的实例，该实例的指针会保存在 TypeNode-&gt;data-&gt;class.class 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">type_class_init_Wm</span> <span class="params">(TypeNode   *node,</span></span></span><br><span class="line"><span class="params"><span class="function">        GTypeClass *pclass)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GSList *slist, *init_slist = <span class="literal">NULL</span>;</span><br><span class="line">  GTypeClass *<span class="keyword">class</span>;</span><br><span class="line">  IFaceEntries *entries;</span><br><span class="line">  IFaceEntry *entry;</span><br><span class="line">  TypeNode *bnode, *pnode;</span><br><span class="line">  guint i;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* Accessing data-&gt;class will work for instantiatable types</span></span><br><span class="line"><span class="comment">   * too because ClassData is a subset of InstanceData</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="built_in">g_assert</span> (node-&gt;is_classed &amp;&amp; node-&gt;data &amp;&amp;</span><br><span class="line">      node-&gt;data-&gt;<span class="keyword">class</span>.class_size &amp;&amp;</span><br><span class="line">      !node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span> &amp;&amp;</span><br><span class="line">      <span class="built_in">g_atomic_int_get</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state) == UNINITIALIZED);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 分配class的内存</span></span><br><span class="line">  <span class="keyword">if</span> (node-&gt;data-&gt;<span class="keyword">class</span>.class_private_size)</span><br><span class="line">    <span class="keyword">class</span> = <span class="built_in">g_malloc0</span> (<span class="built_in">ALIGN_STRUCT</span> (node-&gt;data-&gt;<span class="keyword">class</span>.class_size) + node-&gt;data-&gt;<span class="keyword">class</span>.class_private_size);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    <span class="keyword">class</span> = <span class="built_in">g_malloc0</span> (node-&gt;data-&gt;<span class="keyword">class</span>.class_size);</span><br><span class="line"></span><br><span class="line">  node-&gt;data-&gt;<span class="keyword">class</span>.<span class="keyword">class</span> = <span class="keyword">class</span>;</span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state, BASE_CLASS_INIT);</span><br><span class="line">  </span><br><span class="line">  <span class="keyword">if</span> (pclass)</span><br><span class="line">    &#123;</span><br><span class="line">      pnode = <span class="built_in">lookup_type_node_I</span> (pclass-&gt;g_type);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 把父类的类struct实例拷贝到当前的类struct实例</span></span><br><span class="line">      <span class="built_in">memcpy</span> (<span class="keyword">class</span>, pclass, pnode-&gt;data-&gt;<span class="keyword">class</span>.class_size);</span><br><span class="line">      <span class="built_in">memcpy</span> (<span class="built_in">G_STRUCT_MEMBER_P</span> (<span class="keyword">class</span>, <span class="built_in">ALIGN_STRUCT</span> (node-&gt;data-&gt;<span class="keyword">class</span>.class_size)), <span class="built_in">G_STRUCT_MEMBER_P</span> (pclass, <span class="built_in">ALIGN_STRUCT</span> (pnode-&gt;data-&gt;<span class="keyword">class</span>.class_size)), pnode-&gt;data-&gt;<span class="keyword">class</span>.class_private_size);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (node-&gt;is_instantiatable)</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">/* We need to initialize the private_size here rather than in</span></span><br><span class="line"><span class="comment">     * type_data_make_W() since the class init for the parent</span></span><br><span class="line"><span class="comment">     * class may have changed pnode-&gt;data-&gt;instance.private_size.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    node-&gt;data-&gt;instance.private_size = pnode-&gt;data-&gt;instance.private_size;</span><br><span class="line">  &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">class</span>-&gt;g_type = <span class="built_in">NODE_TYPE</span> (node);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* stack all base class initialization functions, so we</span></span><br><span class="line"><span class="comment">   * call them in ascending order.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  <span class="keyword">for</span> (bnode = node; bnode; bnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (bnode)))</span><br><span class="line">    <span class="keyword">if</span> (bnode-&gt;data-&gt;<span class="keyword">class</span>.class_init_base)</span><br><span class="line">      init_slist = <span class="built_in">g_slist_prepend</span> (init_slist, (gpointer) bnode-&gt;data-&gt;<span class="keyword">class</span>.class_init_base);</span><br><span class="line">  <span class="keyword">for</span> (slist = init_slist; slist; slist = slist-&gt;next)</span><br><span class="line">    &#123;</span><br><span class="line">      GBaseInitFunc class_init_base = (GBaseInitFunc) slist-&gt;data;</span><br><span class="line"><span class="comment">// 从上往下调用base_class_init</span></span><br><span class="line">      <span class="built_in">class_init_base</span> (<span class="keyword">class</span>);</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="built_in">g_slist_free</span> (init_slist);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state, BASE_IFACE_INIT);</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* Before we initialize the class, base initialize all interfaces, either</span></span><br><span class="line"><span class="comment">   * from parent, or through our holder info</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  pnode = <span class="built_in">lookup_type_node_I</span> (<span class="built_in">NODE_PARENT_TYPE</span> (node));</span><br><span class="line"></span><br><span class="line">  i = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">while</span> ((entries = <span class="built_in">CLASSED_NODE_IFACES_ENTRIES_LOCKED</span> (node)) != <span class="literal">NULL</span> &amp;&amp;</span><br><span class="line">    i &lt; <span class="built_in">IFACE_ENTRIES_N_ENTRIES</span> (entries))</span><br><span class="line">    &#123;</span><br><span class="line">    <span class="comment">// interface相关，暂时略过</span></span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state, CLASS_INIT);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_WRITE_UNLOCK</span> (&amp;type_rw_lock);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 调用class_init</span></span><br><span class="line">  <span class="keyword">if</span> (node-&gt;data-&gt;<span class="keyword">class</span>.class_init)</span><br><span class="line">    node-&gt;data-&gt;<span class="keyword">class</span>.<span class="built_in">class_init</span> (<span class="keyword">class</span>, (gpointer) node-&gt;data-&gt;<span class="keyword">class</span>.class_data);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">G_WRITE_LOCK</span> (&amp;type_rw_lock);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state, IFACE_INIT);</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* finish initializing the interfaces through our holder info.</span></span><br><span class="line"><span class="comment">   * inherited interfaces are already init_state == INITIALIZED, because</span></span><br><span class="line"><span class="comment">   * they either got setup in the above base_init loop, or during</span></span><br><span class="line"><span class="comment">   * class_init from within type_add_interface_Wm() for this or</span></span><br><span class="line"><span class="comment">   * an ancestor type.</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">  i = <span class="number">0</span>;</span><br><span class="line">  <span class="keyword">while</span> ((entries = <span class="built_in">CLASSED_NODE_IFACES_ENTRIES_LOCKED</span> (node)) != <span class="literal">NULL</span>)</span><br><span class="line">    &#123; <span class="comment">// interface 相关，略去</span></span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">g_atomic_int_set</span> (&amp;node-&gt;data-&gt;<span class="keyword">class</span>.init_state, INITIALIZED);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面这个函数主要：</p>
+<ul>
+<li>为当前要创建的结构 struct 的实例分配内存</li>
+<li>如果有父类，就把父类的结构 struct 的实例复制到当前的结构 struct 的实例</li>
+<li>从最顶层父类到自己，依次调用每一个 base_init 函数初始化当前的结构 struct 的实例</li>
+<li>调用当前类的 class_init 函数初始化当前的结构 struct 的实例</li>
+</ul>
+<p>此外还可以发现创建的结构 struct 的实例中还含有与之关联的 GType 信息，那些类型检查宏会用到这些信息，这部分后面再单独写一篇文章介绍</p>
+<p>关于上面的‘private size’：</p>
+<ul>
+<li>class_private_size 是通过 g_type_add_class_private 函数修改</li>
+<li>而 instance.private_size 是通过 g_type_class_adjust_private_offset 函数修改</li>
+</ul>
+<p>class_private_size 用得比较少，instance.private_size 就是之前博客介绍的类的私有结构的 size，在 type_class_init_Wm 函数中会把父类的 instance.private_size 赋给子类，子类如果也想定义自己的私有结构，会在 class_intern_init 函数中调用 g_type_class_adjust_private_offset 中增加 instance.private_size。</p>
+<h1 id="g-object-base-class-init"><a href="#g-object-base-class-init" class="headerlink" title="g_object_base_class_init"></a>g_object_base_class_init</h1><p>最后看一下 GObject 的 base_class_init 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_object_base_class_init</span> <span class="params">(GObjectClass *<span class="keyword">class</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GObjectClass *pclass = <span class="built_in">g_type_class_peek_parent</span> (<span class="keyword">class</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* Don&#x27;t inherit HAS_DERIVED_CLASS flag from parent class */</span></span><br><span class="line">  <span class="keyword">class</span>-&gt;flags &amp;= ~CLASS_HAS_DERIVED_CLASS_FLAG;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (pclass)</span><br><span class="line">    pclass-&gt;flags |= CLASS_HAS_DERIVED_CLASS_FLAG;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* reset instance specific fields and methods that don&#x27;t get inherited */</span></span><br><span class="line">  <span class="keyword">class</span>-&gt;construct_properties = pclass ? <span class="built_in">g_slist_copy</span> (pclass-&gt;construct_properties) : <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">class</span>-&gt;n_construct_properties = <span class="built_in">g_slist_length</span> (<span class="keyword">class</span>-&gt;construct_properties);</span><br><span class="line">  <span class="keyword">class</span>-&gt;get_property = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">class</span>-&gt;set_property = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">class</span>-&gt;pspecs = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">class</span>-&gt;n_pspecs = <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>该函数主要是做了一些拷贝工作，避免父子类中的指针指向同一个对象（因为创建结构 struct 的实例时会直接拷贝父类的结构 struct 的实例），比如把 construct_properties 复制一份，把 pspecs 置为空。base_init 大部分就是做这种工作，比如 gstreamer 中的 GstElement 的 base_init 就是拷贝 padtemplates，让父子类的 padtemplate 指向不同的对象，避免析构时多次释放。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/26/ffmpeg%E4%B9%8BYUV%E5%83%8F%E7%B4%A0%E6%A0%BC%E5%BC%8F/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-04-29 19:48:00
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/gobject/" title="gobject">
+                        <b>#</b> gobject
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/04/29/Gobject%E5%88%9D%E5%A7%8B%E5%8C%96%E4%B9%8B%E5%AE%9E%E4%BE%8Bstruct%E5%88%9D%E5%A7%8B%E5%8C%96/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-new"><span class="toc-text">g_object_new</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-type-class-peek-static"><span class="toc-text">g_type_class_peek_static</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#g-type-class-ref"><span class="toc-text">g_type_class_ref</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#type-data-ref-U"><span class="toc-text">type_data_ref_U</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#type-class-init-Wm"><span class="toc-text">type_class_init_Wm</span></a></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#g-object-base-class-init"><span class="toc-text">g_object_base_class_init</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
