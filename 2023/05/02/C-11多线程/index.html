@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      C++11多线程 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">C++11多线程</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-02 20:34:50
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章介绍一下 C++11 提供的线程库。</p>
+<h3 id="thread"><a href="#thread" class="headerlink" title="thread"></a>thread</h3><p>基本使用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;thread&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">f</span><span class="params">(<span class="type">int</span> i)</span> </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="function">thread <span class="title">A</span><span class="params">(f, <span class="number">1</span>)</span></span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>看看源码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">_LIBCPP_TYPE_VIS</span> thread</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 成员数据</span></span><br><span class="line">    <span class="type">__libcpp_thread_t</span> __t_;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typedef</span> __thread_id id;</span><br><span class="line">    <span class="keyword">typedef</span> <span class="type">__libcpp_thread_t</span> native_handle_type;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 默认构造</span></span><br><span class="line">    <span class="built_in">thread</span>() _NOEXCEPT : __t_(_LIBCPP_NULL_THREAD) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 模板构造函数</span></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> ..._Args,</span><br><span class="line">              <span class="keyword">class</span> = <span class="keyword">typename</span> enable_if</span><br><span class="line">              &lt;</span><br><span class="line">                   !is_same&lt;<span class="keyword">typename</span> __uncvref&lt;_Fp&gt;::type, thread&gt;::value</span><br><span class="line">              &gt;::type</span><br><span class="line">             &gt;</span><br><span class="line">        <span class="keyword">explicit</span> <span class="built_in">thread</span>(_Fp&amp;&amp; __f, _Args&amp;&amp;... __args);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 移动构造</span></span><br><span class="line">    <span class="built_in">thread</span>(thread&amp;&amp; <span class="type">__t</span>) _NOEXCEPT : __t_(<span class="type">__t</span>.__t_) &#123;<span class="type">__t</span>.__t_ = _LIBCPP_NULL_THREAD;&#125;</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// 移动赋值</span></span><br><span class="line">    thread&amp; <span class="keyword">operator</span>=(thread&amp;&amp; <span class="type">__t</span>) _NOEXCEPT;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">swap</span><span class="params">(thread&amp; <span class="type">__t</span>)</span> _NOEXCEPT </span>&#123;_VSTD::<span class="built_in">swap</span>(__t_, <span class="type">__t</span>.__t_);&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">joinable</span><span class="params">()</span> <span class="type">const</span> _NOEXCEPT </span>&#123;<span class="keyword">return</span> !__libcpp_thread_isnull(&amp;__t_);&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">join</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="type">int</span> ec = EINVAL;</span><br><span class="line">        <span class="keyword">if</span> (!__libcpp_thread_isnull(&amp;__t_))</span><br><span class="line">        &#123;</span><br><span class="line">            ec = __libcpp_thread_join(&amp;__t_);</span><br><span class="line">            <span class="keyword">if</span> (ec == <span class="number">0</span>)</span><br><span class="line">                __t_ = _LIBCPP_NULL_THREAD;</span><br><span class="line">        &#125;</span><br><span class="line">    </span><br><span class="line">        <span class="keyword">if</span> (ec)</span><br><span class="line">            __throw_system_error(ec, <span class="string">&quot;thread::join failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">detach</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="type">int</span> ec = EINVAL;</span><br><span class="line">        <span class="keyword">if</span> (!__libcpp_thread_isnull(&amp;__t_))</span><br><span class="line">        &#123;</span><br><span class="line">            ec = __libcpp_thread_detach(&amp;__t_);</span><br><span class="line">            <span class="keyword">if</span> (ec == <span class="number">0</span>)</span><br><span class="line">                __t_ = _LIBCPP_NULL_THREAD;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (ec)</span><br><span class="line">            __throw_system_error(ec, <span class="string">&quot;thread::detach failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function">    id <span class="title">get_id</span><span class="params">()</span> <span class="type">const</span> _NOEXCEPT </span>&#123;<span class="keyword">return</span> __libcpp_thread_get_id(&amp;__t_);&#125;</span><br><span class="line">    </span><br><span class="line">    <span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function">    native_handle_type <span class="title">native_handle</span><span class="params">()</span> _NOEXCEPT </span>&#123;<span class="keyword">return</span> __t_;&#125;</span><br><span class="line"></span><br><span class="line">    ~<span class="built_in">thread</span>()</span><br><span class="line">    &#123;   <span class="comment">// thread必须join或者detach，否则析构的时候会报错</span></span><br><span class="line">        <span class="keyword">if</span> (!__libcpp_thread_isnull(&amp;__t_))</span><br><span class="line">            <span class="built_in">terminate</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，上面的很多方法都是通过 <code>__libcpp_thread_xxx</code> 实现的，而 <code>__libcpp_thread_xxx</code> 则封装了具体的线程 API，如果是 linux 平台，<code>__libcpp_thread_xxx</code> 可能是 pthread，如果是 windows，<code>__libcpp_thread_xxx</code> 可能是 windows 的线程库</p>
+<p><code>__libcpp_thread_xxx</code> 具体在 <code>__threading_support</code> 头文件中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Mutex</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_mutex_t</span> <span class="type">__libcpp_mutex_t</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _LIBCPP_MUTEX_INITIALIZER PTHREAD_MUTEX_INITIALIZER</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_mutex_t</span> <span class="type">__libcpp_recursive_mutex_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Condition Variable</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_cond_t</span> <span class="type">__libcpp_condvar_t</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _LIBCPP_CONDVAR_INITIALIZER PTHREAD_COND_INITIALIZER</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Execute once</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_once_t</span> __libcpp_exec_once_flag;</span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _LIBCPP_EXEC_ONCE_INITIALIZER PTHREAD_ONCE_INIT</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread id</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_t</span> __libcpp_thread_id;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> _LIBCPP_NULL_THREAD 0U</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_t</span> <span class="type">__libcpp_thread_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Thread Local Storage</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_key_t</span> __libcpp_tls_key;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="type">bool</span> __libcpp_thread_id_equal(__libcpp_thread_id t1, __libcpp_thread_id t2)</span><br><span class="line">&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">pthread_equal</span>(t1, t2) != <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="type">int</span> __libcpp_thread_create(<span class="type">__libcpp_thread_t</span> *<span class="type">__t</span>, <span class="type">void</span> *(*__func)(<span class="type">void</span> *),</span><br><span class="line">                           <span class="type">void</span> *__arg)</span><br><span class="line">&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">pthread_create</span>(<span class="type">__t</span>, <span class="number">0</span>, __func, __arg);</span><br><span class="line">&#125;</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>注意 pthread_t、<code>__libcpp_thread_id</code>、<code>__libcpp_thread_t</code>、<code>__thread_id</code>：<code>__libcpp_thread_id</code> 和 <code>__libcpp_thread_t</code> 都是 pthread_t 的别名，而 <code>__thread_id</code> 是对 <code>__libcpp_thread_id</code> 的包装，他有一个 private 的 implicit 的构造函数（接受 <code>__libcpp_thread_id</code> 参数），从而可以有 <code>__libcpp_thread_id</code> 到 <code>__thread_id</code> 的自动转换，但是该转换只能在友元，比如 <code>this_thread::get_id()</code> 函数中访问</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_t</span> __libcpp_thread_id;</span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pthread_t</span> <span class="type">__libcpp_thread_t</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> __thread_id</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// <span class="doctag">FIXME:</span> pthread_t is a pointer on Darwin but a long on Linux.</span></span><br><span class="line">    <span class="comment">// NULL is the no-thread value on Darwin.  Someone needs to check</span></span><br><span class="line">    <span class="comment">// on other platforms.  We assume 0 works everywhere for now.</span></span><br><span class="line">    __libcpp_thread_id __id_;</span><br><span class="line"></span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    __thread_id() _NOEXCEPT : __id_(<span class="number">0</span>) &#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    __thread_id(__libcpp_thread_id __id) : __id_(__id) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">friend</span> __thread_id <span class="title">this_thread::get_id</span><span class="params">()</span> _NOEXCEPT</span>;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> this_thread</span><br><span class="line">&#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">__thread_id <span class="comment">// 从__libcpp_thread_id自动转换为__thread_id</span></span><br><span class="line"><span class="built_in">get_id</span>() _NOEXCEPT</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> __libcpp_thread_get_current_id();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看看模板构造函数，这个构造函数使用最多。此构造函数生效的条件是 <code>_Fp</code> 不能是 thread 类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> ..._Args,</span><br><span class="line">          <span class="keyword">class</span> = <span class="keyword">typename</span> enable_if</span><br><span class="line">          &lt;</span><br><span class="line">               !is_same&lt;<span class="keyword">typename</span> __uncvref&lt;_Fp&gt;::type, thread&gt;::value</span><br><span class="line">          &gt;::type</span><br><span class="line">         &gt;</span><br><span class="line">    _LIBCPP_METHOD_TEMPLATE_IMPLICIT_INSTANTIATION_VIS</span><br><span class="line">    <span class="keyword">explicit</span> <span class="built_in">thread</span>(_Fp&amp;&amp; __f, _Args&amp;&amp;... __args);</span><br></pre></td></tr></table></figure>
+
+<p><code>__uncvref</code> 就是先去除引用，再去除 const、volatile 限定符</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__uncvref</span>  &#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> remove_cv&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::type type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>模板构造函数中使用了一个 tuple 来存储可调用对象和参数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> ..._Args,</span><br><span class="line">          <span class="keyword">class</span></span><br><span class="line">         &gt;</span><br><span class="line">thread::<span class="built_in">thread</span>(_Fp&amp;&amp; __f, _Args&amp;&amp;... __args)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> unique_ptr&lt;__thread_struct&gt; _TSPtr;</span><br><span class="line">    _TSPtr __tsp(<span class="keyword">new</span> __thread_struct);</span><br><span class="line">    <span class="keyword">typedef</span> tuple&lt;_TSPtr, <span class="keyword">typename</span> decay&lt;_Fp&gt;::type, <span class="keyword">typename</span> decay&lt;_Args&gt;::type...&gt; _Gp;</span><br><span class="line">    _VSTD::unique_ptr&lt;_Gp&gt; __p(</span><br><span class="line">            <span class="keyword">new</span> _Gp(std::<span class="built_in">move</span>(__tsp),</span><br><span class="line">                    __decay_copy(_VSTD::forward&lt;_Fp&gt;(__f)),</span><br><span class="line">                    __decay_copy(_VSTD::forward&lt;_Args&gt;(__args))...));</span><br><span class="line">    <span class="type">int</span> __ec = __libcpp_thread_create(&amp;__t_, &amp;__thread_proxy&lt;_Gp&gt;, __p.<span class="built_in">get</span>());</span><br><span class="line">    <span class="keyword">if</span> (__ec == <span class="number">0</span>)</span><br><span class="line">        __p.<span class="built_in">release</span>();</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        __throw_system_error(__ec, <span class="string">&quot;thread constructor failed&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>首先 <code>typename decay&lt;_Fp&gt;::type</code> 和 <code>typename decay&lt;_Args&gt;::type...</code> 会把模板类型进行退化。退化具体包括以下操作：去除引用，去除 const&#x2F;volatile，函数&#x2F;数组转换为函数指针&#x2F;数组首元素指针。</p>
+<p>比如，如果 <code>_Fp</code> 是函数引用（当传给 thread 一个函数名时，<code>__f</code> 会推断为函数引用），<code>typename decay&lt;_Fp&gt;::type</code> 就是函数指针，如果 <code>_Args</code> 是引用类型，<code>typename decay&lt;_Args&gt;::type...</code> 将是值类型。</p>
+<p>所以创建的 <code>tuple&lt;_TSPtr, typename decay&lt;_Fp&gt;::type, typename decay&lt;_Args&gt;::type...&gt;</code> 里面都是值类型。</p>
+<p>上面的构造函数使用了 <code>__decay_copy</code> 保证传给 <code>_Gp</code> 的参数是 decay 之后的类型，因为 <code>__decay_copy</code> 返回类型为 decay 后类型的值。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY</span><br><span class="line"><span class="keyword">typename</span> decay&lt;_Tp&gt;::type</span><br><span class="line">__decay_copy(_Tp&amp;&amp; <span class="type">__t</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> _VSTD::forward&lt;_Tp&gt;(<span class="type">__t</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>但是注意，如果传给 thread 的是右值引用，而且参数类型 decay 之后就是他自身，那么参数会一路移动到 tuple 中，比如下面的例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;thread&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;memory&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;utility&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">f</span><span class="params">(unique_ptr&lt;<span class="type">int</span>&gt; a)</span> </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="function">unique_ptr&lt;<span class="type">int</span>&gt; <span class="title">a</span><span class="params">(<span class="keyword">new</span> <span class="type">int</span>(<span class="number">2</span>))</span></span>;</span><br><span class="line">    <span class="function">thread <span class="title">t</span><span class="params">(f, move(a))</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (!a) </span><br><span class="line">        cout &lt;&lt; <span class="string">&quot;a is null&quot;</span> &lt;&lt; endl;</span><br><span class="line">    t.<span class="built_in">join</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这是因为 <code>__decay_copy</code> 返回的虽然是值，但是他是临时值，后续的 tuple 构造函数会使用右值引用来指向该值，于是 tuple 内部继续发生移动构造。</p>
+<p>上面 <code>__libcpp_thread_create</code> 函数调用 pthread_create 来创建线程</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> __libcpp_thread_create(<span class="type">__libcpp_thread_t</span> *<span class="type">__t</span>, <span class="type">void</span> *(*__func)(<span class="type">void</span> *),</span><br><span class="line">                           <span class="type">void</span> *__arg)</span><br><span class="line">&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">pthread_create</span>(<span class="type">__t</span>, <span class="number">0</span>, __func, __arg);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>传给新线程执行的函数是 <code>__thread_proxy</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line"><span class="type">void</span>* __thread_proxy(<span class="type">void</span>* __vp)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// _Fp = std::tuple&lt; unique_ptr&lt;__thread_struct&gt;, Functor, Args...&gt;</span></span><br><span class="line">    std::unique_ptr&lt;_Fp&gt; __p(<span class="built_in">static_cast</span>&lt;_Fp*&gt;(__vp));</span><br><span class="line">    __thread_local_data().<span class="built_in">set_pointer</span>(_VSTD::<span class="built_in">get</span>&lt;<span class="number">0</span>&gt;(*__p).<span class="built_in">release</span>());</span><br><span class="line">    <span class="keyword">typedef</span> <span class="keyword">typename</span> __make_tuple_indices&lt;tuple_size&lt;_Fp&gt;::value, <span class="number">2</span>&gt;::type _Index;</span><br><span class="line">    __thread_execute(*__p, _Index());</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__thread_proxy</code> 中重新使用 unique_ptr 包装输入的 <code>__vp</code> 指针，而 thread 构造函数会对 unique_ptr 进行 release 操作。</p>
+<p><code>unique_ptr::release()</code> 不是释放指针，<strong>不会进行 delete 操作</strong>，<code>thread::thread(...)</code> 进行 release 之后，在 <code>__thread_proxy&lt;_Gp&gt;</code> 函数中又会重新得到该 unique_ptr，相当于进行了一个转移。</p>
+<p><code>__make_tuple_indices&lt;tuple_size&lt;_Fp&gt;::value, 2&gt;::type</code> 返回一个序列，从 2 开始到 <code>tuple_size&lt;_Fp&gt;::value</code>，这刚好就是参数的索引，和 bind 里面是一样的。</p>
+<p>最终函数执行是在 <code>__thread_execute</code> 里面，调用 <code>__invoke</code> 来执行</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_TSp</span>, <span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> ..._Args, <span class="type">size_t</span> ..._Indices&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY</span><br><span class="line"><span class="type">void</span></span><br><span class="line">__thread_execute(tuple&lt;_TSp, _Fp, _Args...&gt;&amp; <span class="type">__t</span>, __tuple_indices&lt;_Indices...&gt;)</span><br><span class="line">&#123;</span><br><span class="line">    __invoke(_VSTD::<span class="built_in">move</span>(_VSTD::<span class="built_in">get</span>&lt;<span class="number">1</span>&gt;(<span class="type">__t</span>)), _VSTD::<span class="built_in">move</span>(_VSTD::<span class="built_in">get</span>&lt;_Indices&gt;(<span class="type">__t</span>))...);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__invoke</code> 会根据第一个参数的类型（比如是函数指针还是类成员函数指针）决定如何进行调用，这部分和 bind 是一样的。</p>
+<h3 id="mutex"><a href="#mutex" class="headerlink" title="mutex"></a>mutex</h3><p>mutex 类如下，对于 linux 平台，mutex 就是封装了 pthread 的 mutex。从下面代码可以看到，mutex 无法拷贝构造、拷贝赋值、移动构造、移动赋值，所以要让 mutex 有移动语义，还需要使用 unique_ptr 进行包装。</p>
+<p>其他的操作，lock、try_lock、unlock 和 pthread 是一样的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">mutex</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="comment">// 用 _LIBCPP_MUTEX_INITIALIZER 来初始化__libcpp_mutex_t</span></span><br><span class="line">    <span class="type">__libcpp_mutex_t</span> __m_ = _LIBCPP_MUTEX_INITIALIZER;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">mutex</span>() = <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">mutex</span>(<span class="type">const</span> mutex&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    mutex&amp; <span class="keyword">operator</span>=(<span class="type">const</span> mutex&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    mutex::~<span class="built_in">mutex</span>() _NOEXCEPT</span><br><span class="line">    &#123;</span><br><span class="line">        __libcpp_mutex_destroy(&amp;__m_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">lock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="type">int</span> ec = __libcpp_mutex_lock(&amp;__m_);</span><br><span class="line">        <span class="keyword">if</span> (ec)</span><br><span class="line">            __throw_system_error(ec, <span class="string">&quot;mutex lock failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">try_lock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">return</span> __libcpp_mutex_trylock(&amp;__m_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">unlock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="type">int</span> ec = __libcpp_mutex_unlock(&amp;__m_);</span><br><span class="line">        (<span class="type">void</span>)ec;</span><br><span class="line">        _LIBCPP_ASSERT(ec == <span class="number">0</span>, <span class="string">&quot;call to mutex::unlock failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">typedef</span> <span class="type">__libcpp_mutex_t</span>* native_handle_type;</span><br><span class="line">    <span class="function">native_handle_type <span class="title">native_handle</span><span class="params">()</span> </span>&#123;<span class="keyword">return</span> &amp;__m_;&#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="lock-guard"><a href="#lock-guard" class="headerlink" title="lock_guard"></a>lock_guard</h3><p>lock_guard 是 mutex 的辅助类。lock_guard 的构造函数接受一个锁类型的变量，同时在构造函数内加锁，还会在析构时释放锁，所以加锁和 lock_guard 的生命周期是关联的。lock_guard 还有一个构造函数，他可以接受一个已经加锁的锁变量，要使用这个构造函数，第二个参数必须是 adopt_lock_t 类型。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Mutex</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">lock_guard</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">typedef</span> _Mutex mutex_type;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    mutex_type&amp; __m_;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">lock_guard</span><span class="params">(mutex_type&amp; __m)</span></span></span><br><span class="line"><span class="function">        : __m_(__m) &#123;</span>__m_.<span class="built_in">lock</span>();&#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 此时表示当前线程已经加锁</span></span><br><span class="line">    <span class="built_in">lock_guard</span>(mutex_type&amp; __m, <span class="type">adopt_lock_t</span>)</span><br><span class="line">        : __m_(__m) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    ~<span class="built_in">lock_guard</span>() &#123;__m_.<span class="built_in">unlock</span>();&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">lock_guard</span>(lock_guard <span class="type">const</span>&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    lock_guard&amp; <span class="keyword">operator</span>=(lock_guard <span class="type">const</span>&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="unique-lock"><a href="#unique-lock" class="headerlink" title="unique_lock"></a>unique_lock</h3><p>unique_lock 和 lock_guard 类似，都提供了将锁和自己的生命周期关联起来的功能。但是 unique_lock 语义更丰富，有移动构造和移动赋值，还提供了 defer_lock、try_to_lock 两种构造语义，defer_lock 就是构造时不加锁，后面可以自己主动加锁，try_to_lock 则是在构造时使用 try_to_lock 而非 lock。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Mutex</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">unique_lock</span></span><br><span class="line">&#123;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">typedef</span> _Mutex mutex_type;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    mutex_type* __m_;</span><br><span class="line">    <span class="type">bool</span> __owns_;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line"></span><br><span class="line">    <span class="built_in">unique_lock</span>() : __m_(<span class="literal">nullptr</span>), __owns_(<span class="literal">false</span>) &#123;&#125;</span><br><span class="line">    <span class="function"><span class="keyword">explicit</span> <span class="title">unique_lock</span><span class="params">(mutex_type&amp; __m)</span></span></span><br><span class="line"><span class="function">        : __m_(_VSTD::addressof(__m)), __owns_(true) &#123;</span>__m_-&gt;<span class="built_in">lock</span>();&#125;</span><br><span class="line">    <span class="built_in">unique_lock</span>(mutex_type&amp; __m, <span class="type">defer_lock_t</span>)</span><br><span class="line">        : __m_(_VSTD::<span class="built_in">addressof</span>(__m)), __owns_(<span class="literal">false</span>) &#123;&#125;</span><br><span class="line">    <span class="built_in">unique_lock</span>(mutex_type&amp; __m, <span class="type">try_to_lock_t</span>)</span><br><span class="line">        : __m_(_VSTD::<span class="built_in">addressof</span>(__m)), __owns_(__m.<span class="built_in">try_lock</span>()) &#123;&#125;</span><br><span class="line">    <span class="built_in">unique_lock</span>(mutex_type&amp; __m, <span class="type">adopt_lock_t</span>)</span><br><span class="line">        : __m_(_VSTD::<span class="built_in">addressof</span>(__m)), __owns_(<span class="literal">true</span>) &#123;&#125;</span><br><span class="line">...</span><br><span class="line">    ~<span class="built_in">unique_lock</span>()</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (__owns_)</span><br><span class="line">            __m_-&gt;<span class="built_in">unlock</span>();</span><br><span class="line">    &#125;</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">unique_lock</span>(unique_lock <span class="type">const</span>&amp;); <span class="comment">// = delete;</span></span><br><span class="line">    unique_lock&amp; <span class="keyword">operator</span>=(unique_lock <span class="type">const</span>&amp;); <span class="comment">// = delete;</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">unique_lock</span>(unique_lock&amp;&amp; __u) _NOEXCEPT</span><br><span class="line">        : __m_(__u.__m_), __owns_(__u.__owns_)</span><br><span class="line">        &#123;__u.__m_ = <span class="literal">nullptr</span>; __u.__owns_ = <span class="literal">false</span>;&#125;</span><br><span class="line"></span><br><span class="line">    unique_lock&amp; <span class="keyword">operator</span>=(unique_lock&amp;&amp; __u) _NOEXCEPT</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (__owns_)</span><br><span class="line">            __m_-&gt;<span class="built_in">unlock</span>();</span><br><span class="line">        __m_ = __u.__m_;</span><br><span class="line">        __owns_ = __u.__owns_;</span><br><span class="line">        __u.__m_ = <span class="literal">nullptr</span>;</span><br><span class="line">        __u.__owns_ = <span class="literal">false</span>;</span><br><span class="line">        <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">lock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (__m_ == <span class="literal">nullptr</span>)</span><br><span class="line">            __throw_system_error(EPERM, <span class="string">&quot;unique_lock::lock: references null mutex&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (__owns_)</span><br><span class="line">            __throw_system_error(EDEADLK, <span class="string">&quot;unique_lock::lock: already locked&quot;</span>);</span><br><span class="line">        __m_-&gt;<span class="built_in">lock</span>();</span><br><span class="line">        __owns_ = <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">bool</span> <span class="title">try_lock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (__m_ == <span class="literal">nullptr</span>)</span><br><span class="line">            __throw_system_error(EPERM, <span class="string">&quot;unique_lock::try_lock: references null mutex&quot;</span>);</span><br><span class="line">        <span class="keyword">if</span> (__owns_)</span><br><span class="line">            __throw_system_error(EDEADLK, <span class="string">&quot;unique_lock::try_lock: already locked&quot;</span>);</span><br><span class="line">        __owns_ = __m_-&gt;<span class="built_in">try_lock</span>();</span><br><span class="line">        <span class="keyword">return</span> __owns_;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">unlock</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!__owns_)</span><br><span class="line">            __throw_system_error(EPERM, <span class="string">&quot;unique_lock::unlock: not locked&quot;</span>);</span><br><span class="line">        __m_-&gt;<span class="built_in">unlock</span>();</span><br><span class="line">        __owns_ = <span class="literal">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">swap</span><span class="params">(unique_lock&amp; __u)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        _VSTD::<span class="built_in">swap</span>(__m_, __u.__m_);</span><br><span class="line">        _VSTD::<span class="built_in">swap</span>(__owns_, __u.__owns_);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function">mutex_type* <span class="title">release</span><span class="params">()</span> _NOEXCEPT</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        mutex_type* __m = __m_;</span><br><span class="line">        __m_ = <span class="literal">nullptr</span>;</span><br><span class="line">        __owns_ = <span class="literal">false</span>;</span><br><span class="line">        <span class="keyword">return</span> __m;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="condition-variable"><a href="#condition-variable" class="headerlink" title="condition_variable"></a>condition_variable</h3><p>C++11 的条件变量和 pthread 条件变量语义基本类似，都有 wait、signal 等动作。condition_variable 只接受 unique_lock，而且传给 wait 的 unique_lock 必须上锁</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">_LIBCPP_TYPE_VIS</span> condition_variable</span><br><span class="line">&#123;</span><br><span class="line">    <span class="type">__libcpp_condvar_t</span> __cv_ = _LIBCPP_CONDVAR_INITIALIZER;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="built_in">condition_variable</span>() _NOEXCEPT = <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line">    ~<span class="built_in">condition_variable</span>() &#123;</span><br><span class="line">        __libcpp_condvar_destroy(&amp;__cv_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">condition_variable</span>(<span class="type">const</span> condition_variable&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">    condition_variable&amp; <span class="keyword">operator</span>=(<span class="type">const</span> condition_variable&amp;) = <span class="keyword">delete</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">notify_one</span><span class="params">()</span> _NOEXCEPT </span>&#123;</span><br><span class="line">        __libcpp_condvar_signal(&amp;__cv_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">notify_all</span><span class="params">()</span> _NOEXCEPT </span>&#123;</span><br><span class="line">        __libcpp_condvar_broadcast(&amp;__cv_);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 传给wait的unique_lock必须上锁</span></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">wait</span><span class="params">(unique_lock&lt;mutex&gt;&amp; __lk)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (!lk.<span class="built_in">owns_lock</span>())</span><br><span class="line">            __throw_system_error(EPERM,</span><br><span class="line">                                      <span class="string">&quot;condition_variable::wait: mutex not locked&quot;</span>);</span><br><span class="line">        <span class="type">int</span> ec = __libcpp_condvar_wait(&amp;__cv_, lk.<span class="built_in">mutex</span>()-&gt;<span class="built_in">native_handle</span>());</span><br><span class="line">        <span class="keyword">if</span> (ec)</span><br><span class="line">            __throw_system_error(ec, <span class="string">&quot;condition_variable wait failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Predicate</span>&gt;</span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">wait</span><span class="params">(unique_lock&lt;mutex&gt;&amp; __lk, _Predicate __pred)</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">while</span> (!__pred())</span><br><span class="line">            <span class="built_in">wait</span>(__lk);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Clock</span>, <span class="keyword">class</span> <span class="title class_">_Duration</span>&gt;</span><br><span class="line">    <span class="function">cv_status</span></span><br><span class="line"><span class="function">    <span class="title">wait_until</span><span class="params">(unique_lock&lt;mutex&gt;&amp; __lk,</span></span></span><br><span class="line"><span class="params"><span class="function">               <span class="type">const</span> chrono::time_point&lt;_Clock, _Duration&gt;&amp; <span class="type">__t</span>)</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">using</span> <span class="keyword">namespace</span> chrono;</span><br><span class="line">        <span class="keyword">using</span> __clock_tp_ns = time_point&lt;_Clock, nanoseconds&gt;;</span><br><span class="line">    </span><br><span class="line">        <span class="keyword">typename</span> _Clock::time_point __now = _Clock::<span class="built_in">now</span>();</span><br><span class="line">        <span class="keyword">if</span> (<span class="type">__t</span> &lt;= __now)</span><br><span class="line">            <span class="keyword">return</span> cv_status::timeout;</span><br><span class="line">    </span><br><span class="line">        __clock_tp_ns __t_ns = __clock_tp_ns(__safe_nanosecond_cast(<span class="type">__t</span>.<span class="built_in">time_since_epoch</span>()));</span><br><span class="line">    </span><br><span class="line">        __do_timed_wait(__lk, __t_ns);</span><br><span class="line">        <span class="keyword">return</span> _Clock::<span class="built_in">now</span>() &lt; <span class="type">__t</span> ? cv_status::no_timeout : cv_status::timeout;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Clock</span>, <span class="keyword">class</span> <span class="title class_">_Duration</span>, <span class="keyword">class</span> <span class="title class_">_Predicate</span>&gt;</span><br><span class="line">    <span class="function"><span class="type">bool</span></span></span><br><span class="line"><span class="function">    <span class="title">wait_until</span><span class="params">(unique_lock&lt;mutex&gt;&amp; __lk,</span></span></span><br><span class="line"><span class="params"><span class="function">               <span class="type">const</span> chrono::time_point&lt;_Clock, _Duration&gt;&amp; <span class="type">__t</span>,</span></span></span><br><span class="line"><span class="params"><span class="function">               _Predicate __pred)</span></span>;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">typedef</span> <span class="type">__libcpp_condvar_t</span>* native_handle_type;</span><br><span class="line">    <span class="function">native_handle_type <span class="title">native_handle</span><span class="params">()</span> </span>&#123;<span class="keyword">return</span> &amp;__cv_;&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="type">void</span> __do_timed_wait(unique_lock&lt;mutex&gt;&amp; __lk,</span><br><span class="line">       chrono::time_point&lt;chrono::system_clock, chrono::nanoseconds&gt;) _NOEXCEPT &#123;</span><br><span class="line">        <span class="keyword">using</span> <span class="keyword">namespace</span> chrono;</span><br><span class="line">        <span class="keyword">if</span> (!lk.<span class="built_in">owns_lock</span>())</span><br><span class="line">            __throw_system_error(EPERM,</span><br><span class="line">                                <span class="string">&quot;condition_variable::timed wait: mutex not locked&quot;</span>);</span><br><span class="line">...</span><br><span class="line">        <span class="type">int</span> ec = __libcpp_condvar_timedwait(&amp;__cv_, lk.<span class="built_in">mutex</span>()-&gt;<span class="built_in">native_handle</span>(), &amp;ts);</span><br><span class="line">        <span class="keyword">if</span> (ec != <span class="number">0</span> &amp;&amp; ec != ETIMEDOUT)</span><br><span class="line">            __throw_system_error(ec, <span class="string">&quot;condition_variable timed_wait failed&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Clock</span>&gt;</span><br><span class="line">    <span class="type">void</span> __do_timed_wait(unique_lock&lt;mutex&gt;&amp; __lk,</span><br><span class="line">       chrono::time_point&lt;_Clock, chrono::nanoseconds&gt;) _NOEXCEPT &#123;</span><br><span class="line">        <span class="built_in">wait_for</span>(__lk, __tp - _Clock::<span class="built_in">now</span>());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="once-flag-和-call-once"><a href="#once-flag-和-call-once" class="headerlink" title="once_flag 和 call_once"></a>once_flag 和 call_once</h3><p>C++11 线程库也有 thread_once，但是他没有使用 pthread 的 thread_once，而是自己实现了 thread_once，原理和之前介绍过的 glib 的 thread_once 类似。同样要注意，once_flag 也要求为静态生命周期。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">class</span> _Callable, <span class="keyword">class</span>... _Args&gt;</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">call_once</span><span class="params">(once_flag&amp;, _Callable&amp;&amp;, _Args&amp;&amp;...)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">once_flag</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">once_flag</span>() _NOEXCEPT : __state_(<span class="number">0</span>) &#123;&#125;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">typedef</span> <span class="type">unsigned</span> <span class="type">long</span> _State_type;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="built_in">once_flag</span>(<span class="type">const</span> once_flag&amp;); <span class="comment">// = delete;</span></span><br><span class="line">    once_flag&amp; <span class="keyword">operator</span>=(<span class="type">const</span> once_flag&amp;); <span class="comment">// = delete;</span></span><br><span class="line">    </span><br><span class="line">    _State_type __state_;</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">template</span>&lt;<span class="keyword">class</span> _Callable, <span class="keyword">class</span>... _Args&gt;</span></span><br><span class="line"><span class="function">    <span class="keyword">friend</span></span></span><br><span class="line"><span class="function">    <span class="type">void</span> <span class="title">call_once</span><span class="params">(once_flag&amp;, _Callable&amp;&amp;, _Args&amp;&amp;...)</span></span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>call_once 函数也是先检查 once_flag 是否为 <code>~0</code>，判断函数是否已经执行完成，如果没有执行，或者正在执行，则调用 <code>__call_once</code> 做进一步判断。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">class</span> _Callable, <span class="keyword">class</span>... _Args&gt;</span></span><br><span class="line"><span class="function"><span class="keyword">inline</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">call_once</span><span class="params">(once_flag&amp; __flag, _Callable&amp;&amp; __func, _Args&amp;&amp;... __args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (__libcpp_acquire_load(&amp;__flag.__state_) != ~once_flag::_State_type(<span class="number">0</span>) <span class="comment">/*111*/</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">typedef</span> tuple&lt;_Callable&amp;&amp;, _Args&amp;&amp;...&gt; _Gp;</span><br><span class="line">        _Gp __f(_VSTD::forward&lt;_Callable&gt;(__func), _VSTD::forward&lt;_Args&gt;(__args)...);</span><br><span class="line">        __call_once_param&lt;_Gp&gt; __p(__f);</span><br><span class="line">        __call_once(__flag.__state_, &amp;__p, &amp;__call_once_proxy&lt;_Gp&gt;);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>call_once 函数创建的 <code>typedef tuple&lt;_Callable&amp;&amp;, _Args&amp;&amp;...&gt; _Gp;</code> 的里面是引用类型，因为根据模板参数推断原理，<code>_Callable</code> 和 <code>_Args</code> 一定是 <code>T</code> 或者 <code>T&amp;</code>，再在其右边加 <code>&amp;&amp;</code>，折叠之后一定是 <code>T&amp;</code> 或者 <code>T&amp;&amp;</code>。所以 tuple 里面存的是引用类型。</p>
+<p>在 <code>__call_once</code> 函数中，通过判断 flag 是否为 1 来确定目标函数是否正在被执行，但是没执行完，如果当前线程发现 flg 为 0，那么表示还没有其他线程执行过目标函数，于是尝试执行目标函数并将 flag 设为 1 来让其他线程等待，最后执行完目标函数后，将 flag 设为 <code>~0</code>，flag 为 <code>~0</code> 表示目标函数已经执行完成，其他线程会从等待中退出。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// mutex.cpp</span></span><br><span class="line"><span class="comment">// 全局变量</span></span><br><span class="line">_LIBCPP_SAFE_STATIC <span class="type">static</span> <span class="type">__libcpp_mutex_t</span> mut = _LIBCPP_MUTEX_INITIALIZER;</span><br><span class="line">_LIBCPP_SAFE_STATIC <span class="type">static</span> <span class="type">__libcpp_condvar_t</span> cv = _LIBCPP_CONDVAR_INITIALIZER;</span><br><span class="line"></span><br><span class="line"><span class="type">void</span> __call_once(<span class="keyword">volatile</span> once_flag::_State_type&amp; flag, <span class="type">void</span>* arg,</span><br><span class="line">                 <span class="built_in">void</span> (*func)(<span class="type">void</span>*))</span><br><span class="line">&#123;</span><br><span class="line">    __libcpp_mutex_lock(&amp;mut);</span><br><span class="line">    <span class="keyword">while</span> (flag == <span class="number">1</span>)</span><br><span class="line">        __libcpp_condvar_wait(&amp;cv, &amp;mut);</span><br><span class="line">    <span class="keyword">if</span> (flag == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">        __libcpp_relaxed_store(&amp;flag, once_flag::_State_type(<span class="number">1</span>));</span><br><span class="line">        __libcpp_mutex_unlock(&amp;mut);</span><br><span class="line">        <span class="built_in">func</span>(arg);</span><br><span class="line">        __libcpp_mutex_lock(&amp;mut);</span><br><span class="line">        __libcpp_atomic_store(&amp;flag, ~once_flag::_State_type(<span class="number">0</span>),</span><br><span class="line">                              _AO_Release);</span><br><span class="line">        __libcpp_mutex_unlock(&amp;mut);</span><br><span class="line">        __libcpp_condvar_broadcast(&amp;cv);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        __libcpp_mutex_unlock(&amp;mut);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看看 <code>__call_once_proxy</code>，这个函数把任务交给了输入的 <code>__call_once_param</code> 对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line"><span class="type">void</span></span><br><span class="line">__call_once_proxy(<span class="type">void</span>* __vp)</span><br><span class="line">&#123;</span><br><span class="line">    __call_once_param&lt;_Fp&gt;* __p = <span class="keyword">static_cast</span>&lt;__call_once_param&lt;_Fp&gt;*&gt;(__vp);</span><br><span class="line">    (*__p)();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__call_once_param</code> 内部存储了之前存放函数和参数的 tuple，同时他还是一个可调用对象，它的 operator()函数会调用 invoke 来执行目标函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__call_once_param</span></span><br><span class="line">&#123;</span><br><span class="line">    _Fp&amp; __f_;</span><br><span class="line"><span class="keyword">public</span>:</span><br><span class="line">    <span class="keyword">explicit</span> __call_once_param(_Fp&amp; __f) : __f_(__f) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="type">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">()</span></span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">typedef</span> <span class="keyword">typename</span> __make_tuple_indices&lt;tuple_size&lt;_Fp&gt;::value, <span class="number">1</span>&gt;::type _Index;</span><br><span class="line">        __execute(_Index());</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="type">size_t</span> ..._Indices&gt;</span><br><span class="line">    <span class="type">void</span> __execute(__tuple_indices&lt;_Indices...&gt;)</span><br><span class="line">    &#123;</span><br><span class="line">        __invoke(_VSTD::<span class="built_in">get</span>&lt;<span class="number">0</span>&gt;(_VSTD::<span class="built_in">move</span>(__f_)), _VSTD::<span class="built_in">get</span>&lt;_Indices&gt;(_VSTD::<span class="built_in">move</span>(__f_))...);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，call_once 没有使用 pthread_once 函数，而是自己通过原子变量，配合锁实现 thread_once，实现原理基本上和 glib 一致。call_once 也是共享一套全局的 mutex、cond，不管有几个不同的 call，比如</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> once_flag f,k;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">gi</span><span class="params">()</span></span>&#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">mi</span><span class="params">()</span></span>&#123;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">yi</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="built_in">call_once</span>(f, gi);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ei</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="built_in">call_once</span>(f, gi);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ti</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="built_in">call_once</span>(k, mi);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">di</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="built_in">call_once</span>(k, mi);</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line"></span><br><span class="line">    <span class="function">thread <span class="title">a</span><span class="params">(yi)</span></span>;</span><br><span class="line">    <span class="function">thread <span class="title">b</span><span class="params">(ei)</span></span>;</span><br><span class="line">    <span class="function">thread <span class="title">c</span><span class="params">(ti)</span></span>;</span><br><span class="line">    <span class="function">thread <span class="title">d</span><span class="params">(di)</span></span>;</span><br><span class="line">    </span><br><span class="line">    a.<span class="built_in">join</span>();</span><br><span class="line">    b.<span class="built_in">join</span>();</span><br><span class="line">    c.<span class="built_in">join</span>();</span><br><span class="line">    d.<span class="built_in">join</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的四个 call_once 分为两组，分别对应 once_flag f 和 k，但是他们底层共用一套 mutex、cond。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/02/%E5%A4%9A%E7%BA%BF%E7%A8%8B%E4%B9%8Bthread-once/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-02 20:34:50
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/05/ffmpeg-%E4%B9%8B-muxer-encoder-%E7%9B%B8%E5%85%B3-api-%E4%B8%80/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#thread"><span class="toc-text">thread</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#mutex"><span class="toc-text">mutex</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#lock-guard"><span class="toc-text">lock_guard</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#unique-lock"><span class="toc-text">unique_lock</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#condition-variable"><span class="toc-text">condition_variable</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#once-flag-%E5%92%8C-call-once"><span class="toc-text">once_flag 和 call_once</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

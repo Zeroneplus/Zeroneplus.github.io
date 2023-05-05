@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Gobject 信号之 g_signal_new 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Gobject 信号之 g_signal_new</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-01 20:35:40
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章来介绍 Gobject 的最后一个特性：信号和闭包。</p>
+<p>Gobject 的信号主要有 3 个 api：g_signal_new、g_signal_connect、g_signal_emit。使用流程如下：</p>
+<ul>
+<li>首先在 class_init 中调用 g_signal_new 创建信号，这里要注意，信号是属于类的，和属性一样</li>
+<li>通过 g_object_new 创建对象，然后将回调函数通过 g_signal_connect 连接到信号上</li>
+<li>最后对对象调用 g_signal_emit 触发信号，执行上一步连接的回调函数</li>
+</ul>
+<h1 id="g-signal-new"><a href="#g-signal-new" class="headerlink" title="g_signal_new"></a>g_signal_new</h1><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">guint</span></span><br><span class="line"><span class="function"><span class="title">g_signal_new</span> <span class="params">(<span class="type">const</span> gchar  *signal_name,</span></span></span><br><span class="line"><span class="params"><span class="function">        GType     itype,</span></span></span><br><span class="line"><span class="params"><span class="function">        GSignalFlags    signal_flags,</span></span></span><br><span class="line"><span class="params"><span class="function">        guint               class_offset,</span></span></span><br><span class="line"><span class="params"><span class="function">        GSignalAccumulator  accumulator,</span></span></span><br><span class="line"><span class="params"><span class="function">        gpointer      accu_data,</span></span></span><br><span class="line"><span class="params"><span class="function">        GSignalCMarshaller  c_marshaller,</span></span></span><br><span class="line"><span class="params"><span class="function">        GType     return_type,</span></span></span><br><span class="line"><span class="params"><span class="function">        guint     n_params,</span></span></span><br><span class="line"><span class="params"><span class="function">        ...)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  va_list args;</span><br><span class="line">  guint signal_id;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_return_val_if_fail</span> (signal_name != <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">  </span><br><span class="line">  <span class="built_in">va_start</span> (args, n_params);</span><br><span class="line"></span><br><span class="line">  signal_id = <span class="built_in">g_signal_new_valist</span> (signal_name, itype, signal_flags,</span><br><span class="line">                                   class_offset ? <span class="built_in">g_signal_type_cclosure_new</span> (itype, class_offset) : <span class="literal">NULL</span>,</span><br><span class="line">           accumulator, accu_data, c_marshaller,</span><br><span class="line">                                   return_type, n_params, args);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">va_end</span> (args);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> signal_id;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>signal_name。信号的名字</li>
+<li>itype。信号所属的类型，注意信号可以继承，子类可以使用父类的信号</li>
+<li>signal_flags。指定默认 handler（通过 class_offset 指定的虚函数）的属性，可以是 G_SIGNAL_RUN_FIRST、G_SIGNAL_RUN_LAST 等</li>
+<li>class_offset。类结构 struct 实例的首地址加上该偏移指向一个函数指针，这个函数指针指向的函数就是信号的默认 handler，子类可以通过虚函数覆盖（修改指定偏移处的函数指针）来定义自己的默认 handler，如果 class_offset 为 0，那么将没有默认 handler</li>
+<li>accumulator。在每执行一个 handler 后会执行 accumulator，会根据其返回值决定是否继续执行剩下的 handler</li>
+<li>accu_data。传给 accumulator 函数的数据</li>
+<li>c_marshaller。自定义的 marshal 函数，内部需要执行 callback 函数，建议保持为空，使用默认 marshal 函数即可</li>
+<li>return_type。返回值类型</li>
+<li>n_params。去除第一个 GObject 参数后剩余的参数个数，不考虑 user pointer 在内</li>
+<li>变长参数。去除第一个 GObject 参数后剩余的参数的类型，不考虑 user pointer 在内</li>
+</ul>
+<h2 id="g-signal-type-cclosure-new"><a href="#g-signal-type-cclosure-new" class="headerlink" title="g_signal_type_cclosure_new"></a>g_signal_type_cclosure_new</h2><p>当 class_offset 不为 0 时，会调用 g_signal_type_cclosure_new 函数创建一个 GClosure，这个 GClosure 用于处理默认 handler。</p>
+<ul>
+<li>g_signal_type_cclosure_new 先创建了一个 GRealClosure，这个 GRealClosure 里面有 GClosure</li>
+<li>然后将 itype 也就是 GType 类型设给了 GClosure.data，这样就知道这个 Closure 只能在 itype 及其子类的对象中执行，后面会进行这个检查</li>
+<li>然后将 struct_offset 也就是虚函数的偏移设给 GRealClosure.meta_marshal_data</li>
+<li>然后将 g_type_class_meta_marshal 函数设给了 GRealClosure.meta_marshal</li>
+<li>然后将 g_type_class_meta_marshalv 函数设给了 GRealClosure.va_meta_marshal</li>
+</ul>
+<p>上面的 itype、struct_offset、g_type_class_meta_marshal、g_type_class_meta_marshalv 在执行默认 handler 时会用到，比如会通过 struct_offset 信息找到需要执行的函数在虚函数表中的位置</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GClosure*</span></span><br><span class="line"><span class="function"><span class="title">g_signal_type_cclosure_new</span> <span class="params">(GType    itype,</span></span></span><br><span class="line"><span class="params"><span class="function">          guint    struct_offset)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GClosure *closure;</span><br><span class="line">  </span><br><span class="line">  closure = <span class="built_in">g_closure_new_simple</span> (<span class="built_in">sizeof</span> (GClosure), (gpointer) itype);</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">G_TYPE_IS_INTERFACE</span> (itype))</span><br><span class="line">    &#123;</span><br><span class="line"><span class="comment">// 不考虑interface</span></span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_closure_set_meta_marshal</span> (closure, <span class="built_in">GUINT_TO_POINTER</span> (struct_offset), g_type_class_meta_marshal);</span><br><span class="line">      <span class="built_in">g_closure_set_meta_va_marshal</span> (closure, g_type_class_meta_marshalv);</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">return</span> closure;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="g-closure-new-simple"><a href="#g-closure-new-simple" class="headerlink" title="g_closure_new_simple"></a>g_closure_new_simple</h3><p>创建 GRealClosure，然后设置 GRealClosure 中 GClosure 部分的 data 字段的值</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GClosure*</span></span><br><span class="line"><span class="function"><span class="title">g_closure_new_simple</span> <span class="params">(guint           sizeof_closure,</span></span></span><br><span class="line"><span class="params"><span class="function">          gpointer        data)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GClosure *closure;</span><br><span class="line">  gint private_size;</span><br><span class="line">  gchar *allocated;</span><br><span class="line"></span><br><span class="line">  private_size = <span class="built_in">sizeof</span> (GRealClosure) - <span class="built_in">sizeof</span> (GClosure);</span><br><span class="line">...</span><br><span class="line">    allocated = <span class="built_in">g_malloc0</span> (private_size + sizeof_closure);</span><br><span class="line"></span><br><span class="line">  closure = (GClosure *) (allocated + private_size);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">SET</span> (closure, ref_count, <span class="number">1</span>);</span><br><span class="line">  <span class="built_in">SET</span> (closure, floating, TRUE);</span><br><span class="line">  closure-&gt;data = data;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> closure;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>GRealClosure 和 GClosure 的关系如下，GRealClosure 在 GClosure 的基础上多了一些私有变量</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">_GRealClosure</span>  GRealClosure;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_GRealClosure</span></span><br><span class="line">&#123;</span><br><span class="line">  GClosureMarshal meta_marshal;</span><br><span class="line">  gpointer meta_marshal_data;</span><br><span class="line">  GVaClosureMarshal va_meta_marshal;</span><br><span class="line">  GVaClosureMarshal va_marshal;</span><br><span class="line">  GClosure closure;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * GClosure:</span></span><br><span class="line"><span class="comment"> * @in_marshal: Indicates whether the closure is currently being invoked with </span></span><br><span class="line"><span class="comment"> *  g_closure_invoke()</span></span><br><span class="line"><span class="comment"> * @is_invalid: Indicates whether the closure has been invalidated by </span></span><br><span class="line"><span class="comment"> *  g_closure_invalidate()</span></span><br><span class="line"><span class="comment"> * </span></span><br><span class="line"><span class="comment"> * A #GClosure represents a callback supplied by the programmer.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_GClosure</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="comment">/*&lt; private &gt;*/</span></span><br><span class="line">  guint ref_count : <span class="number">15</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  <span class="comment">/* meta_marshal is not used anymore but must be zero for historical reasons</span></span><br><span class="line"><span class="comment">     as it was exposed in the G_CLOSURE_N_NOTIFIERS macro */</span></span><br><span class="line">  guint meta_marshal_nouse : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  guint n_guards : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  guint n_fnotifiers : <span class="number">2</span>;  <span class="comment">/* finalization notifiers (atomic) */</span></span><br><span class="line">  guint n_inotifiers : <span class="number">8</span>;  <span class="comment">/* invalidation notifiers (atomic) */</span></span><br><span class="line">  guint in_inotify : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  guint floating : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  <span class="comment">/*&lt; protected &gt;*/</span></span><br><span class="line">  guint derivative_flag : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  <span class="comment">/*&lt; public &gt;*/</span></span><br><span class="line">  guint in_marshal : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line">  guint is_invalid : <span class="number">1</span>;  <span class="comment">/* (atomic) */</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">/*&lt; private &gt;*/</span>   <span class="built_in">void</span>   (*marshal)  (GClosure       *closure,</span><br><span class="line">                        GValue <span class="comment">/*out*/</span> *return_value,</span><br><span class="line">                        guint           n_param_values,</span><br><span class="line">                        <span class="type">const</span> GValue   *param_values,</span><br><span class="line">                        gpointer        invocation_hint,</span><br><span class="line">                        gpointer        marshal_data);</span><br><span class="line">  <span class="comment">/*&lt; protected &gt;*/</span> gpointer data;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/*&lt; private &gt;*/</span>   GClosureNotifyData *notifiers;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* invariants/constraints:</span></span><br><span class="line"><span class="comment">   * - -&gt;marshal and -&gt;data are _invalid_ as soon as -&gt;is_invalid==TRUE</span></span><br><span class="line"><span class="comment">   * - invocation of all inotifiers occurs prior to fnotifiers</span></span><br><span class="line"><span class="comment">   * - order of inotifiers is random</span></span><br><span class="line"><span class="comment">   *   inotifiers may _not_ free/invalidate parameter values (e.g. -&gt;data)</span></span><br><span class="line"><span class="comment">   * - order of fnotifiers is random</span></span><br><span class="line"><span class="comment">   * - each notifier may only be removed before or during its invocation</span></span><br><span class="line"><span class="comment">   * - reference counting may only happen prior to fnotify invocation</span></span><br><span class="line"><span class="comment">   *   (in that sense, fnotifiers are really finalization handlers)</span></span><br><span class="line"><span class="comment">   */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="g-closure-set-meta-marshal"><a href="#g-closure-set-meta-marshal" class="headerlink" title="g_closure_set_meta_marshal"></a>g_closure_set_meta_marshal</h3><p>这个函数把输入的 meta_marshal、marshal_data 设给了 GRealClosure</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_closure_set_meta_marshal</span> <span class="params">(GClosure       *closure,</span></span></span><br><span class="line"><span class="params"><span class="function">          gpointer        marshal_data,</span></span></span><br><span class="line"><span class="params"><span class="function">          GClosureMarshal meta_marshal)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GRealClosure *real_closure;</span><br><span class="line"></span><br><span class="line">  real_closure = <span class="built_in">G_REAL_CLOSURE</span> (closure);</span><br><span class="line"></span><br><span class="line">  real_closure-&gt;meta_marshal = meta_marshal;</span><br><span class="line">  real_closure-&gt;meta_marshal_data = marshal_data;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="g-closure-set-meta-va-marshal"><a href="#g-closure-set-meta-va-marshal" class="headerlink" title="g_closure_set_meta_va_marshal"></a>g_closure_set_meta_va_marshal</h3><p>这个函数把输入的 va_meta_marshal 设给了 GRealClosure</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_closure_set_meta_va_marshal</span> <span class="params">(GClosure       *closure,</span></span></span><br><span class="line"><span class="params"><span class="function">             GVaClosureMarshal va_meta_marshal)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GRealClosure *real_closure;</span><br><span class="line"></span><br><span class="line">  real_closure = <span class="built_in">G_REAL_CLOSURE</span> (closure);</span><br><span class="line"></span><br><span class="line">  real_closure-&gt;va_meta_marshal = va_meta_marshal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="g-signal-new-valist"><a href="#g-signal-new-valist" class="headerlink" title="g_signal_new_valist"></a>g_signal_new_valist</h2><p>g_signal_new 在创建默认 handler 的 Closure 后执行 g_signal_new_valist。</p>
+<p>g_signal_new_valist 主要是将变长参数整理为 GType 数组，然后调用 g_signal_newv</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">guint</span></span><br><span class="line"><span class="function"><span class="title">g_signal_new_valist</span> <span class="params">(<span class="type">const</span> gchar       *signal_name,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GType              itype,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GSignalFlags       signal_flags,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GClosure          *class_closure,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GSignalAccumulator accumulator,</span></span></span><br><span class="line"><span class="params"><span class="function">                     gpointer           accu_data,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GSignalCMarshaller c_marshaller,</span></span></span><br><span class="line"><span class="params"><span class="function">                     GType              return_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                     guint              n_params,</span></span></span><br><span class="line"><span class="params"><span class="function">                     va_list            args)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="comment">/* Somewhat arbitrarily reserve 200 bytes. That should cover the majority</span></span><br><span class="line"><span class="comment">   * of cases where n_params is small and still be small enough for what we</span></span><br><span class="line"><span class="comment">   * want to put on the stack. */</span></span><br><span class="line">  GType param_types_stack[<span class="number">200</span> / <span class="built_in">sizeof</span> (GType)];</span><br><span class="line">  GType *param_types_heap = <span class="literal">NULL</span>;</span><br><span class="line">  GType *param_types;</span><br><span class="line">  guint i;</span><br><span class="line">  guint signal_id;</span><br><span class="line"></span><br><span class="line">  param_types = param_types_stack;</span><br><span class="line">  <span class="keyword">if</span> (n_params &gt; <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">if</span> (<span class="built_in">G_UNLIKELY</span> (n_params &gt; <span class="built_in">G_N_ELEMENTS</span> (param_types_stack)))</span><br><span class="line">        &#123;</span><br><span class="line">          param_types_heap = <span class="built_in">g_new</span> (GType, n_params);</span><br><span class="line">          param_types = param_types_heap;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n_params; i++)</span><br><span class="line">        param_types[i] = <span class="built_in">va_arg</span> (args, GType);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  signal_id = <span class="built_in">g_signal_newv</span> (signal_name, itype, signal_flags,</span><br><span class="line">                             class_closure, accumulator, accu_data, c_marshaller,</span><br><span class="line">                             return_type, n_params, param_types);</span><br><span class="line">  <span class="built_in">g_free</span> (param_types_heap);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> signal_id;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="g-signal-newv"><a href="#g-signal-newv" class="headerlink" title="g_signal_newv"></a>g_signal_newv</h3><p>像之前的属性一样，g_signal_newv 也会创建一个信号对象，然后把这个对象插入一个全局的 hash 表中。下面的函数虽然长，但其实做的事主要是：</p>
+<ul>
+<li>创建 SignalNode 对象，并把他插入一个全局的表中</li>
+<li>把输入的 class_closure、accumulator、return_type、param_types 等信息复制到 SignalNode 中</li>
+</ul>
+<p>后面只要有这个 SignalNode，那么完全就知道 handler 函数该怎么调用了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">guint</span></span><br><span class="line"><span class="function"><span class="title">g_signal_newv</span> <span class="params">(<span class="type">const</span> gchar       *signal_name,</span></span></span><br><span class="line"><span class="params"><span class="function">               GType              itype,</span></span></span><br><span class="line"><span class="params"><span class="function">               GSignalFlags       signal_flags,</span></span></span><br><span class="line"><span class="params"><span class="function">               GClosure          *class_closure,</span></span></span><br><span class="line"><span class="params"><span class="function">               GSignalAccumulator accumulator,</span></span></span><br><span class="line"><span class="params"><span class="function">               gpointer     accu_data,</span></span></span><br><span class="line"><span class="params"><span class="function">               GSignalCMarshaller c_marshaller,</span></span></span><br><span class="line"><span class="params"><span class="function">               GType      return_type,</span></span></span><br><span class="line"><span class="params"><span class="function">               guint              n_params,</span></span></span><br><span class="line"><span class="params"><span class="function">               GType     *param_types)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="type">const</span> gchar *name;</span><br><span class="line">  gchar *signal_name_copy = <span class="literal">NULL</span>;</span><br><span class="line">  guint signal_id, i;</span><br><span class="line">  SignalNode *node;</span><br><span class="line">  GSignalCMarshaller builtin_c_marshaller;</span><br><span class="line">  GSignalCVaMarshaller builtin_va_marshaller;</span><br><span class="line">  GSignalCVaMarshaller va_marshaller;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">is_canonical</span> (signal_name))</span><br><span class="line">    &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    &#123;</span><br><span class="line">      name = signal_name;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">SIGNAL_LOCK</span> ();</span><br><span class="line"></span><br><span class="line"><span class="comment">// 先通过name和itype查找signal_id，signal_id其实是g_signal_nodes数组的索引</span></span><br><span class="line"><span class="comment">// signal_id_lookup函数的查找逻辑是在itype类及其父类中查找name</span></span><br><span class="line"><span class="comment">// 也就是不允许一个继承体系中出现同名的信号</span></span><br><span class="line">  signal_id = <span class="built_in">signal_id_lookup</span> (name, itype);</span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">    static inline SignalNode*</span></span><br><span class="line"><span class="comment">    LOOKUP_SIGNAL_NODE (guint signal_id)</span></span><br><span class="line"><span class="comment">    &#123;</span></span><br><span class="line"><span class="comment">      if (signal_id &lt; g_n_signal_nodes)</span></span><br><span class="line"><span class="comment">        return g_signal_nodes[signal_id];</span></span><br><span class="line"><span class="comment">      else</span></span><br><span class="line"><span class="comment">        return NULL;</span></span><br><span class="line"><span class="comment">    &#125;</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">  node = <span class="built_in">LOOKUP_SIGNAL_NODE</span> (signal_id);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 如果能通过name和itype找到SignalNode，就代表在该继承体系中信号名已存在，不能重复创建</span></span><br><span class="line">  <span class="keyword">if</span> (node &amp;&amp; !node-&gt;destroyed)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (G_STRLOC <span class="string">&quot;: signal \&quot;%s\&quot; already exists in the &#x27;%s&#x27; %s&quot;</span>,</span><br><span class="line">                 name,</span><br><span class="line">                 <span class="built_in">type_debug_name</span> (node-&gt;itype),</span><br><span class="line">                 <span class="built_in">G_TYPE_IS_INTERFACE</span> (node-&gt;itype) ? <span class="string">&quot;interface&quot;</span> : <span class="string">&quot;class ancestry&quot;</span>);</span><br><span class="line">      <span class="built_in">g_free</span> (signal_name_copy);</span><br><span class="line">      <span class="built_in">SIGNAL_UNLOCK</span> ();</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">if</span> (node &amp;&amp; node-&gt;itype != itype)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (G_STRLOC <span class="string">&quot;: signal \&quot;%s\&quot; for type &#x27;%s&#x27; was previously created for type &#x27;%s&#x27;&quot;</span>,</span><br><span class="line">                 name,</span><br><span class="line">                 <span class="built_in">type_debug_name</span> (itype),</span><br><span class="line">                 <span class="built_in">type_debug_name</span> (node-&gt;itype));</span><br><span class="line">      <span class="built_in">g_free</span> (signal_name_copy);</span><br><span class="line">      <span class="built_in">SIGNAL_UNLOCK</span> ();</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 下面两步是检查参数和返回值的类型</span></span><br><span class="line">  <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; n_params; i++)</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">G_TYPE_IS_VALUE</span> (param_types[i] &amp; ~G_SIGNAL_TYPE_STATIC_SCOPE))</span><br><span class="line">      &#123;</span><br><span class="line">  <span class="built_in">g_warning</span> (G_STRLOC <span class="string">&quot;: parameter %d of type &#x27;%s&#x27; for signal \&quot;%s::%s\&quot; is not a value type&quot;</span>,</span><br><span class="line">       i + <span class="number">1</span>, <span class="built_in">type_debug_name</span> (param_types[i]), <span class="built_in">type_debug_name</span> (itype), name);</span><br><span class="line">  <span class="built_in">g_free</span> (signal_name_copy);</span><br><span class="line">  <span class="built_in">SIGNAL_UNLOCK</span> ();</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">      &#125;</span><br><span class="line">  <span class="keyword">if</span> (return_type != G_TYPE_NONE &amp;&amp; !<span class="built_in">G_TYPE_IS_VALUE</span> (return_type &amp; ~G_SIGNAL_TYPE_STATIC_SCOPE))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_warning</span> (G_STRLOC <span class="string">&quot;: return value of type &#x27;%s&#x27; for signal \&quot;%s::%s\&quot; is not a value type&quot;</span>,</span><br><span class="line">     <span class="built_in">type_debug_name</span> (return_type), <span class="built_in">type_debug_name</span> (itype), name);</span><br><span class="line">      <span class="built_in">g_free</span> (signal_name_copy);</span><br><span class="line">      <span class="built_in">SIGNAL_UNLOCK</span> ();</span><br><span class="line">      <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 如果之前没找到SignalNode，那么就可以创建新的SignalNode</span></span><br><span class="line">  <span class="comment">/* setup permanent portion of signal node */</span></span><br><span class="line">  <span class="keyword">if</span> (!node)</span><br><span class="line">    &#123;</span><br><span class="line">      SignalKey key;</span><br><span class="line">      </span><br><span class="line">      signal_id = g_n_signal_nodes++;</span><br><span class="line">      node = <span class="built_in">g_new</span> (SignalNode, <span class="number">1</span>);</span><br><span class="line">      node-&gt;signal_id = signal_id;</span><br><span class="line">      g_signal_nodes = <span class="built_in">g_renew</span> (SignalNode*, g_signal_nodes, g_n_signal_nodes);</span><br><span class="line">      g_signal_nodes[signal_id] = node;</span><br><span class="line">      node-&gt;itype = itype;</span><br><span class="line">      key.itype = itype;</span><br><span class="line">      key.signal_id = signal_id;</span><br><span class="line">      node-&gt;name = <span class="built_in">g_intern_string</span> (name);</span><br><span class="line">      key.quark = <span class="built_in">g_quark_from_string</span> (name);</span><br><span class="line">      g_signal_key_bsa = <span class="built_in">g_bsearch_array_insert</span> (g_signal_key_bsa, &amp;g_signal_key_bconfig, &amp;key);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line">  node-&gt;destroyed = FALSE;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* setup reinitializable portion */</span></span><br><span class="line">  node-&gt;single_va_closure_is_valid = FALSE;</span><br><span class="line">  node-&gt;flags = signal_flags &amp; G_SIGNAL_FLAGS_MASK;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 复制参数和返回值的类型信息到SignalNode</span></span><br><span class="line">  node-&gt;n_params = n_params;</span><br><span class="line">  node-&gt;param_types = <span class="built_in">g_memdup2</span> (param_types, <span class="built_in">sizeof</span> (GType) * n_params);</span><br><span class="line">  node-&gt;return_type = return_type;</span><br><span class="line">  node-&gt;class_closure_bsa = <span class="literal">NULL</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 复制accumulator信息到SignalNode</span></span><br><span class="line">  <span class="keyword">if</span> (accumulator)</span><br><span class="line">    &#123;</span><br><span class="line">      node-&gt;accumulator = <span class="built_in">g_new</span> (SignalAccumulator, <span class="number">1</span>);</span><br><span class="line">      node-&gt;accumulator-&gt;func = accumulator;</span><br><span class="line">      node-&gt;accumulator-&gt;data = accu_data;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    node-&gt;accumulator = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  builtin_c_marshaller = <span class="literal">NULL</span>;</span><br><span class="line">  builtin_va_marshaller = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* Pick up built-in va marshallers for standard types, and</span></span><br><span class="line"><span class="comment">     instead of generic marshaller if no marshaller specified */</span></span><br><span class="line">  <span class="keyword">if</span> (n_params == <span class="number">0</span> &amp;&amp; return_type == G_TYPE_NONE)</span><br><span class="line">    &#123;</span><br><span class="line">... <span class="comment">// marshaller优化，略过</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (c_marshaller == <span class="literal">NULL</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">if</span> (builtin_c_marshaller)</span><br><span class="line">        &#123;</span><br><span class="line">          c_marshaller = builtin_c_marshaller;</span><br><span class="line">          va_marshaller = builtin_va_marshaller;</span><br><span class="line">        &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">  &#123;  <span class="comment">// 如果不优化，那么会使用这两个marshaller</span></span><br><span class="line">    c_marshaller = g_cclosure_marshal_generic;</span><br><span class="line">    va_marshaller = g_cclosure_marshal_generic_va;</span><br><span class="line">  &#125;</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    va_marshaller = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 复制marshaller信息到SignalNode</span></span><br><span class="line">  node-&gt;c_marshaller = c_marshaller;</span><br><span class="line">  node-&gt;va_marshaller = va_marshaller;</span><br><span class="line">  node-&gt;emission_hooks = <span class="literal">NULL</span>;</span><br><span class="line">  <span class="keyword">if</span> (class_closure) <span class="comment">// 将class_closure添加到SignalNode</span></span><br><span class="line">    <span class="built_in">signal_add_class_closure</span> (node, <span class="number">0</span>, class_closure);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">SIGNAL_UNLOCK</span> ();</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_free</span> (signal_name_copy);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> signal_id;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="SignalNode-结构"><a href="#SignalNode-结构" class="headerlink" title="SignalNode 结构"></a>SignalNode 结构</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">_SignalNode</span></span><br><span class="line">&#123;</span><br><span class="line">  <span class="comment">/* permanent portion */</span></span><br><span class="line">  guint              signal_id;</span><br><span class="line">  GType              itype;</span><br><span class="line">  <span class="type">const</span> gchar       *name;</span><br><span class="line">  guint              destroyed : <span class="number">1</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">/* reinitializable portion */</span></span><br><span class="line">  guint              flags : <span class="number">9</span>;</span><br><span class="line">  guint              n_params : <span class="number">8</span>;</span><br><span class="line">  guint              single_va_closure_is_valid : <span class="number">1</span>;</span><br><span class="line">  guint              single_va_closure_is_after : <span class="number">1</span>;</span><br><span class="line">  GType       *param_types; <span class="comment">/* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */</span></span><br><span class="line">  GType        return_type; <span class="comment">/* mangled with G_SIGNAL_TYPE_STATIC_SCOPE flag */</span></span><br><span class="line">  GBSearchArray     *class_closure_bsa;</span><br><span class="line">  SignalAccumulator *accumulator;</span><br><span class="line">  GSignalCMarshaller c_marshaller;</span><br><span class="line">  GSignalCVaMarshaller va_marshaller;</span><br><span class="line">  GHookList         *emission_hooks;</span><br><span class="line"></span><br><span class="line">  GClosure *single_va_closure;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="signal-id-lookup"><a href="#signal-id-lookup" class="headerlink" title="signal_id_lookup"></a>signal_id_lookup</h4><p>看看 signal_id_lookup 函数如何通过 itype 和 name 查找 signal_id</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> guint</span></span><br><span class="line"><span class="function"><span class="title">signal_id_lookup</span> <span class="params">(<span class="type">const</span> gchar *name,</span></span></span><br><span class="line"><span class="params"><span class="function">                  GType  itype)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  GQuark quark;</span><br><span class="line">  GType *ifaces, type = itype;</span><br><span class="line">  SignalKey key;</span><br><span class="line">  guint n_ifaces;</span><br><span class="line"></span><br><span class="line">  quark = <span class="built_in">g_quark_try_string</span> (name);</span><br><span class="line">  key.quark = quark;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 在当前类及其父类中查找name</span></span><br><span class="line">  <span class="comment">/* try looking up signals for this type and its ancestors */</span></span><br><span class="line">  <span class="keyword">do</span></span><br><span class="line">    &#123;</span><br><span class="line">      SignalKey *signal_key;</span><br><span class="line">      </span><br><span class="line">      key.itype = type;</span><br><span class="line">      signal_key = <span class="built_in">g_bsearch_array_lookup</span> (g_signal_key_bsa, &amp;g_signal_key_bconfig, &amp;key);</span><br><span class="line">      </span><br><span class="line">      <span class="keyword">if</span> (signal_key)</span><br><span class="line">  <span class="keyword">return</span> signal_key-&gt;signal_id;</span><br><span class="line">      </span><br><span class="line">      type = <span class="built_in">g_type_parent</span> (type);</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="keyword">while</span> (type);</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* no luck, try interfaces it exports */</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="comment">/* If the @name is non-canonical, try again. This is the slow path — people</span></span><br><span class="line"><span class="comment">   * should use canonical names in their queries if they want performance. */</span></span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">is_canonical</span> (name))</span><br><span class="line">    &#123;</span><br><span class="line">      guint signal_id;</span><br><span class="line">      gchar *name_copy = <span class="built_in">g_strdup</span> (name);</span><br><span class="line">      <span class="built_in">canonicalize_key</span> (name_copy);</span><br><span class="line"></span><br><span class="line">      signal_id = <span class="built_in">signal_id_lookup</span> (name_copy, itype);</span><br><span class="line"></span><br><span class="line">      <span class="built_in">g_free</span> (name_copy);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">return</span> signal_id;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="signal-add-class-closure"><a href="#signal-add-class-closure" class="headerlink" title="signal_add_class_closure"></a>signal_add_class_closure</h4><p>再看看 class_closure 这个管理默认 handler 的 closure 如何和 signalnode 进行关联。从下面函数可以看到，是把 closure 插入到了 node-&gt;class_closure_bsa 中，class_closure_bsa 是一个二分查找数组</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">signal_add_class_closure</span> <span class="params">(SignalNode *node,</span></span></span><br><span class="line"><span class="params"><span class="function">        GType       itype,</span></span></span><br><span class="line"><span class="params"><span class="function">        GClosure   *closure)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  ClassClosure key;</span><br><span class="line"></span><br><span class="line">  node-&gt;single_va_closure_is_valid = FALSE;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!node-&gt;class_closure_bsa)</span><br><span class="line">    node-&gt;class_closure_bsa = <span class="built_in">g_bsearch_array_create</span> (&amp;g_class_closure_bconfig);</span><br><span class="line">  key.instance_type = itype;</span><br><span class="line">  key.closure = <span class="built_in">g_closure_ref</span> (closure);</span><br><span class="line">  node-&gt;class_closure_bsa = <span class="built_in">g_bsearch_array_insert</span> (node-&gt;class_closure_bsa,</span><br><span class="line">                &amp;g_class_closure_bconfig,</span><br><span class="line">                &amp;key);</span><br><span class="line">  <span class="built_in">g_closure_sink</span> (closure);</span><br><span class="line">  <span class="keyword">if</span> (node-&gt;c_marshaller &amp;&amp; closure &amp;&amp; <span class="built_in">G_CLOSURE_NEEDS_MARSHAL</span> (closure))</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="built_in">g_closure_set_marshal</span> (closure, node-&gt;c_marshaller);</span><br><span class="line">      <span class="keyword">if</span> (node-&gt;va_marshaller)</span><br><span class="line">  _g_closure_set_va_marshal (closure, node-&gt;va_marshaller);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>G_CLOSURE_NEEDS_MARSHAL 如下，之前创建 closure 时是没有设置他的 marshal 的，所以上面函数会走到 20 行中设置通过 g_closure_set_marshal 函数来设置 <code>closure-&gt;marshal</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">define</span> G_CLOSURE_NEEDS_MARSHAL(closure) (((GClosure*) (closure))-&gt;marshal == NULL)</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span></span></span><br><span class="line"><span class="function"><span class="title">g_closure_set_marshal</span> <span class="params">(GClosure       *closure,</span></span></span><br><span class="line"><span class="params"><span class="function">           GClosureMarshal marshal)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (closure-&gt;marshal &amp;&amp; closure-&gt;marshal != marshal)</span><br><span class="line">    <span class="built_in">g_warning</span> (<span class="string">&quot;attempt to override closure-&gt;marshal (%p) with new marshal (%p)&quot;</span>,</span><br><span class="line">         closure-&gt;marshal, marshal);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    closure-&gt;marshal = marshal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面_g_closure_set_va_marshal 中会设置 GRealClosure.va_marshal，因为创建 closure 时是设置的 meta_marshal 和 va_meta_marshal</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span></span><br><span class="line">_g_closure_set_va_marshal (GClosure       *closure,</span><br><span class="line">         GVaClosureMarshal marshal)</span><br><span class="line">&#123;</span><br><span class="line">  GRealClosure *real_closure;</span><br><span class="line"></span><br><span class="line">  real_closure = <span class="built_in">G_REAL_CLOSURE</span> (closure);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (real_closure-&gt;va_marshal &amp;&amp; real_closure-&gt;va_marshal != marshal)</span><br><span class="line">    <span class="built_in">g_warning</span> (<span class="string">&quot;attempt to override closure-&gt;va_marshal (%p) with new marshal (%p)&quot;</span>,</span><br><span class="line">         real_closure-&gt;va_marshal, marshal);</span><br><span class="line">  <span class="keyword">else</span></span><br><span class="line">    real_closure-&gt;va_marshal = marshal;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>到这里，就看完了 g_signal_new 的过程，他创建了一个 signalnode 的对象，把所有信息都保存在这个对象中，只要能找到这个对象，那么如何执行回调函数就一清二楚了。</p>
+<h1 id=""><a href="#" class="headerlink" title=""></a></h1>
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/04/29/Gobject%E4%B9%8B%E5%B1%9E%E6%80%A7get-set/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-01 20:35:40
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/01/Gobject-%E4%BF%A1%E5%8F%B7%E4%B9%8B-g-signal-connect/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#g-signal-new"><span class="toc-text">g_signal_new</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-signal-type-cclosure-new"><span class="toc-text">g_signal_type_cclosure_new</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-closure-new-simple"><span class="toc-text">g_closure_new_simple</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#g-closure-set-meta-marshal"><span class="toc-text">g_closure_set_meta_marshal</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#g-closure-set-meta-va-marshal"><span class="toc-text">g_closure_set_meta_va_marshal</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#g-signal-new-valist"><span class="toc-text">g_signal_new_valist</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#g-signal-newv"><span class="toc-text">g_signal_newv</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#SignalNode-%E7%BB%93%E6%9E%84"><span class="toc-text">SignalNode 结构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#signal-id-lookup"><span class="toc-text">signal_id_lookup</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#signal-add-class-closure"><span class="toc-text">signal_add_class_closure</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link"><span class="toc-text"></span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

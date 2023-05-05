@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      多线程之thread_once 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">多线程之thread_once</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-02 20:34:34
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章介绍一下 pthread_once 和 glib 的 thread_once。</p>
+<h1 id="pthread-once"><a href="#pthread-once" class="headerlink" title="pthread_once"></a>pthread_once</h1><p>pthread 中有一个非常有用的函数 pthread_once，这个函数可以保证当多个线程都可能执行某个函数时，这个函数只会执行一次。</p>
+<p>其使用方法如下，先定义有静态生命周期的 pthread_once_t 类型的变量，并将他赋值为 PTHREAD_ONCE_INIT，然后调用 pthread_once 函数，第一个参数为定义的 pthread_once_t 变量的指针，第二个参数为想要执行的函数的函数指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="type">static</span> <span class="type">pthread_once_t</span> once_control = PTHREAD_ONCE_INIT;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">pthread_once</span><span class="params">(<span class="type">pthread_once_t</span> *once_control, <span class="type">void</span>(*init_routine)())</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>除了像上面把 pthread_once_t 放在全局作用域，还可以在函数中定义 static pthread_once_t 变量：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">init</span><span class="params">()</span> </span>&#123;&#125;</span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">test</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="type">static</span> <span class="type">pthread_once_t</span> once_control = PTHREAD_ONCE_INIT;</span><br><span class="line">    <span class="built_in">pthread_once</span>(&amp;once_control, init);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>pthread_once 的效果是，当前线程执行 pthread_once 时：</p>
+<ul>
+<li>如果 init 函数没有被执行（通过检查 pthread_once_t），那么执行 init 函数</li>
+<li>如果 init 函数已经执行完了，那么直接 return</li>
+<li>如果 init 函数正在被其他线程执行，但是还没有完成，那么当前线程会阻塞，直到 init 函数被其他线程执行完成</li>
+</ul>
+<p>注意 pthread_once 的 init 函数只能是 <code>void(void)</code> 这种形式。</p>
+<h1 id="glib-的-thread-once"><a href="#glib-的-thread-once" class="headerlink" title="glib 的 thread_once"></a>glib 的 thread_once</h1><p>我们接下来看看 glib 的 thread_once 的实现，下面的函数中 static_g_define_type_id 就相当于 pthread_once_t 变量，my_obj_get_type_once 函数就是只能被执行一次的函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">GType </span></span><br><span class="line"><span class="function"><span class="title">my_obj_get_type</span> <span class="params">(<span class="type">void</span>)</span> </span></span><br><span class="line"><span class="function"></span>&#123; </span><br><span class="line">  <span class="type">static</span> gsize static_g_define_type_id = <span class="number">0</span>;</span><br><span class="line">  <span class="comment">/* Prelude goes here */</span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">g_once_init_enter</span> (&amp;static_g_define_type_id)) </span><br><span class="line">    &#123; </span><br><span class="line">      GType g_define_type_id = <span class="built_in">my_obj_get_type_once</span> (); </span><br><span class="line">      <span class="built_in">g_once_init_leave</span> (&amp;static_g_define_type_id, g_define_type_id); </span><br><span class="line">    &#125; </span><br><span class="line">  <span class="keyword">return</span> static_g_define_type_id; </span><br><span class="line">&#125; <span class="comment">/* closes my_obj_get_type() */</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="g-once-init-enter"><a href="#g-once-init-enter" class="headerlink" title="g_once_init_enter"></a>g_once_init_enter</h2><p>g_once_init_enter 中会检查输入的 location 指针来判断 my_obj_get_type_once 是否已经执行过了，如果 my_obj_get_type_once 还没执行或者正在被执行，程序逻辑会走入第 8 行的分支，在这个分支里会判断 my_obj_get_type_once 是否已经被其他线程正在执行，判断逻辑是：如果 g_once_init_list 中没有找到输入的 location 指针，表示当前 my_obj_get_type_once 没有被执行，那么将 location 指针插入 g_once_init_list，这样其他线程进入这里时会在第 9 行中判断为 false 从而走入 14 行所在的分支，然后会等待 <code>g_once_init_list中无法找到location指针</code> 这个条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">gboolean</span></span><br><span class="line">(g_once_init_enter) (<span class="keyword">volatile</span> <span class="type">void</span> *location)</span><br><span class="line">&#123;</span><br><span class="line">  gsize *value_location = (gsize *) location;</span><br><span class="line">  gboolean need_init = FALSE;</span><br><span class="line">  <span class="built_in">g_mutex_lock</span> (&amp;g_once_mutex);</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">g_atomic_pointer_get</span> (value_location) == <span class="number">0</span>)</span><br><span class="line">    &#123;</span><br><span class="line">      <span class="keyword">if</span> (!<span class="built_in">g_slist_find</span> (g_once_init_list, (<span class="type">void</span>*) value_location))</span><br><span class="line">        &#123;</span><br><span class="line">          need_init = TRUE;</span><br><span class="line">          g_once_init_list = <span class="built_in">g_slist_prepend</span> (g_once_init_list, (<span class="type">void</span>*) value_location);</span><br><span class="line">        &#125;</span><br><span class="line">      <span class="keyword">else</span></span><br><span class="line">        <span class="keyword">do</span></span><br><span class="line">          <span class="built_in">g_cond_wait</span> (&amp;g_once_cond, &amp;g_once_mutex);</span><br><span class="line">        <span class="keyword">while</span> (<span class="built_in">g_slist_find</span> (g_once_init_list, (<span class="type">void</span>*) value_location));</span><br><span class="line">    &#125;</span><br><span class="line">  <span class="built_in">g_mutex_unlock</span> (&amp;g_once_mutex);</span><br><span class="line">  <span class="keyword">return</span> need_init;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而将 location 指针从 g_once_init_list 中移除是在 g_once_init_leave 中执行的。当线程发现 init 函数没被执行过时，会将 location 指针插入 g_once_init_list，然后从 g_once_init_enter 中返回 true，那么回到 my_obj_get_type 后，就会执行 my_obj_get_type_once 以及 g_once_init_leave。</p>
+<p>g_once_init_leave 逻辑比较简单，就是把 result 变量原子的赋给 location 指向的变量，然后将 location 从 g_once_init_list 中移除，这样其他在等待 <code>g_once_init_list中无法找到location指针</code> 条件的线程就能从 g_once_init_enter 中返回。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">void</span></span><br><span class="line">(g_once_init_leave) (<span class="keyword">volatile</span> <span class="type">void</span> *location,</span><br><span class="line">                     gsize          result)</span><br><span class="line">&#123;</span><br><span class="line">  gsize *value_location = (gsize *) location;</span><br><span class="line">  gsize old_value;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_return_if_fail</span> (result != <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  old_value = (gsize) <span class="built_in">g_atomic_pointer_exchange</span> (value_location, result);</span><br><span class="line">  <span class="built_in">g_return_if_fail</span> (old_value == <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">g_mutex_lock</span> (&amp;g_once_mutex);</span><br><span class="line">  <span class="built_in">g_return_if_fail</span> (g_once_init_list != <span class="literal">NULL</span>);</span><br><span class="line">  g_once_init_list = <span class="built_in">g_slist_remove</span> (g_once_init_list, (<span class="type">void</span>*) value_location);</span><br><span class="line">  <span class="built_in">g_cond_broadcast</span> (&amp;g_once_cond);</span><br><span class="line">  <span class="built_in">g_mutex_unlock</span> (&amp;g_once_mutex);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到 glib 的 thread_once 也实现了：当一个线程执行 thread_once 时，他必须自己执行完 init 函数或者阻塞直到其他线程执行完 init 函数。</p>
+<p>从实现来看，让我感觉比较神奇的是所有的 thread_once 竟然共用一个 mutex 和 condition，比如现在有两个想要实现 thread_once 的地方，他们都会调用 g_once_init_enter 和 g_once_init_leave，在这个过程中是共用一套 mutex 和 condition 来实现各自的 thread_once 的。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/02/pthread%E5%A4%9A%E7%BA%BF%E7%A8%8B/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-02 20:34:34
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/02/C-11%E5%A4%9A%E7%BA%BF%E7%A8%8B/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#pthread-once"><span class="toc-text">pthread_once</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#glib-%E7%9A%84-thread-once"><span class="toc-text">glib 的 thread_once</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#g-once-init-enter"><span class="toc-text">g_once_init_enter</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

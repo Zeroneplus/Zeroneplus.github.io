@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg 之 muxer/encoder 相关 api (二) 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg 之 muxer/encoder 相关 api (二)</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-05 20:35:21
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章接着上一篇继续分析剩下的函数。</p>
+<h2 id="avcodec-send-frame"><a href="#avcodec-send-frame" class="headerlink" title="avcodec_send_frame"></a>avcodec_send_frame</h2><p>编解码调用的送数据接口：</p>
+<blockquote>
+<p>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;<br/>encoder: avcodec_send_frame, avcodec_receive_packet<br/>muxer: av_write_frame<br/>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;<br/>demuxer: av_read_frame<br/>decoder: avcodec_send_packet, avcodec_receive_frame<br/>&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;&#x3D;</p>
+</blockquote>
+<p>先看看 avcodec_send_frame。avci 中有个 buffer_frame，用于缓存输入的 frame，如果 buffer_frame 已经有了数据，那么这次 avcodec_send_frame 不会发送 frame，会返回 <code>AVERROR(EAGAIN)</code>。如果输入的 frame 为空，那么进入 draining 模式，后续不会再接受输入。如果 buffer_pkt 这个输出缓存为空，就尝试调用 encode_receive_packet_internal 进行解码，而 encode_send_frame_internal 其实没有做解码。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> attribute_align_arg <span class="title">avcodec_send_frame</span><span class="params">(AVCodecContext *avctx, <span class="type">const</span> AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">avcodec_is_open</span>(avctx) || !<span class="built_in">av_codec_is_encoder</span>(avctx-&gt;codec))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;buffer_frame-&gt;buf[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EAGAIN);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame) &#123;</span><br><span class="line">        avci-&gt;draining = <span class="number">1</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = <span class="built_in">encode_send_frame_internal</span>(avctx, frame);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!avci-&gt;buffer_pkt-&gt;data &amp;&amp; !avci-&gt;buffer_pkt-&gt;side_data) &#123;</span><br><span class="line">        ret = <span class="built_in">encode_receive_packet_internal</span>(avctx, avci-&gt;buffer_pkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; ret != <span class="built_in">AVERROR</span>(EAGAIN) &amp;&amp; ret != AVERROR_EOF)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="encode-send-frame-internal"><a href="#encode-send-frame-internal" class="headerlink" title="encode_send_frame_internal"></a>encode_send_frame_internal</h3><p>这个函数就是把输入的 src AVFrame ref 到 avci-&gt;buffer_frame</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">encode_send_frame_internal</span><span class="params">(AVCodecContext *avctx, <span class="type">const</span> AVFrame *src)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    AVFrame *dst = avci-&gt;buffer_frame;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_frame_ref</span>(dst, src);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">        ret = <span class="built_in">encode_generate_icc_profile</span>(avctx, dst);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="encode-receive-packet-internal"><a href="#encode-receive-packet-internal" class="headerlink" title="encode_receive_packet_internal"></a>encode_receive_packet_internal</h3><p>这个函数执行了解码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">encode_receive_packet_internal</span><span class="params">(AVCodecContext *avctx, AVPacket *avpkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining_done)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(!avpkt-&gt;data &amp;&amp; !avpkt-&gt;side_data);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">ffcodec</span>(avctx-&gt;codec)-&gt;cb_type == FF_CODEC_CB_TYPE_RECEIVE_PACKET) &#123;</span><br><span class="line">        ret = <span class="built_in">ffcodec</span>(avctx-&gt;codec)-&gt;cb.<span class="built_in">receive_packet</span>(avctx, avpkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="built_in">av_packet_unref</span>(avpkt);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            <span class="comment">// Encoders must always return ref-counted buffers.</span></span><br><span class="line">            <span class="comment">// Side-data only packets have no data and can be not ref-counted.</span></span><br><span class="line">            <span class="built_in">av_assert0</span>(!avpkt-&gt;data || avpkt-&gt;buf);</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        ret = <span class="built_in">encode_simple_receive_packet</span>(avctx, avpkt);</span><br><span class="line">    <span class="keyword">if</span> (&lt;u&gt;ret &gt;= <span class="number">0</span>&lt;/u&gt;)</span><br><span class="line">        &lt;u&gt;avpkt-&gt;flags&lt;/u&gt; |= avci-&gt;intra_only_flag;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ret == AVERROR_EOF)</span><br><span class="line">        avci-&gt;draining_done = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="encode-simple-receive-packet"><a href="#encode-simple-receive-packet" class="headerlink" title="encode_simple_receive_packet"></a>encode_simple_receive_packet</h4><p>看更常见的 encode_simple_receive_packet 解码逻辑</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">encode_simple_receive_packet</span><span class="params">(AVCodecContext *avctx, AVPacket *avpkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (!avpkt-&gt;data &amp;&amp; !avpkt-&gt;side_data) &#123;</span><br><span class="line">        ret = <span class="built_in">encode_simple_internal</span>(avctx, avpkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="encode-simple-internal"><a href="#encode-simple-internal" class="headerlink" title="encode_simple_internal"></a>encode_simple_internal</h5><p>这里又出现了 in_frame，之前是把输入 frame 放在了 buffer_frame 中，如果 in_frame 为空，会尝试调用 ff_encode_get_frame 把 buffer_frame 移动到 in_frame。取到 in_frame 后调用 codec 中定义的 encode 函数进行编码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_encode_get_frame</span><span class="params">(AVCodecContext *avctx, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!avci-&gt;buffer_frame-&gt;buf[<span class="number">0</span>])</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EAGAIN);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_frame_move_ref</span>(frame, avci-&gt;buffer_frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">encode_simple_internal</span><span class="params">(AVCodecContext *avctx, AVPacket *avpkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal   *avci = avctx-&gt;internal;</span><br><span class="line">    AVFrame          *frame = avci-&gt;in_frame;</span><br><span class="line">    <span class="type">const</span> FFCodec *<span class="type">const</span> codec = <span class="built_in">ffcodec</span>(avctx-&gt;codec);</span><br><span class="line">    <span class="type">int</span> got_packet;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining_done)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>] &amp;&amp; !avci-&gt;draining) &#123;</span><br><span class="line">        <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">        ret = <span class="built_in">ff_encode_get_frame</span>(avctx, frame);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; ret != AVERROR_EOF)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DELAY ||</span><br><span class="line">              (avci-&gt;frame_thread_encoder &amp;&amp; avctx-&gt;active_thread_type &amp; FF_THREAD_FRAME)))</span><br><span class="line">            <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// Flushing is signaled with a NULL frame</span></span><br><span class="line">        frame = <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    got_packet = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(codec-&gt;cb_type == FF_CODEC_CB_TYPE_ENCODE);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (CONFIG_FRAME_THREAD_ENCODER &amp;&amp;</span><br><span class="line">        avci-&gt;frame_thread_encoder &amp;&amp; (avctx-&gt;active_thread_type &amp; FF_THREAD_FRAME))</span><br><span class="line">        <span class="comment">/* This might modify frame, but it doesn&#x27;t matter, because</span></span><br><span class="line"><span class="comment">         * the frame properties used below are not used for video</span></span><br><span class="line"><span class="comment">         * (due to the delay inherent in frame threaded encoding, it makes</span></span><br><span class="line"><span class="comment">         *  no sense to use the properties of the current frame anyway). */</span></span><br><span class="line">        ret = <span class="built_in">ff_thread_video_encode_frame</span>(avctx, avpkt, frame, &amp;got_packet);</span><br><span class="line">    <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = codec-&gt;cb.<span class="built_in">encode</span>(avctx, avpkt, frame, &amp;got_packet);</span><br><span class="line">        <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO &amp;&amp; !ret &amp;&amp; got_packet &amp;&amp;</span><br><span class="line">            &lt;u&gt;!(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DELAY)&lt;/u&gt;)</span><br><span class="line">            avpkt-&gt;pts = avpkt-&gt;dts = frame-&gt;pts;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(ret &lt;= <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">emms_c</span>();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!ret &amp;&amp; got_packet) &#123;</span><br><span class="line">        <span class="keyword">if</span> (avpkt-&gt;data) &#123;</span><br><span class="line">            ret = <span class="built_in">av_packet_make_refcounted</span>(avpkt);</span><br><span class="line"></span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (frame &amp;&amp; !(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DELAY)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">                <span class="keyword">if</span> (avpkt-&gt;pts == AV_NOPTS_VALUE)</span><br><span class="line">                    avpkt-&gt;pts = frame-&gt;pts;</span><br><span class="line">                <span class="keyword">if</span> (!avpkt-&gt;duration)</span><br><span class="line">                    avpkt-&gt;duration = <span class="built_in">ff_samples_to_time_base</span>(avctx,</span><br><span class="line">                                                              frame-&gt;nb_samples);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">            avpkt-&gt;dts = avpkt-&gt;pts;</span><br><span class="line">        &#125;</span><br><span class="line">        avpkt-&gt;flags |= avci-&gt;intra_only_flag;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining &amp;&amp; !got_packet)</span><br><span class="line">        avci-&gt;draining_done = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">end:</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span> || !got_packet)</span><br><span class="line">        <span class="built_in">av_packet_unref</span>(avpkt);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (frame)</span><br><span class="line">        <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (got_packet)</span><br><span class="line">        <span class="comment">// Encoders must always return ref-counted buffers.</span></span><br><span class="line">        <span class="comment">// Side-data only packets have no data and can be not ref-counted.</span></span><br><span class="line">        <span class="built_in">av_assert0</span>(!avpkt-&gt;data || avpkt-&gt;buf);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="avcodec-receive-packet"><a href="#avcodec-receive-packet" class="headerlink" title="avcodec_receive_packet"></a>avcodec_receive_packet</h2><p>这个函数用于从 encoder 中取数据，由于之前 avcodec_send_frame 已经尝试主动解码了，所以这个函数一般可以直接取到 buffer_pkt，如果 buffer_pkt 为空，则调用 encode_receive_packet_internal 进行解码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> attribute_align_arg <span class="title">avcodec_receive_packet</span><span class="params">(AVCodecContext *avctx, AVPacket *avpkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_packet_unref</span>(avpkt);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">avcodec_is_open</span>(avctx) || !<span class="built_in">av_codec_is_encoder</span>(avctx-&gt;codec))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;buffer_pkt-&gt;data || avci-&gt;buffer_pkt-&gt;side_data) &#123;</span><br><span class="line">        <span class="built_in">av_packet_move_ref</span>(avpkt, avci-&gt;buffer_pkt);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = <span class="built_in">encode_receive_packet_internal</span>(avctx, avpkt);</span><br><span class="line"></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="av-write-frame"><a href="#av-write-frame" class="headerlink" title="av_write_frame"></a>av_write_frame</h2><p>这个函数把 packet 写到 muxer 中，为什么不叫 write_packet?</p>
+<p>可以看到，下面出现了 parse_pkt，估计也是缓存 buffer</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_write_frame</span><span class="params">(AVFormatContext *s, AVPacket *in)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    FFFormatContext *<span class="type">const</span> si = <span class="built_in">ffformatcontext</span>(s);</span><br><span class="line">    AVPacket *pkt = si-&gt;parse_pkt;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!in) &#123;</span><br><span class="line">        <span class="keyword">if</span> (s-&gt;oformat-&gt;flags &amp; AVFMT_ALLOW_FLUSH) &#123;</span><br><span class="line">            ret = s-&gt;oformat-&gt;<span class="built_in">write_packet</span>(s, <span class="literal">NULL</span>);</span><br><span class="line">            <span class="built_in">flush_if_needed</span>(s);</span><br><span class="line">            <span class="keyword">if</span> (ret &gt;= <span class="number">0</span> &amp;&amp; s-&gt;pb &amp;&amp; s-&gt;pb-&gt;error &lt; <span class="number">0</span>)</span><br><span class="line">                ret = s-&gt;pb-&gt;error;</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (in-&gt;flags &amp; AV_PKT_FLAG_UNCODED_FRAME) &#123;</span><br><span class="line">        pkt = in;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="comment">/* We don&#x27;t own in, so we have to make sure not to modify it.</span></span><br><span class="line"><span class="comment">         * (ff_write_chained() relies on this fact.)</span></span><br><span class="line"><span class="comment">         * The following avoids copying in&#x27;s data unnecessarily.</span></span><br><span class="line"><span class="comment">         * Copying side data is unavoidable as a bitstream filter</span></span><br><span class="line"><span class="comment">         * may change it, e.g. free it on errors. */</span></span><br><span class="line">        pkt-&gt;data = in-&gt;data;</span><br><span class="line">        pkt-&gt;size = in-&gt;size;</span><br><span class="line">        ret = <span class="built_in">av_packet_copy_props</span>(pkt, in);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (in-&gt;buf) &#123;</span><br><span class="line">            pkt-&gt;buf = <span class="built_in">av_buffer_ref</span>(in-&gt;buf);</span><br><span class="line">            <span class="keyword">if</span> (!pkt-&gt;buf) &#123;</span><br><span class="line">                ret = <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">                <span class="keyword">goto</span> fail;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">write_packets_common</span>(s, pkt, <span class="number">0</span><span class="comment">/*non-interleaved*/</span>);</span><br><span class="line"></span><br><span class="line">fail:</span><br><span class="line">    <span class="comment">// Uncoded frames using the noninterleaved codepath are also freed here</span></span><br><span class="line">    <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="write-packets-common"><a href="#write-packets-common" class="headerlink" title="write_packets_common"></a>write_packets_common</h3><p>上面函数内部调用了 write_packets_common 来写入 packet。</p>
+<p>check_packet、prepare_input_packet、check_bitstream 都没有做什么重要的事</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">write_packets_common</span><span class="params">(AVFormatContext *s, AVPacket *pkt, <span class="type">int</span> interleaved)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVStream *st;</span><br><span class="line">    FFStream *sti;</span><br><span class="line">    <span class="type">int</span> ret = <span class="built_in">check_packet</span>(s, pkt);</span><br><span class="line"></span><br><span class="line">    st = s-&gt;streams[pkt-&gt;stream_index];</span><br><span class="line">    sti = <span class="built_in">ffstream</span>(st);</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">prepare_input_packet</span>(s, st, pkt);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">check_bitstream</span>(s, sti, pkt);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (sti-&gt;bsfc) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">write_packets_from_bsfs</span>(s, st, pkt, interleaved);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">write_packet_common</span>(s, st, pkt, interleaved);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="write-packet-common"><a href="#write-packet-common" class="headerlink" title="write_packet_common"></a>write_packet_common</h4><p>write_packet_common 才是真正写 packet 的地方</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">write_packet_common</span><span class="params">(AVFormatContext *s, AVStream *st, AVPacket *pkt, <span class="type">int</span> interleaved)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">guess_pkt_duration</span>(s, st, pkt);</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> FF_API_COMPUTE_PKT_FIELDS2</span></span><br><span class="line">    <span class="keyword">if</span> (!(s-&gt;oformat-&gt;flags &amp; AVFMT_NOTIMESTAMPS) &amp;&amp; (ret = <span class="built_in">compute_muxer_pkt_fields</span>(s, st, pkt)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (interleaved) &#123;</span><br><span class="line">        <span class="keyword">if</span> (pkt-&gt;dts == AV_NOPTS_VALUE &amp;&amp; !(s-&gt;oformat-&gt;flags &amp; AVFMT_NOTIMESTAMPS))</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">interleaved_write_packet</span>(s, pkt, <span class="number">0</span>, <span class="number">1</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">write_packet</span>(s, pkt);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="write-packet"><a href="#write-packet" class="headerlink" title="write_packet"></a>write_packet</h5><p>在 write_packet 里面调用 write_uncoded_frame 或者 write_packet</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">write_packet</span><span class="params">(AVFormatContext *s, AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    FFFormatContext *<span class="type">const</span> si = <span class="built_in">ffformatcontext</span>(s);</span><br><span class="line">    AVStream *<span class="type">const</span> st = s-&gt;streams[pkt-&gt;stream_index];</span><br><span class="line">    FFStream *<span class="type">const</span> sti = <span class="built_in">ffstream</span>(st);</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// If the timestamp offsetting below is adjusted, adjust</span></span><br><span class="line">    <span class="comment">// ff_interleaved_peek similarly.</span></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;output_ts_offset) &#123;</span><br><span class="line">        <span class="type">int64_t</span> offset = <span class="built_in">av_rescale_q</span>(s-&gt;output_ts_offset, AV_TIME_BASE_Q, st-&gt;time_base);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (pkt-&gt;dts != AV_NOPTS_VALUE)</span><br><span class="line">            pkt-&gt;dts += offset;</span><br><span class="line">        <span class="keyword">if</span> (pkt-&gt;pts != AV_NOPTS_VALUE)</span><br><span class="line">            pkt-&gt;pts += offset;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">handle_avoid_negative_ts</span>(si, sti, pkt);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((pkt-&gt;flags &amp; AV_PKT_FLAG_UNCODED_FRAME)) &#123;</span><br><span class="line">        AVFrame **frame = (AVFrame **)pkt-&gt;data;</span><br><span class="line">        <span class="built_in">av_assert0</span>(pkt-&gt;size == <span class="built_in">sizeof</span>(*frame));</span><br><span class="line">        ret = s-&gt;oformat-&gt;<span class="built_in">write_uncoded_frame</span>(s, pkt-&gt;stream_index, frame, <span class="number">0</span>);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = s-&gt;oformat-&gt;<span class="built_in">write_packet</span>(s, pkt);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb &amp;&amp; ret &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">flush_if_needed</span>(s);</span><br><span class="line">        <span class="keyword">if</span> (s-&gt;pb-&gt;error &lt; <span class="number">0</span>)</span><br><span class="line">            ret = s-&gt;pb-&gt;error;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= <span class="number">0</span>)</span><br><span class="line">        st-&gt;nb_frames++;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ffmpeg/libavformat/mux.c</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">flush_if_needed</span><span class="params">(AVFormatContext *s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb &amp;&amp; s-&gt;pb-&gt;error &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (s-&gt;flush_packets == <span class="number">1</span> || s-&gt;flags &amp; AVFMT_FLAG_FLUSH_PACKETS)</span><br><span class="line">            <span class="built_in">avio_flush</span>(s-&gt;pb);</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (s-&gt;flush_packets &amp;&amp; !(s-&gt;oformat-&gt;flags &amp; AVFMT_NOFILE))</span><br><span class="line">            <span class="built_in">avio_write_marker</span>(s-&gt;pb, AV_NOPTS_VALUE, AVIO_DATA_MARKER_FLUSH_POINT);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看看官方的 mux.c 例子，下面把该例子的核心步骤抽取了出来，他和上面例子的步骤基本上是一样的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">const</span> <span class="type">char</span> *filename;</span><br><span class="line">AVFormatContext *oc;</span><br><span class="line"></span><br><span class="line"><span class="built_in">avformat_alloc_output_context2</span>(&amp;oc, <span class="literal">NULL</span>, <span class="literal">NULL</span>, filename);</span><br><span class="line"></span><br><span class="line"><span class="type">const</span> AVOutputFormat *fmt = oc-&gt;oformat;</span><br><span class="line"></span><br><span class="line"><span class="comment">// fmt-&gt;video_codec 是 AVCodecID</span></span><br><span class="line"><span class="keyword">if</span> (fmt-&gt;video_codec != AV_CODEC_ID_NONE) &#123;</span><br><span class="line">    <span class="type">const</span> AVCodec *video_codec = <span class="built_in">avcodec_find_encoder</span>(fmt-&gt;video_codec);</span><br><span class="line"></span><br><span class="line">    AVStream *stream_video = <span class="built_in">avformat_new_stream</span>(oc, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Format-specific stream ID.</span></span><br><span class="line"><span class="comment">     * decoding: set by libavformat</span></span><br><span class="line"><span class="comment">     * encoding: set by the user, replaced by libavformat if left unset</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    stream_video-&gt;id = oc-&gt;nb_streams<span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">    AVCodecContext *enc_video = <span class="built_in">avcodec_alloc_context3</span>(video_codec);</span><br><span class="line"></span><br><span class="line">    enc_video-&gt;bit_rate = <span class="number">400000</span>;</span><br><span class="line">    <span class="comment">/* Resolution must be a multiple of two. */</span></span><br><span class="line">    enc_video-&gt;width    = <span class="number">352</span>;</span><br><span class="line">    enc_video-&gt;height   = <span class="number">288</span>;</span><br><span class="line"></span><br><span class="line">    stream_video-&gt;time_base = (AVRational)&#123; <span class="number">1</span>, <span class="number">25</span> &#125;;</span><br><span class="line">    enc_video-&gt;time_base       = stream_video-&gt;time_base;</span><br><span class="line">    enc_video-&gt;pix_fmt       = AV_PIX_FMT_YUV420P;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (fmt-&gt;audio_codec != AV_CODEC_ID_NONE) &#123;</span><br><span class="line">    <span class="type">const</span> AVCodec *audio_codec = <span class="built_in">avcodec_find_encoder</span>(fmt-&gt;audio_codec);</span><br><span class="line"></span><br><span class="line">    AVStream *stream_audio = <span class="built_in">avformat_new_stream</span>(oc, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">    stream_audio-&gt;id = oc-&gt;nb_streams<span class="number">-1</span>;</span><br><span class="line"></span><br><span class="line">    AVCodecContext *enc_audio = <span class="built_in">avcodec_alloc_context3</span>(audio_codec);</span><br><span class="line"></span><br><span class="line">    enc_audio-&gt;sample_fmt  = audio_codec-&gt;sample_fmts ?</span><br><span class="line">            audio_codec-&gt;sample_fmts[<span class="number">0</span>] : AV_SAMPLE_FMT_FLTP;</span><br><span class="line">    enc_audio-&gt;bit_rate    = <span class="number">64000</span>;</span><br><span class="line">    enc_audio-&gt;sample_rate = <span class="number">44100</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (audio_codec-&gt;supported_samplerates) &#123;</span><br><span class="line">        enc_audio-&gt;sample_rate = audio_codec-&gt;supported_samplerates[<span class="number">0</span>];</span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; audio_codec-&gt;supported_samplerates[i]; i++) &#123;</span><br><span class="line">            <span class="keyword">if</span> (audio_codec-&gt;supported_samplerates[i] == <span class="number">44100</span>)</span><br><span class="line">                enc_audio-&gt;sample_rate = <span class="number">44100</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">av_channel_layout_copy</span>(&amp;enc_audio-&gt;ch_layout, &amp;(AVChannelLayout)AV_CHANNEL_LAYOUT_STEREO);</span><br><span class="line">    stream_audio-&gt;time_base = (AVRational)&#123; <span class="number">1</span>, enc_audio-&gt;sample_rate &#125;;</span><br><span class="line"></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">AVDictionary *opt = <span class="literal">NULL</span>;</span><br><span class="line"><span class="built_in">avcodec_open2</span>(enc_video, video_codec, &amp;opt);</span><br><span class="line"><span class="comment">/* copy the stream parameters to the muxer */</span></span><br><span class="line"><span class="built_in">avcodec_parameters_from_context</span>(stream_video-&gt;codecpar, enc_video);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_open2</span>(enc_audio, audio_codec, &amp;opt);</span><br><span class="line"><span class="built_in">avcodec_parameters_from_context</span>(stream_audio-&gt;codecpar, enc_audio);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (!(fmt-&gt;flags &amp; AVFMT_NOFILE))</span><br><span class="line">    ret = <span class="built_in">avio_open</span>(&amp;oc-&gt;pb, filename, AVIO_FLAG_WRITE);</span><br><span class="line"></span><br><span class="line">ret = <span class="built_in">avformat_write_header</span>(oc, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">AVFrame *frame;</span><br><span class="line">AVPacket *pkt;</span><br><span class="line">ret = <span class="built_in">avcodec_send_frame</span>(enc_video, frame);</span><br><span class="line"><span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="comment">// ?</span></span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">1</span>);</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">while</span> (ret &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">    ret = <span class="built_in">avcodec_receive_packet</span>(enc_video, pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret == <span class="built_in">AVERROR</span>(EAGAIN) || ret == AVERROR_EOF)</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_packet_rescale_ts</span>(pkt, enc_video-&gt;time_base, stream_video-&gt;time_base);</span><br><span class="line">    pkt-&gt;stream_index = stream_video-&gt;index;</span><br><span class="line">    ret = <span class="built_in">av_interleaved_write_frame</span>(fmt_ctx, pkt);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">av_write_trailer</span>(oc);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_free_context</span>(&amp;enc_video);</span><br><span class="line"><span class="built_in">avcodec_free_context</span>(&amp;enc_audio);</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (!(fmt-&gt;flags &amp; AVFMT_NOFILE))</span><br><span class="line">    <span class="comment">/* Close the output file. */</span></span><br><span class="line">    <span class="built_in">avio_closep</span>(&amp;oc-&gt;pb);</span><br><span class="line"></span><br><span class="line"><span class="comment">/* free the stream */</span></span><br><span class="line"><span class="built_in">avformat_free_context</span>(oc);</span><br></pre></td></tr></table></figure>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/05/ffmpeg-%E4%B9%8B-muxer-encoder-%E7%9B%B8%E5%85%B3-api-%E4%B8%80/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-05 20:35:21
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#avcodec-send-frame"><span class="toc-text">avcodec_send_frame</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#encode-send-frame-internal"><span class="toc-text">encode_send_frame_internal</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#encode-receive-packet-internal"><span class="toc-text">encode_receive_packet_internal</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#encode-simple-receive-packet"><span class="toc-text">encode_simple_receive_packet</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#encode-simple-internal"><span class="toc-text">encode_simple_internal</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#avcodec-receive-packet"><span class="toc-text">avcodec_receive_packet</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#av-write-frame"><span class="toc-text">av_write_frame</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#write-packets-common"><span class="toc-text">write_packets_common</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#write-packet-common"><span class="toc-text">write_packet_common</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#write-packet"><span class="toc-text">write_packet</span></a></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
