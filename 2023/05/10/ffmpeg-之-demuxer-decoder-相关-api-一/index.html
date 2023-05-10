@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg之demuxer/decoder相关api(一) 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg之demuxer/decoder相关api(一)</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-10 21:30:58
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>上篇文章介绍了 muxer 和 encoder 的 api，这篇文章介绍一下 demuxer 和 decoder 的 api。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>还是以一个例子为研究对象：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">char</span>* format_name = <span class="literal">NULL</span>;</span><br><span class="line"><span class="type">const</span> AVInputFormat *iformat = <span class="built_in">av_find_input_format</span>(format_name);</span><br><span class="line"><span class="type">char</span>* filename;</span><br><span class="line"></span><br><span class="line">AVFormatContext *format_ctx = <span class="built_in">avformat_alloc_context</span>();</span><br><span class="line"></span><br><span class="line">format_ctx-&gt;interrupt_callback.callback = ...;</span><br><span class="line">format_ctx-&gt;interrupt_callback.opaque = ...;</span><br><span class="line"></span><br><span class="line">AVDictionary *format_opt;</span><br><span class="line"><span class="built_in">avformat_open_input</span>(&amp;format_ctx, filename, iformat, &amp;format_opt);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avformat_find_stream_info</span>(format_ctx, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; format_ctx-&gt;nb_streams; i++)</span><br><span class="line">    format_ctx-&gt;streams[i]-&gt;discard = AVDISCARD_ALL;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ===========</span></span><br><span class="line"><span class="type">int</span> idx;</span><br><span class="line">idx = <span class="built_in">av_find_best_stream</span>(format_ctx, AVMEDIA_TYPE_VIDEO, <span class="number">-1</span>, <span class="number">-1</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">AVStream *video_stream = format_ctx-&gt;streams[idx];</span><br><span class="line"></span><br><span class="line">AVCodecParameters *codecpar = video_stream-&gt;codecpar;</span><br><span class="line"><span class="type">const</span> AVCodec *video_codec = <span class="built_in">avcodec_find_decoder</span>(codecpar-&gt;codec_id);</span><br><span class="line">AVCodecContext *video_codec_ctx = <span class="built_in">avcodec_alloc_context3</span>(video_codec);</span><br><span class="line"><span class="built_in">avcodec_parameters_to_context</span>(video_codec_ctx, codecpar);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_open2</span>(video_codec_ctx, video_codec, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">format_ctx-&gt;streams[idx]-&gt;discard = AVDISCARD_DEFAULT;</span><br><span class="line"></span><br><span class="line">video_stream-&gt;index;</span><br><span class="line">video_stream-&gt;time_base;</span><br><span class="line">video_stream-&gt;r_frame_rate;</span><br><span class="line">&lt;u&gt;video_codec_ctx-&gt;pkt_timebase = video_stream-&gt;time_base;&lt;/u&gt;</span><br><span class="line"><span class="comment">// ===========</span></span><br><span class="line"><span class="comment">// ===========</span></span><br><span class="line">idx = <span class="built_in">av_find_best_stream</span>(format_ctx, AVMEDIA_TYPE_AUDIO, <span class="number">-1</span>, <span class="number">-1</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">AVStream *audio_stream = format_ctx-&gt;streams[idx];</span><br><span class="line"></span><br><span class="line">AVCodecParameters *codecpar = audio_stream-&gt;codecpar;</span><br><span class="line"><span class="type">const</span> AVCodec *audio_codec = <span class="built_in">avcodec_find_decoder</span>(codecpar-&gt;codec_id);</span><br><span class="line">AVCodecContext *audio_codec_ctx = <span class="built_in">avcodec_alloc_context3</span>(audio_codec);</span><br><span class="line"><span class="built_in">avcodec_parameters_to_context</span>(audio_codec_ctx, codecpar);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_open2</span>(audio_codec_ctx, audio_codec, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line">format_ctx-&gt;streams[idx]-&gt;discard = AVDISCARD_DEFAULT;</span><br><span class="line"></span><br><span class="line">audio_stream-&gt;index;</span><br><span class="line">audio_stream-&gt;time_base;</span><br><span class="line">audio_stream-&gt;r_frame_rate;</span><br><span class="line">audio_codec_ctx-&gt;pkt_timebase = audio_stream-&gt;time_base;</span><br><span class="line"><span class="comment">// ===========</span></span><br><span class="line"></span><br><span class="line"><span class="type">uint64_t</span> timestamp;</span><br><span class="line"><span class="built_in">avformat_seek_file</span>(format_ctx, <span class="number">-1</span>, INT64_MIN, timestamp, INT64_MAX, <span class="number">0</span>);</span><br><span class="line"><span class="built_in">avcodec_flush_buffers</span>(video_codec_ctx);</span><br><span class="line"><span class="built_in">avcodec_flush_buffers</span>(audio_codec_ctx);</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">AVFrame *frame = <span class="built_in">av_frame_alloc</span>();</span><br><span class="line">ret = <span class="built_in">avcodec_receive_frame</span>(audio_codec_ctx, frame);</span><br><span class="line"><span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">    <span class="built_in">av_frame_free</span>(&amp;frame);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br><span class="line"><span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">if</span> (ret == <span class="built_in">AVERROR</span>(EAGAIN)) &#123;</span><br><span class="line">    AVPacket pkt = &#123; <span class="number">0</span> &#125;;</span><br><span class="line">    ret = <span class="built_in">av_read_frame</span>(format_ctx, &amp;pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret == AVERROR_EOF)</span><br><span class="line">        <span class="built_in">avcodec_send_packet</span>(audio_codec_ctx, <span class="literal">NULL</span>);</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        <span class="built_in">avcodec_send_packet</span>(audio_codec_ctx, &amp;pkt);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="av-find-input-format"><a href="#av-find-input-format" class="headerlink" title="av_find_input_format"></a>av_find_input_format</h2><p>通过 AVInputFormat.name 进行匹配找到 AVInputFormat</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVInputFormat *<span class="title">av_find_input_format</span><span class="params">(<span class="type">const</span> <span class="type">char</span> *short_name)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVInputFormat *fmt = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">void</span> *i = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">while</span> ((fmt = <span class="built_in">av_demuxer_iterate</span>(&amp;i)))</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">av_match_name</span>(short_name, fmt-&gt;name))</span><br><span class="line">            <span class="keyword">return</span> fmt;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="avformat-alloc-context"><a href="#avformat-alloc-context" class="headerlink" title="avformat_alloc_context"></a>avformat_alloc_context</h2><p>这个和 muxer 的时候是一样的，分配 AVFormatContext 的内存</p>
+<h2 id="avformat-open-input"><a href="#avformat-open-input" class="headerlink" title="avformat_open_input"></a>avformat_open_input</h2><p>这个函数打开一个输入源并读取头部，fmt 参数可以为空，这样自动根据 filename 来探测 fmt，事实上 AVFormatContext 也可以让这个函数自己分配，传一个空的 AVFormatContext*也可以</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">avformat_open_input</span><span class="params">(AVFormatContext **ps, <span class="type">const</span> <span class="type">char</span> *filename,</span></span></span><br><span class="line"><span class="params"><span class="function">                        <span class="type">const</span> AVInputFormat *fmt, AVDictionary **options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVFormatContext *s = *ps;</span><br><span class="line">    FFFormatContext *si;</span><br><span class="line">    AVDictionary *tmp = <span class="literal">NULL</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    ID3v2ExtraMeta *id3v2_extra_meta = <span class="literal">NULL</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (&lt;u&gt;!s &amp;&amp; !(s = <span class="built_in">avformat_alloc_context</span>())&lt;/u&gt;)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">    si = <span class="built_in">ffformatcontext</span>(s);</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (fmt)</span><br><span class="line">        s-&gt;iformat = fmt;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (options)</span><br><span class="line">        <span class="built_in">av_dict_copy</span>(&amp;tmp, *options, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb) <span class="comment">// must be before any goto fail</span></span><br><span class="line">        s-&gt;flags |= AVFMT_FLAG_CUSTOM_IO;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">av_opt_set_dict</span>(s, &amp;tmp)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(s-&gt;url = <span class="built_in">av_strdup</span>(filename ? filename : <span class="string">&quot;&quot;</span>))) &#123;</span><br><span class="line">        ret = <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">init_input</span>(s, filename, &amp;tmp)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    s-&gt;probe_score = ret;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="built_in">avio_skip</span>(s-&gt;pb, s-&gt;skip_initial_bytes);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Check filename in case an image number is expected. */</span></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;iformat-&gt;flags &amp; AVFMT_NEEDNUMBER) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">av_filename_number_test</span>(filename)) &#123;</span><br><span class="line">            ret = <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    s-&gt;duration = s-&gt;start_time = AV_NOPTS_VALUE;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Allocate private data. */</span></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* e.g. AVFMT_NOFILE formats will not have an AVIOContext */</span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb)</span><br><span class="line">        <span class="built_in">ff_id3v2_read_dict</span>(s-&gt;pb, &amp;si-&gt;id3v2_meta, ID3v2_DEFAULT_MAGIC, &amp;id3v2_extra_meta);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;iformat-&gt;init) &#123;</span><br><span class="line">        ret = s-&gt;iformat-&gt;<span class="built_in">init</span>(s);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(s-&gt;flags &amp; AVFMT_FLAG_PRIV_OPT) &amp;&amp; s-&gt;iformat-&gt;read_header)</span><br><span class="line">        <span class="keyword">if</span> ((ret = s-&gt;iformat-&gt;<span class="built_in">read_header</span>(s)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (s-&gt;iformat-&gt;flags_internal &amp; FF_FMT_INIT_CLEANUP)</span><br><span class="line">                <span class="keyword">goto</span> close;</span><br><span class="line">            <span class="keyword">goto</span> deinit;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    <span class="keyword">if</span> (!s-&gt;metadata) &#123;</span><br><span class="line">        s-&gt;metadata    = si-&gt;id3v2_meta;</span><br><span class="line">        si-&gt;id3v2_meta = <span class="literal">NULL</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (si-&gt;id3v2_meta) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(s, AV_LOG_WARNING, <span class="string">&quot;Discarding ID3 tags because more suitable tags were found.\n&quot;</span>);</span><br><span class="line">        <span class="built_in">av_dict_free</span>(&amp;si-&gt;id3v2_meta);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (id3v2_extra_meta) &#123;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(s-&gt;iformat-&gt;name, <span class="string">&quot;mp3&quot;</span>) || !<span class="built_in">strcmp</span>(s-&gt;iformat-&gt;name, <span class="string">&quot;aac&quot;</span>) ||</span><br><span class="line">            !<span class="built_in">strcmp</span>(s-&gt;iformat-&gt;name, <span class="string">&quot;tta&quot;</span>) || !<span class="built_in">strcmp</span>(s-&gt;iformat-&gt;name, <span class="string">&quot;wav&quot;</span>)) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">ff_id3v2_parse_apic</span>(s, id3v2_extra_meta)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">goto</span> close;</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">ff_id3v2_parse_chapters</span>(s, id3v2_extra_meta)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">goto</span> close;</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">ff_id3v2_parse_priv</span>(s, id3v2_extra_meta)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">goto</span> close;</span><br><span class="line">        &#125; <span class="keyword">else</span></span><br><span class="line">            <span class="built_in">av_log</span>(s, AV_LOG_DEBUG, <span class="string">&quot;demuxer does not support additional id3 data, skipping\n&quot;</span>);</span><br><span class="line">        <span class="built_in">ff_id3v2_free_extra_meta</span>(&amp;id3v2_extra_meta);</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">avformat_queue_attached_pictures</span>(s)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> close;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb &amp;&amp; !si-&gt;data_offset)</span><br><span class="line">        si-&gt;data_offset = <span class="built_in">avio_tell</span>(s-&gt;pb);</span><br><span class="line"></span><br><span class="line">    si-&gt;raw_packet_buffer_size = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">update_stream_avctx</span>(s);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (options) &#123;</span><br><span class="line">        <span class="built_in">av_dict_free</span>(options);</span><br><span class="line">        *options = tmp;</span><br><span class="line">    &#125;</span><br><span class="line">    *ps = s;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="init-input"><a href="#init-input" class="headerlink" title="init_input"></a>init_input</h3><p>先通过 av_probe_input_format2 使用文件名来探测格式，然后打开 AVIOContext，如果 av_probe_input_format2 失败，再尝试 av_probe_input_buffer2 读取部分文件内容来探测格式</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">init_input</span><span class="params">(AVFormatContext *s, <span class="type">const</span> <span class="type">char</span> *filename,</span></span></span><br><span class="line"><span class="params"><span class="function">                      AVDictionary **options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    AVProbeData pd = &#123; filename, <span class="literal">NULL</span>, <span class="number">0</span> &#125;;</span><br><span class="line">    <span class="type">int</span> score = AVPROBE_SCORE_RETRY;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;pb) &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((s-&gt;iformat &amp;&amp; s-&gt;iformat-&gt;flags &amp; AVFMT_NOFILE) ||</span><br><span class="line">        (!s-&gt;iformat &amp;&amp; (s-&gt;iformat = <span class="built_in">av_probe_input_format2</span>(&amp;pd, <span class="number">0</span>, &amp;score))))</span><br><span class="line">        <span class="keyword">return</span> score;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = s-&gt;<span class="built_in">io_open</span>(s, &amp;s-&gt;pb, filename, AVIO_FLAG_READ | s-&gt;avio_flags, options)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (s-&gt;iformat)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">av_probe_input_buffer2</span>(s-&gt;pb, &amp;s-&gt;iformat, filename,</span><br><span class="line">                                  s, <span class="number">0</span>, s-&gt;format_probesize);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="av-probe-input-format2"><a href="#av-probe-input-format2" class="headerlink" title="av_probe_input_format2"></a>av_probe_input_format2</h4><p>这个函数通过文件名来探测封装格式</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVInputFormat *<span class="title">av_probe_input_format2</span><span class="params">(<span class="type">const</span> AVProbeData *pd,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">int</span> is_opened, <span class="type">int</span> *score_max)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> score_ret;</span><br><span class="line">    <span class="type">const</span> AVInputFormat *fmt = <span class="built_in">av_probe_input_format3</span>(pd, is_opened, &amp;score_ret);</span><br><span class="line">    <span class="keyword">if</span> (score_ret &gt; *score_max) &#123;</span><br><span class="line">        *score_max = score_ret;</span><br><span class="line">        <span class="keyword">return</span> fmt;</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="av-probe-input-format3"><a href="#av-probe-input-format3" class="headerlink" title="av_probe_input_format3"></a>av_probe_input_format3</h5><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * This structure contains the data a format has to probe a file.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="keyword">struct</span> <span class="title class_">AVProbeData</span> &#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *filename;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> *buf; <span class="comment">/**&lt; Buffer must have AVPROBE_PADDING_SIZE of extra allocated bytes filled with zero. */</span></span><br><span class="line">    <span class="type">int</span> buf_size;       <span class="comment">/**&lt; Size of buf except extra allocated bytes */</span></span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *mime_type; <span class="comment">/**&lt; mime_type, when known. */</span></span><br><span class="line">&#125; AVProbeData;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">const</span> AVInputFormat *<span class="title">av_probe_input_format3</span><span class="params">(<span class="type">const</span> AVProbeData *pd,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">int</span> is_opened, <span class="type">int</span> *score_ret)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVProbeData lpd = *pd;</span><br><span class="line">    <span class="type">const</span> AVInputFormat *fmt1 = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">const</span> AVInputFormat *fmt = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">int</span> score, score_max = <span class="number">0</span>;</span><br><span class="line">    <span class="type">void</span> *i = <span class="number">0</span>;</span><br><span class="line">    <span class="type">const</span> <span class="type">static</span> <span class="type">uint8_t</span> zerobuffer[AVPROBE_PADDING_SIZE];</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    <span class="keyword">enum</span> <span class="title class_">nodat</span> &#123;</span><br><span class="line">        NO_ID3,</span><br><span class="line">        ID3_ALMOST_GREATER_PROBE,</span><br><span class="line">        ID3_GREATER_PROBE,</span><br><span class="line">        ID3_GREATER_MAX_PROBE,</span><br><span class="line">    &#125; nodat = NO_ID3;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!lpd.buf)</span><br><span class="line">        lpd.buf = (<span class="type">unsigned</span> <span class="type">char</span> *) zerobuffer;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    <span class="keyword">if</span> (lpd.buf_size &gt; <span class="number">10</span> &amp;&amp; <span class="built_in">ff_id3v2_match</span>(lpd.buf, ID3v2_DEFAULT_MAGIC)) &#123;</span><br><span class="line">        <span class="type">int</span> id3len = <span class="built_in">ff_id3v2_tag_len</span>(lpd.buf);</span><br><span class="line">        <span class="keyword">if</span> (lpd.buf_size &gt; id3len + <span class="number">16</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (lpd.buf_size &lt; <span class="number">2LL</span>*id3len + <span class="number">16</span>)</span><br><span class="line">                nodat = ID3_ALMOST_GREATER_PROBE;</span><br><span class="line">            lpd.buf      += id3len;</span><br><span class="line">            lpd.buf_size -= id3len;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (id3len &gt;= PROBE_BUF_MAX) &#123;</span><br><span class="line">            nodat = ID3_GREATER_MAX_PROBE;</span><br><span class="line">        &#125; <span class="keyword">else</span></span><br><span class="line">            nodat = ID3_GREATER_PROBE;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> ((fmt1 = <span class="built_in">av_demuxer_iterate</span>(&amp;i))) &#123;</span><br><span class="line">        <span class="keyword">if</span> (fmt1-&gt;flags &amp; AVFMT_EXPERIMENTAL)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (!is_opened == !(fmt1-&gt;flags &amp; AVFMT_NOFILE) &amp;&amp; <span class="built_in">strcmp</span>(fmt1-&gt;name, <span class="string">&quot;image2&quot;</span>))</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        score = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">if</span> (fmt1-&gt;read_probe) &#123;</span><br><span class="line">            score = fmt1-&gt;<span class="built_in">read_probe</span>(&amp;lpd);</span><br><span class="line">            <span class="keyword">if</span> (score)</span><br><span class="line">                <span class="built_in">av_log</span>(<span class="literal">NULL</span>, AV_LOG_TRACE, <span class="string">&quot;Probing %s score:%d size:%d\n&quot;</span>, fmt1-&gt;name, score, lpd.buf_size);</span><br><span class="line">            <span class="keyword">if</span> (fmt1-&gt;extensions &amp;&amp; <span class="built_in">av_match_ext</span>(lpd.filename, fmt1-&gt;extensions)) &#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">                <span class="keyword">switch</span> (nodat) &#123;</span><br><span class="line">                <span class="keyword">case</span> NO_ID3:</span><br><span class="line">                    score = <span class="built_in">FFMAX</span>(score, <span class="number">1</span>);</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                <span class="keyword">case</span> ID3_GREATER_PROBE:</span><br><span class="line">                <span class="keyword">case</span> ID3_ALMOST_GREATER_PROBE:</span><br><span class="line">                    score = <span class="built_in">FFMAX</span>(score, AVPROBE_SCORE_EXTENSION / <span class="number">2</span> - <span class="number">1</span>);</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                <span class="keyword">case</span> ID3_GREATER_MAX_PROBE:</span><br><span class="line">                    score = <span class="built_in">FFMAX</span>(score, AVPROBE_SCORE_EXTENSION);</span><br><span class="line">                    <span class="keyword">break</span>;</span><br><span class="line">                &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">                score = <span class="built_in">FFMAX</span>(score, <span class="number">1</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (fmt1-&gt;extensions) &#123;</span><br><span class="line">            <span class="keyword">if</span> (<span class="built_in">av_match_ext</span>(lpd.filename, fmt1-&gt;extensions))</span><br><span class="line">                score = AVPROBE_SCORE_EXTENSION;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">av_match_name</span>(lpd.mime_type, fmt1-&gt;mime_type)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (AVPROBE_SCORE_MIME &gt; score) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(<span class="literal">NULL</span>, AV_LOG_DEBUG, <span class="string">&quot;Probing %s score:%d increased to %d due to MIME type\n&quot;</span>, fmt1-&gt;name, score, AVPROBE_SCORE_MIME);</span><br><span class="line">                score = AVPROBE_SCORE_MIME;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (score &gt; score_max) &#123;</span><br><span class="line">            score_max = score;</span><br><span class="line">            fmt       = fmt1;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (score == score_max)</span><br><span class="line">            fmt = <span class="literal">NULL</span>;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_ID3</span></span><br><span class="line">    <span class="keyword">if</span> (nodat == ID3_GREATER_PROBE)</span><br><span class="line">        score_max = <span class="built_in">FFMIN</span>(AVPROBE_SCORE_EXTENSION / <span class="number">2</span> - <span class="number">1</span>, score_max);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    *score_ret = score_max;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> fmt;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面函数的核心是尝试通过 read_probe 函数和文件名来确定使用哪个 AVInputFormat</p>
+<h4 id="s-gt-io-open"><a href="#s-gt-io-open" class="headerlink" title="s-&gt;io_open"></a>s-&gt;io_open</h4><p>这个函数打开 AVIOContext，io_open 默认就是 io_open_default</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AVFormatContext *<span class="title">avformat_alloc_context</span><span class="params">(<span class="type">void</span>)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    s-&gt;io_open  = io_open_default;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">io_open_default</span><span class="params">(AVFormatContext *s, AVIOContext **pb,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">const</span> <span class="type">char</span> *url, <span class="type">int</span> flags, AVDictionary **options)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> loglevel;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">strcmp</span>(url, s-&gt;url) ||</span><br><span class="line">        s-&gt;iformat &amp;&amp; !<span class="built_in">strcmp</span>(s-&gt;iformat-&gt;name, <span class="string">&quot;image2&quot;</span>) ||</span><br><span class="line">        s-&gt;oformat &amp;&amp; !<span class="built_in">strcmp</span>(s-&gt;oformat-&gt;name, <span class="string">&quot;image2&quot;</span>)</span><br><span class="line">    ) &#123;</span><br><span class="line">        loglevel = AV_LOG_DEBUG;</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        loglevel = AV_LOG_INFO;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_log</span>(s, loglevel, <span class="string">&quot;Opening \&#x27;%s\&#x27; for %s\n&quot;</span>, url, flags &amp; AVIO_FLAG_WRITE ? <span class="string">&quot;writing&quot;</span> : <span class="string">&quot;reading&quot;</span>);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">ffio_open_whitelist</span>(pb, url, flags, &amp;s-&gt;interrupt_callback, options, s-&gt;protocol_whitelist, s-&gt;protocol_blacklist);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ffio_open_whitelist 放在后面专门的 ffmpeg IO 的文章来介绍，这里先略过，我们只需要知道，调用 s-&gt;io_open 后就打开了输入源</p>
+<h4 id="av-probe-input-buffer2"><a href="#av-probe-input-buffer2" class="headerlink" title="av_probe_input_buffer2"></a>av_probe_input_buffer2</h4><p>这个函数要求在 AVIOContext 已经创建之后才执行，他只有在不知道 AVInputFormat 时才执行，比如上面 av_probe_input_format2 探测时发现文件名没有后缀，则无法确定该使用哪个 AVInputFormat。在 AVIOContext 已经创建之后可以通过读取部分输入源的内容来探测输入源的格式。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_probe_input_buffer2</span><span class="params">(AVIOContext *pb, <span class="type">const</span> AVInputFormat **fmt,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">const</span> <span class="type">char</span> *filename, <span class="type">void</span> *logctx,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">unsigned</span> <span class="type">int</span> offset, <span class="type">unsigned</span> <span class="type">int</span> max_probe_size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVProbeData pd = &#123; filename ? filename : <span class="string">&quot;&quot;</span> &#125;;</span><br><span class="line">    <span class="type">uint8_t</span> *buf = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">int</span> ret = <span class="number">0</span>, probe_size, buf_offset = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> score = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> ret2;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!max_probe_size)</span><br><span class="line">        max_probe_size = PROBE_BUF_MAX;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (max_probe_size &lt; PROBE_BUF_MIN) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(logctx, AV_LOG_ERROR,</span><br><span class="line">               <span class="string">&quot;Specified probe size value %u cannot be &lt; %u\n&quot;</span>, max_probe_size, PROBE_BUF_MIN);</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (offset &gt;= max_probe_size)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (pb-&gt;av_class) &#123;</span><br><span class="line">        <span class="type">uint8_t</span> *mime_type_opt = <span class="literal">NULL</span>;</span><br><span class="line">        <span class="type">char</span> *semi;</span><br><span class="line">        <span class="built_in">av_opt_get</span>(pb, <span class="string">&quot;mime_type&quot;</span>, AV_OPT_SEARCH_CHILDREN, &amp;mime_type_opt);</span><br><span class="line">        pd.mime_type = (<span class="type">const</span> <span class="type">char</span> *)mime_type_opt;</span><br><span class="line">        semi = pd.mime_type ? <span class="built_in">strchr</span>(pd.mime_type, <span class="string">&#x27;;&#x27;</span>) : <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">if</span> (semi) &#123;</span><br><span class="line">            *semi = <span class="string">&#x27;\0&#x27;</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (probe_size = PROBE_BUF_MIN; probe_size &lt;= max_probe_size &amp;&amp; !*fmt;</span><br><span class="line">         probe_size = <span class="built_in">FFMIN</span>(probe_size &lt;&lt; <span class="number">1</span>,</span><br><span class="line">                            <span class="built_in">FFMAX</span>(max_probe_size, probe_size + <span class="number">1</span>))) &#123;</span><br><span class="line">        score = probe_size &lt; max_probe_size ? AVPROBE_SCORE_RETRY : <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Read probe data. */</span></span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">av_reallocp</span>(&amp;buf, probe_size + AVPROBE_PADDING_SIZE)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">avio_read</span>(pb, buf + buf_offset,</span><br><span class="line">                             probe_size - buf_offset)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">/* Fail if error was not end of file, otherwise, lower score. */</span></span><br><span class="line">            <span class="keyword">if</span> (ret != AVERROR_EOF)</span><br><span class="line">                <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">            score = <span class="number">0</span>;</span><br><span class="line">            ret   = <span class="number">0</span>;          <span class="comment">/* error was end of file, nothing read */</span></span><br><span class="line">        &#125;</span><br><span class="line">        buf_offset += ret;</span><br><span class="line">        <span class="keyword">if</span> (buf_offset &lt; offset)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        pd.buf_size = buf_offset - offset;</span><br><span class="line">        pd.buf = &amp;buf[offset];</span><br><span class="line"></span><br><span class="line">        <span class="built_in">memset</span>(pd.buf + pd.buf_size, <span class="number">0</span>, AVPROBE_PADDING_SIZE);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* Guess file format. */</span></span><br><span class="line">        *fmt = <span class="built_in">av_probe_input_format2</span>(&amp;pd, <span class="number">1</span>, &amp;score);</span><br><span class="line">        <span class="keyword">if</span> (*fmt) &#123;</span><br><span class="line">            <span class="comment">/* This can only be true in the last iteration. */</span></span><br><span class="line">            <span class="keyword">if</span> (score &lt;= AVPROBE_SCORE_RETRY) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(logctx, AV_LOG_WARNING,</span><br><span class="line">                       <span class="string">&quot;Format %s detected only with low score of %d, &quot;</span></span><br><span class="line">                       <span class="string">&quot;misdetection possible!\n&quot;</span>, (*fmt)-&gt;name, score);</span><br><span class="line">            &#125; <span class="keyword">else</span></span><br><span class="line">                <span class="built_in">av_log</span>(logctx, AV_LOG_DEBUG,</span><br><span class="line">                       <span class="string">&quot;Format %s probed with size=%d and score=%d\n&quot;</span>,</span><br><span class="line">                       (*fmt)-&gt;name, probe_size, score);</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> 0</span></span><br><span class="line">            FILE *f = <span class="built_in">fopen</span>(<span class="string">&quot;probestat.tmp&quot;</span>, <span class="string">&quot;ab&quot;</span>);</span><br><span class="line">            <span class="built_in">fprintf</span>(f, <span class="string">&quot;probe_size:%d format:%s score:%d filename:%s\n&quot;</span>, probe_size, (*fmt)-&gt;name, score, filename);</span><br><span class="line">            <span class="built_in">fclose</span>(f);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!*fmt)</span><br><span class="line">        ret = AVERROR_INVALIDDATA;</span><br><span class="line"></span><br><span class="line">fail:</span><br><span class="line">    <span class="comment">/* Rewind. Reuse probe buffer to avoid seeking. */</span></span><br><span class="line">    ret2 = <span class="built_in">ffio_rewind_with_probe_data</span>(pb, &amp;buf, buf_offset);</span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= <span class="number">0</span>)</span><br><span class="line">        ret = ret2;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_freep</span>(&amp;pd.mime_type);</span><br><span class="line">    <span class="keyword">return</span> ret &lt; <span class="number">0</span> ? ret : score;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数通过 avio_read 从输入源中读取一定 buffer 后还是会调用 av_probe_input_format2，但此时 AVProbeData 中有了 buffer，那么 AVInputFormat.read_probe 可以进行更全面的探测，不再只是根据文件名来决定当前 AVInputFormat 是否适用。</p>
+<p>在 probe 完成之后，会调用 ffio_rewind_with_probe_data 将预先读取的数据归还给 AVIOContext，这样后面的 avio_read 会先消耗这部分数据，就好像是从头开始读，从而避免 seek</p>
+<h3 id="s-gt-iformat-gt-init"><a href="#s-gt-iformat-gt-init" class="headerlink" title="s-&gt;iformat-&gt;init"></a>s-&gt;iformat-&gt;init</h3><p>这里是调用每个 format 自己的 init 函数对 AVFormatContext 进行初始化</p>
+<h3 id="s-gt-iformat-gt-read-header"><a href="#s-gt-iformat-gt-read-header" class="headerlink" title="s-&gt;iformat-&gt;read_header"></a>s-&gt;iformat-&gt;read_header</h3><p>这里就是调用每个 format 自己的 read_header 函数对 demuxer 过程进行初始化。在这个函数中可能会创建 stream，所以会在下面调用 update_stream_avctx</p>
+<h3 id="update-stream-avctx"><a href="#update-stream-avctx" class="headerlink" title="update_stream_avctx"></a>update_stream_avctx</h3><p>这个函数主要是通过 avcodec_parameters_to_context 把 stream 上的参数拷贝到 stream 中的 AVCodecContext，因为上面 read_header 可能会创建 stream</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">update_stream_avctx</span><span class="params">(AVFormatContext *s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">unsigned</span> i = <span class="number">0</span>; i &lt; s-&gt;nb_streams; i++) &#123;</span><br><span class="line">        AVStream *<span class="type">const</span> st  = s-&gt;streams[i];</span><br><span class="line">        FFStream *<span class="type">const</span> sti = <span class="built_in">ffstream</span>(st);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// av_format_new_stream总会设置need_context_update为1</span></span><br><span class="line">        <span class="keyword">if</span> (!sti-&gt;need_context_update)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* close parser, because it depends on the codec */</span></span><br><span class="line">        <span class="keyword">if</span> (sti-&gt;parser &amp;&amp; sti-&gt;avctx-&gt;codec_id != st-&gt;codecpar-&gt;codec_id) &#123;</span><br><span class="line">            <span class="built_in">av_parser_close</span>(sti-&gt;parser);</span><br><span class="line">            sti-&gt;parser = <span class="literal">NULL</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">        <span class="comment">/* update internal codec context, for the parser */</span></span><br><span class="line">        ret = <span class="built_in">avcodec_parameters_to_context</span>(sti-&gt;avctx, st-&gt;codecpar);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">        sti-&gt;need_context_update = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/10/C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-compressed-pair/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-10 21:30:58
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/10/ffmpeg-%E4%B9%8B-demuxer-decoder-%E7%9B%B8%E5%85%B3-api-%E4%BA%8C/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-text">示例代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#av-find-input-format"><span class="toc-text">av_find_input_format</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#avformat-alloc-context"><span class="toc-text">avformat_alloc_context</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#avformat-open-input"><span class="toc-text">avformat_open_input</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#init-input"><span class="toc-text">init_input</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#av-probe-input-format2"><span class="toc-text">av_probe_input_format2</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#av-probe-input-format3"><span class="toc-text">av_probe_input_format3</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#s-gt-io-open"><span class="toc-text">s-&gt;io_open</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#av-probe-input-buffer2"><span class="toc-text">av_probe_input_buffer2</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#s-gt-iformat-gt-init"><span class="toc-text">s-&gt;iformat-&gt;init</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#s-gt-iformat-gt-read-header"><span class="toc-text">s-&gt;iformat-&gt;read_header</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#update-stream-avctx"><span class="toc-text">update_stream_avctx</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

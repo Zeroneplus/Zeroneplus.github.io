@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg 之 demuxer/decoder 相关 api (三) 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg 之 demuxer/decoder 相关 api (三)</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-10 21:32:56
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>avformat_find_stream_info 函数最复杂，后面基本上就好理解了。</p>
+<h2 id="av-find-best-stream"><a href="#av-find-best-stream" class="headerlink" title="av_find_best_stream"></a>av_find_best_stream</h2><ul>
+<li>type 表示想要的是 audio 还是 video stream</li>
+<li>wanted_stream_nb  想要的 stream 的序号</li>
+<li>related_stream  设置此项表示返回的 stream 要和 related_stream 相关联，比如都处于同一个 AVProgram</li>
+<li>decoder_ret 返回该 stream 的 AVCodec</li>
+</ul>
+<p>如果设置了 related_stream，优先在这个 stream 对应的 program 中查找，如果没找到，则在全体 stream 中查找</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_find_best_stream</span><span class="params">(AVFormatContext *ic, <span class="keyword">enum</span> AVMediaType type,</span></span></span><br><span class="line"><span class="params"><span class="function">                        <span class="type">int</span> wanted_stream_nb, <span class="type">int</span> related_stream,</span></span></span><br><span class="line"><span class="params"><span class="function">                        <span class="type">const</span> AVCodec **decoder_ret, <span class="type">int</span> flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> nb_streams = ic-&gt;nb_streams;</span><br><span class="line">    <span class="type">int</span> ret = AVERROR_STREAM_NOT_FOUND;</span><br><span class="line">    <span class="type">int</span> best_count = <span class="number">-1</span>, best_multiframe = <span class="number">-1</span>, best_disposition = <span class="number">-1</span>;</span><br><span class="line">    <span class="type">int</span> count, multiframe, disposition;</span><br><span class="line">    <span class="type">int64_t</span> best_bitrate = <span class="number">-1</span>;</span><br><span class="line">    <span class="type">int64_t</span> bitrate;</span><br><span class="line">    <span class="type">unsigned</span> *program = <span class="literal">NULL</span>;</span><br><span class="line">    <span class="type">const</span> AVCodec *decoder = <span class="literal">NULL</span>, *best_decoder = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (related_stream &gt;= <span class="number">0</span> &amp;&amp; wanted_stream_nb &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        AVProgram *p = <span class="built_in">av_find_program_from_stream</span>(ic, <span class="literal">NULL</span>, related_stream);</span><br><span class="line">        <span class="keyword">if</span> (p) &#123;</span><br><span class="line">            program    = p-&gt;stream_index;</span><br><span class="line">            nb_streams = p-&gt;nb_stream_indexes;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">unsigned</span> i = <span class="number">0</span>; i &lt; nb_streams; i++) &#123;</span><br><span class="line">        <span class="type">int</span> real_stream_index = program ? program[i] : i;</span><br><span class="line">        AVStream *st          = ic-&gt;streams[real_stream_index];</span><br><span class="line">        AVCodecParameters *par = st-&gt;codecpar;</span><br><span class="line">        <span class="keyword">if</span> (par-&gt;codec_type != type)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (wanted_stream_nb &gt;= <span class="number">0</span> &amp;&amp; real_stream_index != wanted_stream_nb)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (type == AVMEDIA_TYPE_AUDIO &amp;&amp; !(par-&gt;ch_layout.nb_channels &amp;&amp; par-&gt;sample_rate))</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (decoder_ret) &#123;</span><br><span class="line">            decoder = <span class="built_in">ff_find_decoder</span>(ic, st, par-&gt;codec_id);</span><br><span class="line">            <span class="keyword">if</span> (!decoder) &#123;</span><br><span class="line">                <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                    ret = AVERROR_DECODER_NOT_FOUND;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        disposition = !(st-&gt;disposition &amp; (AV_DISPOSITION_HEARING_IMPAIRED | AV_DISPOSITION_VISUAL_IMPAIRED))</span><br><span class="line">                      + !! (st-&gt;disposition &amp; AV_DISPOSITION_DEFAULT);</span><br><span class="line">        count = <span class="built_in">ffstream</span>(st)-&gt;codec_info_nb_frames;</span><br><span class="line">        bitrate = par-&gt;bit_rate;</span><br><span class="line">        multiframe = <span class="built_in">FFMIN</span>(<span class="number">5</span>, count);</span><br><span class="line">        <span class="keyword">if</span> ((best_disposition &gt;  disposition) ||</span><br><span class="line">            (best_disposition == disposition &amp;&amp; best_multiframe &gt;  multiframe) ||</span><br><span class="line">            (best_disposition == disposition &amp;&amp; best_multiframe == multiframe &amp;&amp; best_bitrate &gt;  bitrate) ||</span><br><span class="line">            (best_disposition == disposition &amp;&amp; best_multiframe == multiframe &amp;&amp; best_bitrate == bitrate &amp;&amp; best_count &gt;= count))</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        best_disposition = disposition;</span><br><span class="line">        best_count   = count;</span><br><span class="line">        best_bitrate = bitrate;</span><br><span class="line">        best_multiframe = multiframe;</span><br><span class="line">        ret          = real_stream_index;</span><br><span class="line">        best_decoder = decoder;</span><br><span class="line">        <span class="keyword">if</span> (program &amp;&amp; i == nb_streams - <span class="number">1</span> &amp;&amp; ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            program    = <span class="literal">NULL</span>;</span><br><span class="line">            nb_streams = ic-&gt;nb_streams;</span><br><span class="line">            <span class="comment">/* no related stream found, try again with everything */</span></span><br><span class="line">            i = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (decoder_ret)</span><br><span class="line">        *decoder_ret = best_decoder;</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="avcodec-receive-frame"><a href="#avcodec-receive-frame" class="headerlink" title="avcodec_receive_frame"></a>avcodec_receive_frame</h2><p>优先返回 avci-&gt;buffer_frame，如果 avci-&gt;buffer_frame 为空，调用 decode_receive_frame_internal 进行解码</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> attribute_align_arg <span class="title">avcodec_receive_frame</span><span class="params">(AVCodecContext *avctx, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret, changed;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">avcodec_is_open</span>(avctx) || !<span class="built_in">av_codec_is_decoder</span>(avctx-&gt;codec))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;buffer_frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        <span class="built_in">av_frame_move_ref</span>(frame, avci-&gt;buffer_frame);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = <span class="built_in">decode_receive_frame_internal</span>(avctx, frame);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;codec_type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">        &lt;u&gt;ret = <span class="built_in">apply_cropping</span>(avctx, frame);&lt;/u&gt;</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    avctx-&gt;frame_number++;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;flags &amp; AV_CODEC_FLAG_DROPCHANGED) &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="avcodec-send-packet"><a href="#avcodec-send-packet" class="headerlink" title="avcodec_send_packet"></a>avcodec_send_packet</h2><p>和 avcodec_send_frame 一样，avcodec_send_packet 也是先将输入的 avpkt 引用到 <code>avci-&gt;buffer_pkt</code>，然后再把 buffer_pkt 送到 <code>avci-&gt;bsf</code>，最后如果 buffer_frame 为空，尝试解码。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> attribute_align_arg <span class="title">avcodec_send_packet</span><span class="params">(AVCodecContext *avctx, <span class="type">const</span> AVPacket *avpkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">avcodec_is_open</span>(avctx) || !<span class="built_in">av_codec_is_decoder</span>(avctx-&gt;codec))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;internal-&gt;draining)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avpkt &amp;&amp; !avpkt-&gt;size &amp;&amp; avpkt-&gt;data)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_packet_unref</span>(avci-&gt;buffer_pkt);</span><br><span class="line">    <span class="keyword">if</span> (avpkt &amp;&amp; (avpkt-&gt;data || avpkt-&gt;side_data_elems)) &#123;</span><br><span class="line">        ret = <span class="built_in">av_packet_ref</span>(avci-&gt;buffer_pkt, avpkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_bsf_send_packet</span>(avci-&gt;bsf, avci-&gt;buffer_pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_packet_unref</span>(avci-&gt;buffer_pkt);</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!avci-&gt;buffer_frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        ret = <span class="built_in">decode_receive_frame_internal</span>(avctx, avci-&gt;buffer_frame);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; ret != <span class="built_in">AVERROR</span>(EAGAIN) &amp;&amp; ret != AVERROR_EOF)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="av-bsf-send-packet"><a href="#av-bsf-send-packet" class="headerlink" title="av_bsf_send_packet"></a>av_bsf_send_packet</h3><p>这一步是将 buffer_pkt 送到 bitstream filter 中，经过 bitstream filter 后再解码。</p>
+<p>这里没有调用 bitstream filter 对 packet 进行处理，真正处理是在下面 decode_receive_frame_internal 时从 bitstream filter 取数据时会进行 bitstream 滤波处理。</p>
+<p>这一步其实是把 <code>avci-&gt;buffer_pkt</code> 转移到 <code>bsfi-&gt;buffer_pkt</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_bsf_send_packet</span><span class="params">(AVBSFContext *ctx, AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    FFBSFContext *<span class="type">const</span> bsfi = <span class="built_in">ffbsfcontext</span>(ctx);</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!pkt || <span class="built_in">IS_EMPTY</span>(pkt)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (pkt)</span><br><span class="line">            <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">        &lt;u&gt;bsfi-&gt;eof = <span class="number">1</span>;&lt;/u&gt;</span><br><span class="line">        &lt;u&gt;<span class="keyword">return</span> <span class="number">0</span>;&lt;/u&gt;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (bsfi-&gt;eof) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(ctx, AV_LOG_ERROR, <span class="string">&quot;A non-NULL packet sent after an EOF.\n&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EINVAL);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">IS_EMPTY</span>(bsfi-&gt;buffer_pkt))</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EAGAIN);</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_packet_make_refcounted</span>(pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="built_in">av_packet_move_ref</span>(bsfi-&gt;buffer_pkt, pkt);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="decode-receive-frame-internal"><a href="#decode-receive-frame-internal" class="headerlink" title="decode_receive_frame_internal"></a>decode_receive_frame_internal</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">decode_receive_frame_internal</span><span class="params">(AVCodecContext *avctx, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">const</span> FFCodec *<span class="type">const</span> codec = <span class="built_in">ffcodec</span>(avctx-&gt;codec);</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span>(!frame-&gt;buf[<span class="number">0</span>]);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (codec-&gt;cb_type == FF_CODEC_CB_TYPE_RECEIVE_FRAME) &#123;</span><br><span class="line">        ret = codec-&gt;cb.<span class="built_in">receive_frame</span>(avctx, frame);</span><br><span class="line">        <span class="keyword">if</span> (ret != <span class="built_in">AVERROR</span>(EAGAIN))</span><br><span class="line">            <span class="built_in">av_packet_unref</span>(avci-&gt;last_pkt_props);</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        ret = <span class="built_in">decode_simple_receive_frame</span>(avctx, frame);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ret == AVERROR_EOF)</span><br><span class="line">        avci-&gt;draining_done = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(codec-&gt;caps_internal &amp; FF_CODEC_CAP_SETS_FRAME_PROPS) &amp;&amp;</span><br><span class="line">        <span class="built_in">IS_EMPTY</span>(avci-&gt;last_pkt_props)) &#123;</span><br><span class="line">        <span class="comment">// May fail if the FIFO is empty.</span></span><br><span class="line">        <span class="built_in">av_fifo_read</span>(avci-&gt;pkt_props, avci-&gt;last_pkt_props, <span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!ret) &#123;</span><br><span class="line">        frame-&gt;best_effort_timestamp = <span class="built_in">guess_correct_pts</span>(avctx,</span><br><span class="line">                                                         frame-&gt;pts,</span><br><span class="line">                                                         frame-&gt;pkt_dts);</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* the only case where decode data is not set should be decoders</span></span><br><span class="line"><span class="comment">         * that do not call ff_get_buffer() */</span></span><br><span class="line">        <span class="built_in">av_assert0</span>((frame-&gt;private_ref &amp;&amp; frame-&gt;private_ref-&gt;size == <span class="built_in">sizeof</span>(FrameDecodeData)) ||</span><br><span class="line">                   !(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DR1));</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;private_ref) &#123;</span><br><span class="line">            FrameDecodeData *fdd = (FrameDecodeData*)frame-&gt;private_ref-&gt;data;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (fdd-&gt;post_process) &#123;</span><br><span class="line">                ret = fdd-&gt;<span class="built_in">post_process</span>(avctx, frame);</span><br><span class="line">                <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                    <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">                    <span class="keyword">return</span> ret;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* free the per-frame decode data */</span></span><br><span class="line">    <span class="built_in">av_buffer_unref</span>(&amp;frame-&gt;private_ref);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="decode-simple-receive-frame"><a href="#decode-simple-receive-frame" class="headerlink" title="decode_simple_receive_frame"></a>decode_simple_receive_frame</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">decode_simple_receive_frame</span><span class="params">(AVCodecContext *avctx, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    <span class="type">int64_t</span> discarded_samples = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">while</span> (!frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">        <span class="keyword">if</span> (discarded_samples &gt; avctx-&gt;max_samples)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(EAGAIN);</span><br><span class="line">        ret = <span class="built_in">decode_simple_internal</span>(avctx, frame, &amp;discarded_samples);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="decode-simple-internal"><a href="#decode-simple-internal" class="headerlink" title="decode_simple_internal"></a>decode_simple_internal</h5><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br><span class="line">195</span><br><span class="line">196</span><br><span class="line">197</span><br><span class="line">198</span><br><span class="line">199</span><br><span class="line">200</span><br><span class="line">201</span><br><span class="line">202</span><br><span class="line">203</span><br><span class="line">204</span><br><span class="line">205</span><br><span class="line">206</span><br><span class="line">207</span><br><span class="line">208</span><br><span class="line">209</span><br><span class="line">210</span><br><span class="line">211</span><br><span class="line">212</span><br><span class="line">213</span><br><span class="line">214</span><br><span class="line">215</span><br><span class="line">216</span><br><span class="line">217</span><br><span class="line">218</span><br><span class="line">219</span><br><span class="line">220</span><br><span class="line">221</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">int</span> <span class="title">decode_simple_internal</span><span class="params">(AVCodecContext *avctx, AVFrame *frame, <span class="type">int64_t</span> *discarded_samples)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal   *avci = avctx-&gt;internal;</span><br><span class="line">    AVPacket     *<span class="type">const</span> pkt = avci-&gt;in_pkt;</span><br><span class="line">    <span class="type">const</span> FFCodec *<span class="type">const</span> codec = <span class="built_in">ffcodec</span>(avctx-&gt;codec);</span><br><span class="line">    <span class="type">int</span> got_frame, actual_got_frame;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!pkt-&gt;data &amp;&amp; !avci-&gt;draining) &#123;</span><br><span class="line">        <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">        ret = <span class="built_in">ff_decode_get_packet</span>(avctx, pkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span> &amp;&amp; ret != AVERROR_EOF)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Some codecs (at least wma lossless) will crash when feeding drain packets</span></span><br><span class="line">    <span class="comment">// after EOF was signaled.</span></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining_done)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!pkt-&gt;data &amp;&amp;</span><br><span class="line">        !(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DELAY ||</span><br><span class="line">          avctx-&gt;active_thread_type &amp; FF_THREAD_FRAME))</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    got_frame = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (HAVE_THREADS &amp;&amp; avctx-&gt;active_thread_type &amp; FF_THREAD_FRAME) &#123;</span><br><span class="line">        ret = <span class="built_in">ff_thread_decode_frame</span>(avctx, frame, &amp;got_frame, pkt);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        ret = codec-&gt;cb.<span class="built_in">decode</span>(avctx, frame, &amp;got_frame, pkt);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!(codec-&gt;caps_internal &amp; FF_CODEC_CAP_SETS_PKT_DTS))</span><br><span class="line">            frame-&gt;pkt_dts = pkt-&gt;dts;</span><br><span class="line">        <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">            <span class="keyword">if</span>(!avctx-&gt;has_b_frames)</span><br><span class="line">                frame-&gt;pkt_pos = pkt-&gt;pos;</span><br><span class="line">            <span class="comment">//FIXME these should be under if(!avctx-&gt;has_b_frames)</span></span><br><span class="line">            <span class="comment">/* get_buffer is supposed to set frame parameters */</span></span><br><span class="line">            <span class="keyword">if</span> (!(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_DR1)) &#123;</span><br><span class="line">                <span class="keyword">if</span> (!frame-&gt;sample_aspect_ratio.num)  frame-&gt;sample_aspect_ratio = avctx-&gt;sample_aspect_ratio;</span><br><span class="line">                <span class="keyword">if</span> (!frame-&gt;width)                    frame-&gt;width               = avctx-&gt;width;</span><br><span class="line">                <span class="keyword">if</span> (!frame-&gt;height)                   frame-&gt;height              = avctx-&gt;height;</span><br><span class="line">                <span class="keyword">if</span> (frame-&gt;format == AV_PIX_FMT_NONE) frame-&gt;format              = avctx-&gt;pix_fmt;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">emms_c</span>();</span><br><span class="line">    actual_got_frame = got_frame;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">        <span class="keyword">if</span> (frame-&gt;flags &amp; AV_FRAME_FLAG_DISCARD)</span><br><span class="line">            got_frame = <span class="number">0</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">        <span class="type">uint8_t</span> *side;</span><br><span class="line">        <span class="type">size_t</span> side_size;</span><br><span class="line">        <span class="type">uint32_t</span> discard_padding = <span class="number">0</span>;</span><br><span class="line">        <span class="type">uint8_t</span> skip_reason = <span class="number">0</span>;</span><br><span class="line">        <span class="type">uint8_t</span> discard_reason = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (ret &gt;= <span class="number">0</span> &amp;&amp; got_frame) &#123;</span><br><span class="line">            <span class="keyword">if</span> (frame-&gt;format == AV_SAMPLE_FMT_NONE)</span><br><span class="line">                frame-&gt;format = avctx-&gt;sample_fmt;</span><br><span class="line">            <span class="keyword">if</span> (!frame-&gt;ch_layout.nb_channels) &#123;</span><br><span class="line">                <span class="type">int</span> ret2 = <span class="built_in">av_channel_layout_copy</span>(&amp;frame-&gt;ch_layout, &amp;avctx-&gt;ch_layout);</span><br><span class="line">                <span class="keyword">if</span> (ret2 &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                    ret = ret2;</span><br><span class="line">                    got_frame = <span class="number">0</span>;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (!frame-&gt;sample_rate)</span><br><span class="line">                frame-&gt;sample_rate = avctx-&gt;sample_rate;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        side= <span class="built_in">av_packet_get_side_data</span>(avci-&gt;last_pkt_props, AV_PKT_DATA_SKIP_SAMPLES, &amp;side_size);</span><br><span class="line">        <span class="keyword">if</span>(side &amp;&amp; side_size&gt;=<span class="number">10</span>) &#123;</span><br><span class="line">            avci-&gt;skip_samples = <span class="built_in">AV_RL32</span>(side) * avci-&gt;skip_samples_multiplier;</span><br><span class="line">            avci-&gt;skip_samples = <span class="built_in">FFMAX</span>(<span class="number">0</span>, avci-&gt;skip_samples);</span><br><span class="line">            discard_padding = <span class="built_in">AV_RL32</span>(side + <span class="number">4</span>);</span><br><span class="line">            <span class="built_in">av_log</span>(avctx, AV_LOG_DEBUG, <span class="string">&quot;skip %d / discard %d samples due to side data\n&quot;</span>,</span><br><span class="line">                   avci-&gt;skip_samples, (<span class="type">int</span>)discard_padding);</span><br><span class="line">            skip_reason = <span class="built_in">AV_RL8</span>(side + <span class="number">8</span>);</span><br><span class="line">            discard_reason = <span class="built_in">AV_RL8</span>(side + <span class="number">9</span>);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> ((frame-&gt;flags &amp; AV_FRAME_FLAG_DISCARD) &amp;&amp; got_frame &amp;&amp;</span><br><span class="line">            !(avctx-&gt;flags2 &amp; AV_CODEC_FLAG2_SKIP_MANUAL)) &#123;</span><br><span class="line">            avci-&gt;skip_samples = <span class="built_in">FFMAX</span>(<span class="number">0</span>, avci-&gt;skip_samples - frame-&gt;nb_samples);</span><br><span class="line">            got_frame = <span class="number">0</span>;</span><br><span class="line">            *discarded_samples += frame-&gt;nb_samples;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (avci-&gt;skip_samples &gt; <span class="number">0</span> &amp;&amp; got_frame &amp;&amp;</span><br><span class="line">            !(avctx-&gt;flags2 &amp; AV_CODEC_FLAG2_SKIP_MANUAL)) &#123;</span><br><span class="line">            <span class="keyword">if</span>(frame-&gt;nb_samples &lt;= avci-&gt;skip_samples)&#123;</span><br><span class="line">                got_frame = <span class="number">0</span>;</span><br><span class="line">                *discarded_samples += frame-&gt;nb_samples;</span><br><span class="line">                avci-&gt;skip_samples -= frame-&gt;nb_samples;</span><br><span class="line">                <span class="built_in">av_log</span>(avctx, AV_LOG_DEBUG, <span class="string">&quot;skip whole frame, skip left: %d\n&quot;</span>,</span><br><span class="line">                       avci-&gt;skip_samples);</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="built_in">av_samples_copy</span>(frame-&gt;extended_data, frame-&gt;extended_data, <span class="number">0</span>, avci-&gt;skip_samples,</span><br><span class="line">                                frame-&gt;nb_samples - avci-&gt;skip_samples, avctx-&gt;ch_layout.nb_channels, frame-&gt;format);</span><br><span class="line">                <span class="keyword">if</span>(avctx-&gt;pkt_timebase.num &amp;&amp; avctx-&gt;sample_rate) &#123;</span><br><span class="line">                    <span class="type">int64_t</span> diff_ts = <span class="built_in">av_rescale_q</span>(avci-&gt;skip_samples,</span><br><span class="line">                                                   (AVRational)&#123;<span class="number">1</span>, avctx-&gt;sample_rate&#125;,</span><br><span class="line">                                                   avctx-&gt;pkt_timebase);</span><br><span class="line">                    <span class="keyword">if</span>(frame-&gt;pts!=AV_NOPTS_VALUE)</span><br><span class="line">                        frame-&gt;pts += diff_ts;</span><br><span class="line">                    <span class="keyword">if</span>(frame-&gt;pkt_dts!=AV_NOPTS_VALUE)</span><br><span class="line">                        frame-&gt;pkt_dts += diff_ts;</span><br><span class="line">                    <span class="keyword">if</span> (frame-&gt;pkt_duration &gt;= diff_ts)</span><br><span class="line">                        frame-&gt;pkt_duration -= diff_ts;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(avctx, AV_LOG_WARNING, <span class="string">&quot;Could not update timestamps for skipped samples.\n&quot;</span>);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="built_in">av_log</span>(avctx, AV_LOG_DEBUG, <span class="string">&quot;skip %d/%d samples\n&quot;</span>,</span><br><span class="line">                       avci-&gt;skip_samples, frame-&gt;nb_samples);</span><br><span class="line">                *discarded_samples += avci-&gt;skip_samples;</span><br><span class="line">                frame-&gt;nb_samples -= avci-&gt;skip_samples;</span><br><span class="line">                avci-&gt;skip_samples = <span class="number">0</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (discard_padding &gt; <span class="number">0</span> &amp;&amp; discard_padding &lt;= frame-&gt;nb_samples &amp;&amp; got_frame &amp;&amp;</span><br><span class="line">            !(avctx-&gt;flags2 &amp; AV_CODEC_FLAG2_SKIP_MANUAL)) &#123;</span><br><span class="line">            <span class="keyword">if</span> (discard_padding == frame-&gt;nb_samples) &#123;</span><br><span class="line">                *discarded_samples += frame-&gt;nb_samples;</span><br><span class="line">                got_frame = <span class="number">0</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                <span class="keyword">if</span>(avctx-&gt;pkt_timebase.num &amp;&amp; avctx-&gt;sample_rate) &#123;</span><br><span class="line">                    <span class="type">int64_t</span> diff_ts = <span class="built_in">av_rescale_q</span>(frame-&gt;nb_samples - discard_padding,</span><br><span class="line">                                                   (AVRational)&#123;<span class="number">1</span>, avctx-&gt;sample_rate&#125;,</span><br><span class="line">                                                   avctx-&gt;pkt_timebase);</span><br><span class="line">                    frame-&gt;pkt_duration = diff_ts;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(avctx, AV_LOG_WARNING, <span class="string">&quot;Could not update timestamps for discarded samples.\n&quot;</span>);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="built_in">av_log</span>(avctx, AV_LOG_DEBUG, <span class="string">&quot;discard %d/%d samples\n&quot;</span>,</span><br><span class="line">                       (<span class="type">int</span>)discard_padding, frame-&gt;nb_samples);</span><br><span class="line">                frame-&gt;nb_samples -= discard_padding;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> ((avctx-&gt;flags2 &amp; AV_CODEC_FLAG2_SKIP_MANUAL) &amp;&amp; got_frame) &#123;</span><br><span class="line">            AVFrameSideData *fside = <span class="built_in">av_frame_new_side_data</span>(frame, AV_FRAME_DATA_SKIP_SAMPLES, <span class="number">10</span>);</span><br><span class="line">            <span class="keyword">if</span> (fside) &#123;</span><br><span class="line">                <span class="built_in">AV_WL32</span>(fside-&gt;data, avci-&gt;skip_samples);</span><br><span class="line">                <span class="built_in">AV_WL32</span>(fside-&gt;data + <span class="number">4</span>, discard_padding);</span><br><span class="line">                <span class="built_in">AV_WL8</span>(fside-&gt;data + <span class="number">8</span>, skip_reason);</span><br><span class="line">                <span class="built_in">AV_WL8</span>(fside-&gt;data + <span class="number">9</span>, discard_reason);</span><br><span class="line">                avci-&gt;skip_samples = <span class="number">0</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_AUDIO &amp;&amp;</span><br><span class="line">        !avci-&gt;showed_multi_packet_warning &amp;&amp;</span><br><span class="line">        ret &gt;= <span class="number">0</span> &amp;&amp; ret != pkt-&gt;size &amp;&amp; !(avctx-&gt;codec-&gt;capabilities &amp; AV_CODEC_CAP_SUBFRAMES)) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(avctx, AV_LOG_WARNING, <span class="string">&quot;Multiple frames in a packet.\n&quot;</span>);</span><br><span class="line">        avci-&gt;showed_multi_packet_warning = <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!got_frame)</span><br><span class="line">        <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> FF_API_FLAG_TRUNCATED</span></span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= <span class="number">0</span> &amp;&amp; avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO &amp;&amp; !(avctx-&gt;flags &amp; AV_CODEC_FLAG_TRUNCATED))</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= <span class="number">0</span> &amp;&amp; avctx-&gt;codec-&gt;type == AVMEDIA_TYPE_VIDEO)</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">        ret = pkt-&gt;size;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> FF_API_AVCTX_TIMEBASE</span></span><br><span class="line">    <span class="keyword">if</span> (avctx-&gt;framerate.num &gt; <span class="number">0</span> &amp;&amp; avctx-&gt;framerate.den &gt; <span class="number">0</span>)</span><br><span class="line">        avctx-&gt;time_base = <span class="built_in">av_inv_q</span>(<span class="built_in">av_mul_q</span>(avctx-&gt;framerate, (AVRational)&#123;avctx-&gt;ticks_per_frame, <span class="number">1</span>&#125;));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="comment">/* do not stop draining when actual_got_frame != 0 or ret &lt; 0 */</span></span><br><span class="line">    <span class="comment">/* got_frame == 0 but actual_got_frame != 0 when frame is discarded */</span></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining &amp;&amp; !actual_got_frame) &#123;</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="comment">/* prevent infinite loop if a decoder wrongly always return error on draining */</span></span><br><span class="line">            <span class="comment">/* reasonable nb_errors_max = maximum b frames + thread count */</span></span><br><span class="line">            <span class="type">int</span> nb_errors_max = <span class="number">20</span> + (HAVE_THREADS &amp;&amp; avctx-&gt;active_thread_type &amp; FF_THREAD_FRAME ?</span><br><span class="line">                                avctx-&gt;thread_count : <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (avci-&gt;nb_draining_errors++ &gt;= nb_errors_max) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(avctx, AV_LOG_ERROR, <span class="string">&quot;Too many errors when draining, this is a bug. &quot;</span></span><br><span class="line">                       <span class="string">&quot;Stop draining and force EOF.\n&quot;</span>);</span><br><span class="line">                avci-&gt;draining_done = <span class="number">1</span>;</span><br><span class="line">                ret = AVERROR_BUG;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            avci-&gt;draining_done = <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ret &gt;= pkt-&gt;size || ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">        <span class="built_in">av_packet_unref</span>(avci-&gt;last_pkt_props);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="type">int</span> consumed = ret;</span><br><span class="line"></span><br><span class="line">        pkt-&gt;data                += consumed;</span><br><span class="line">        pkt-&gt;size                -= consumed;</span><br><span class="line">        pkt-&gt;pts                  = AV_NOPTS_VALUE;</span><br><span class="line">        pkt-&gt;dts                  = AV_NOPTS_VALUE;</span><br><span class="line">        <span class="keyword">if</span> (!(codec-&gt;caps_internal &amp; FF_CODEC_CAP_SETS_FRAME_PROPS)) &#123;</span><br><span class="line">            avci-&gt;last_pkt_props-&gt;size -= consumed; <span class="comment">// See extract_packet_props() comment.</span></span><br><span class="line">            avci-&gt;last_pkt_props-&gt;pts = AV_NOPTS_VALUE;</span><br><span class="line">            avci-&gt;last_pkt_props-&gt;dts = AV_NOPTS_VALUE;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (got_frame)</span><br><span class="line">        <span class="built_in">av_assert0</span>(frame-&gt;buf[<span class="number">0</span>]);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret &lt; <span class="number">0</span> ? ret : <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="ff-decode-get-packet"><a href="#ff-decode-get-packet" class="headerlink" title="ff_decode_get_packet"></a>ff_decode_get_packet</h6><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_bsf_receive_packet</span><span class="params">(AVBSFContext *ctx, AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">ff_bsf</span>(ctx-&gt;filter)-&gt;<span class="built_in">filter</span>(ctx, pkt);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_decode_get_packet</span><span class="params">(AVCodecContext *avctx, AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVCodecInternal *avci = avctx-&gt;internal;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (avci-&gt;draining)</span><br><span class="line">        <span class="keyword">return</span> AVERROR_EOF;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">av_bsf_receive_packet</span>(avci-&gt;bsf, pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret == AVERROR_EOF)</span><br><span class="line">        avci-&gt;draining = <span class="number">1</span>;</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!(<span class="built_in">ffcodec</span>(avctx-&gt;codec)-&gt;caps_internal &amp; FF_CODEC_CAP_SETS_FRAME_PROPS)) &#123;</span><br><span class="line">        ret = <span class="built_in">extract_packet_props</span>(avctx-&gt;internal, pkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> finish;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">apply_param_change</span>(avctx, pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> finish;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">finish:</span><br><span class="line">    <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="av-read-frame"><a href="#av-read-frame" class="headerlink" title="av_read_frame"></a>av_read_frame</h2><p>再看看这个函数。可以看到，优先从 packet_buffer 中取数据，这个就是之前 find_stream_info 时如果没有 AVFMT_FLAG_NOBUFFER 这个 flag，会把读取的数据存到 packet_buffer。当 packet_buffer 没有缓存时，也是调用 read_frame_internal 读取数据</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">av_read_frame</span><span class="params">(AVFormatContext *s, AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    FFFormatContext *<span class="type">const</span> si = <span class="built_in">ffformatcontext</span>(s);</span><br><span class="line">    <span class="type">const</span> <span class="type">int</span> genpts = s-&gt;flags &amp; AVFMT_FLAG_GENPTS;</span><br><span class="line">    <span class="type">int</span> eof = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    AVStream *st;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!genpts) &#123;</span><br><span class="line">        ret = si-&gt;packet_buffer.head</span><br><span class="line">              ? <span class="built_in">avpriv_packet_list_get</span>(&amp;si-&gt;packet_buffer, pkt)</span><br><span class="line">              : <span class="built_in">read_frame_internal</span>(s, pkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        <span class="keyword">goto</span> return_packet;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (;;) &#123;</span><br><span class="line">        PacketListEntry *pktl = si-&gt;packet_buffer.head;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (pktl) &#123;</span><br><span class="line">            AVPacket *next_pkt = &amp;pktl-&gt;pkt;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (next_pkt-&gt;dts != AV_NOPTS_VALUE) &#123;</span><br><span class="line">                <span class="type">int</span> wrap_bits = s-&gt;streams[next_pkt-&gt;stream_index]-&gt;pts_wrap_bits;</span><br><span class="line">                <span class="comment">// last dts seen for this stream. if any of packets following</span></span><br><span class="line">                <span class="comment">// current one had no dts, we will set this to AV_NOPTS_VALUE.</span></span><br><span class="line">                <span class="type">int64_t</span> last_dts = next_pkt-&gt;dts;</span><br><span class="line">                <span class="built_in">av_assert2</span>(wrap_bits &lt;= <span class="number">64</span>);</span><br><span class="line">                <span class="keyword">while</span> (pktl &amp;&amp; next_pkt-&gt;pts == AV_NOPTS_VALUE) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (pktl-&gt;pkt.stream_index == next_pkt-&gt;stream_index &amp;&amp;</span><br><span class="line">                        <span class="built_in">av_compare_mod</span>(next_pkt-&gt;dts, pktl-&gt;pkt.dts, <span class="number">2ULL</span> &lt;&lt; (wrap_bits - <span class="number">1</span>)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">                        <span class="keyword">if</span> (<span class="built_in">av_compare_mod</span>(pktl-&gt;pkt.pts, pktl-&gt;pkt.dts, <span class="number">2ULL</span> &lt;&lt; (wrap_bits - <span class="number">1</span>))) &#123;</span><br><span class="line">                            <span class="comment">// not B-frame</span></span><br><span class="line">                            next_pkt-&gt;pts = pktl-&gt;pkt.dts;</span><br><span class="line">                        &#125;</span><br><span class="line">                        <span class="keyword">if</span> (last_dts != AV_NOPTS_VALUE) &#123;</span><br><span class="line">                            <span class="comment">// Once last dts was set to AV_NOPTS_VALUE, we don&#x27;t change it.</span></span><br><span class="line">                            last_dts = pktl-&gt;pkt.dts;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125;</span><br><span class="line">                    pktl = pktl-&gt;next;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (eof &amp;&amp; next_pkt-&gt;pts == AV_NOPTS_VALUE &amp;&amp; last_dts != AV_NOPTS_VALUE) &#123;</span><br><span class="line">                    <span class="comment">// Fixing the last reference frame had none pts issue (For MXF etc).</span></span><br><span class="line">                    <span class="comment">// We only do this when</span></span><br><span class="line">                    <span class="comment">// 1. eof.</span></span><br><span class="line">                    <span class="comment">// 2. we are not able to resolve a pts value for current packet.</span></span><br><span class="line">                    <span class="comment">// 3. the packets for this stream at the end of the files had valid dts.</span></span><br><span class="line">                    next_pkt-&gt;pts = last_dts + next_pkt-&gt;duration;</span><br><span class="line">                &#125;</span><br><span class="line">                pktl = si-&gt;packet_buffer.head;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* read packet from packet buffer, if there is data */</span></span><br><span class="line">            st = s-&gt;streams[next_pkt-&gt;stream_index];</span><br><span class="line">            <span class="keyword">if</span> (!(next_pkt-&gt;pts == AV_NOPTS_VALUE &amp;&amp; st-&gt;discard &lt; AVDISCARD_ALL &amp;&amp;</span><br><span class="line">                  next_pkt-&gt;dts != AV_NOPTS_VALUE &amp;&amp; !eof)) &#123;</span><br><span class="line">                ret = <span class="built_in">avpriv_packet_list_get</span>(&amp;si-&gt;packet_buffer, pkt);</span><br><span class="line">                <span class="keyword">goto</span> return_packet;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">read_frame_internal</span>(s, pkt);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (pktl &amp;&amp; ret != <span class="built_in">AVERROR</span>(EAGAIN)) &#123;</span><br><span class="line">                eof = <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span></span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">avpriv_packet_list_put</span>(&amp;si-&gt;packet_buffer,</span><br><span class="line">                                     pkt, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">return_packet:</span><br><span class="line">    st = s-&gt;streams[pkt-&gt;stream_index];</span><br><span class="line">    <span class="keyword">if</span> ((s-&gt;iformat-&gt;flags &amp; AVFMT_GENERIC_INDEX) &amp;&amp; pkt-&gt;flags &amp; AV_PKT_FLAG_KEY) &#123;</span><br><span class="line">        <span class="built_in">ff_reduce_index</span>(s, st-&gt;index);</span><br><span class="line">        <span class="built_in">av_add_index_entry</span>(st, pkt-&gt;pos, pkt-&gt;dts, <span class="number">0</span>, <span class="number">0</span>, AVINDEX_KEYFRAME);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">is_relative</span>(pkt-&gt;dts))</span><br><span class="line">        pkt-&gt;dts -= RELATIVE_TS_BASE;</span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">is_relative</span>(pkt-&gt;pts))</span><br><span class="line">        pkt-&gt;pts -= RELATIVE_TS_BASE;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面是官方的 demux_decode.c 例子的关键步骤，基本和上面例子用到的 API 是一样的。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> AVFormatContext *fmt_ctx = <span class="literal">NULL</span>;</span><br><span class="line"><span class="type">static</span> AVCodecContext *video_dec_ctx = <span class="literal">NULL</span>, *audio_dec_ctx;</span><br><span class="line"><span class="type">static</span> <span class="type">const</span> <span class="type">char</span> *src_filename = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line"><span class="built_in">avformat_open_input</span>(&amp;fmt_ctx, src_filename, <span class="literal">NULL</span>, <span class="literal">NULL</span>);</span><br><span class="line"><span class="built_in">avformat_find_stream_info</span>(fmt_ctx, <span class="literal">NULL</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// ==============</span></span><br><span class="line"><span class="type">int</span> ret, stream_index;</span><br><span class="line"><span class="keyword">enum</span> <span class="title class_">AVMediaType</span> type;</span><br><span class="line"></span><br><span class="line">ret = <span class="built_in">av_find_best_stream</span>(fmt_ctx, type, <span class="number">-1</span>, <span class="number">-1</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">stream_index = ret;</span><br><span class="line">AVStream *st = fmt_ctx-&gt;streams[stream_index];</span><br><span class="line"></span><br><span class="line"><span class="type">const</span> AVCodec *dec = <span class="built_in">avcodec_find_decoder</span>(st-&gt;codecpar-&gt;codec_id);</span><br><span class="line"></span><br><span class="line">AVCodecContext *dec_ctx = <span class="built_in">avcodec_alloc_context3</span>(dec);</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_parameters_to_context</span>(dec_ctx, st-&gt;codecpar)</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_open2</span>(dec_ctx, dec, <span class="literal">NULL</span>)</span><br><span class="line"><span class="comment">// ==============</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">while</span> (<span class="built_in">av_read_frame</span>(fmt_ctx, pkt) &gt;= <span class="number">0</span>) &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (pkt-&gt;stream_index == video_stream_idx) &#123;</span><br><span class="line">        ret = <span class="built_in">avcodec_send_packet</span>(dec_ctx, pkt);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> (ret &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">            ret = <span class="built_in">avcodec_receive_frame</span>(dec, frame);</span><br><span class="line">            ...</span><br><span class="line">            <span class="built_in">av_frame_unref</span>(frame);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (pkt-&gt;stream_index == audio_stream_idx) &#123;</span><br><span class="line">        ...</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">av_packet_unref</span>(pkt);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="built_in">avcodec_free_context</span>(&amp;video_dec_ctx);</span><br><span class="line"><span class="built_in">avcodec_free_context</span>(&amp;audio_dec_ctx);</span><br><span class="line"><span class="built_in">avformat_close_input</span>(&amp;fmt_ctx);</span><br></pre></td></tr></table></figure>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/10/ffmpeg-%E4%B9%8B-demuxer-decoder-%E7%9B%B8%E5%85%B3-api-%E4%BA%8C/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-10 21:32:56
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/10/ffmpeg-%E4%B9%8B-IO-%E6%A8%A1%E5%9D%97/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#av-find-best-stream"><span class="toc-text">av_find_best_stream</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#avcodec-receive-frame"><span class="toc-text">avcodec_receive_frame</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#avcodec-send-packet"><span class="toc-text">avcodec_send_packet</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#av-bsf-send-packet"><span class="toc-text">av_bsf_send_packet</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#decode-receive-frame-internal"><span class="toc-text">decode_receive_frame_internal</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#decode-simple-receive-frame"><span class="toc-text">decode_simple_receive_frame</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#decode-simple-internal"><span class="toc-text">decode_simple_internal</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#ff-decode-get-packet"><span class="toc-text">ff_decode_get_packet</span></a></li></ol></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#av-read-frame"><span class="toc-text">av_read_frame</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
