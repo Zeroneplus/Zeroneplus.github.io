@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      C++ 标准库之 pair 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">C++ 标准库之 pair</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-17 22:32:59
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/C-C/" title="C/C++">
+                    <b>#</b> C/C++
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                    <b>#</b> C++标准库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章介绍一下 pair。</p>
+<p>pair 的结构比较简单，有两个成员数据分别代表第一个和第二个成员。pair 没有像 <code>__compressed_pair</code> 一样采用空基类优化策略。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_T1</span>, <span class="keyword">class</span> <span class="title class_">_T2</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> pair</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _T1 first_type;</span><br><span class="line">    <span class="keyword">typedef</span> _T2 second_type;</span><br><span class="line"></span><br><span class="line">    _T1 first;</span><br><span class="line">    _T2 second;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>pair 没有 first()、second()函数，但可以直接访问 first、second 成员</p>
+<h2 id="默认构造函数"><a href="#默认构造函数" class="headerlink" title="默认构造函数"></a>默认构造函数</h2><p>默认构造函数生效的条件是要求 <code>_CheckArgsDep&lt;_Dummy&gt;::__enable_explicit_default()</code> 条件为 true。这在模板编程中很常见，模板函数经常会对参数施加限制，如果参数不满足要求那么这个模板就会被排除。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>, _EnableB&lt;</span><br><span class="line">        _CheckArgsDep&lt;_Dummy&gt;::__enable_explicit_default()</span><br><span class="line">&gt; = <span class="literal">false</span>&gt;</span><br><span class="line"><span class="keyword">explicit</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span><br><span class="line"><span class="built_in">pair</span>() _NOEXCEPT_(is_nothrow_default_constructible&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">                  is_nothrow_default_constructible&lt;second_type&gt;::value)</span><br><span class="line">    : <span class="built_in">first</span>(), <span class="built_in">second</span>() &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下来就看看这个条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _MaybeEnable&gt;</span><br><span class="line"><span class="keyword">using</span> _CheckArgsDep _LIBCPP_NODEBUG_TYPE = <span class="keyword">typename</span> conditional&lt;</span><br><span class="line">  _MaybeEnable, _CheckArgs, __check_tuple_constructor_fail&gt;::type;</span><br></pre></td></tr></table></figure>
+
+<p>默认条件下 <code>_Dummy</code> 为 true，所以 <code>_MaybeEnable</code> 为 true，那么根据 conditional 的语义，<code>_CheckArgsDep&lt;_Dummy&gt;</code> 就是 <code>_CheckArgs</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckArgs</span> &#123;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="type">int</span>&amp;...&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit_default() &#123;</span><br><span class="line">      <span class="keyword">return</span> is_default_constructible&lt;_T1&gt;::value</span><br><span class="line">          &amp;&amp; is_default_constructible&lt;_T2&gt;::value</span><br><span class="line">          &amp;&amp; !__enable_implicit_default&lt;&gt;();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="type">int</span>&amp;...&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_implicit_default() &#123;</span><br><span class="line">      <span class="keyword">return</span> __is_implicitly_default_constructible&lt;_T1&gt;::value</span><br><span class="line">          &amp;&amp; __is_implicitly_default_constructible&lt;_T2&gt;::value;</span><br><span class="line">  &#125;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__enable_explicit_default</code> 要求 <code>_T1</code> 和 <code>_T2</code> 都是可以默认构造，这个很好理解，因为没有输入参数，所以只能默认构造。<code>__enable_explicit_default</code> 还要求 <code>!__enable_implicit_default</code>。<code>__enable_implicit_default</code> 又检查 <code>__is_implicitly_default_constructible</code></p>
+<p><code>__is_implicitly_default_constructible</code> 检查两个条件：<code>_Tp</code> 要能 default_constructible，以及 <code>_Tp const&amp; tmp = &#123;&#125;</code> 合理的，只有这两个条件都满足 <code>__is_implicitly_default_constructible</code> 才返回 true。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="type">void</span> __test_implicit_default_constructible(_Tp);</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> = <span class="type">void</span>, <span class="type">bool</span> = is_default_constructible&lt;_Tp&gt;::value&gt;</span><br><span class="line"><span class="keyword">struct</span> __is_implicitly_default_constructible</span><br><span class="line">    : false_type</span><br><span class="line">&#123; &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__is_implicitly_default_constructible</span>&lt;_Tp, <span class="keyword">decltype</span>(__test_implicit_default_constructible&lt;_Tp <span class="type">const</span>&amp;&gt;(&#123;&#125;)), <span class="literal">true</span>&gt;</span><br><span class="line">    : true_type</span><br><span class="line">&#123; &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__is_implicitly_default_constructible</span>&lt;_Tp, <span class="keyword">decltype</span>(__test_implicit_default_constructible&lt;_Tp <span class="type">const</span>&amp;&gt;(&#123;&#125;)), <span class="literal">false</span>&gt;</span><br><span class="line">    : false_type</span><br><span class="line">&#123; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>默认构造函数还有一个允许 implicit 转换的版本：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>, _EnableB&lt;</span><br><span class="line">        _CheckArgsDep&lt;_Dummy&gt;::__enable_implicit_default()</span><br><span class="line">&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span><br><span class="line"><span class="built_in">pair</span>() _NOEXCEPT_(is_nothrow_default_constructible&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">                  is_nothrow_default_constructible&lt;second_type&gt;::value)</span><br><span class="line">    : <span class="built_in">first</span>(), <span class="built_in">second</span>() &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个模板函数检查的条件是上面说过的 <code>__enable_implicit_default</code>。</p>
+<p>可以发现，implicit 的构造和 explicit 的构造是互斥的，二者只能出现一个，因为 <code>__enable_implicit_default</code> 和 <code>__enable_explicit_default</code> 是互斥的。</p>
+<p>这种定义 implicit&#x2F;explicit 两个版本的构造函数在很多标准库中都有出现，至于为什么这样做在下面解释。</p>
+<h2 id="接受两个参数的拷贝构造"><a href="#接受两个参数的拷贝构造" class="headerlink" title="接受两个参数的拷贝构造"></a>接受两个参数的拷贝构造</h2><p>也有 explicit 和 implicit 的版本</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>, _EnableB&lt;</span><br><span class="line">         _CheckArgsDep&lt;_Dummy&gt;::<span class="keyword">template</span> __enable_explicit&lt;_T1 <span class="type">const</span>&amp;, _T2 <span class="type">const</span>&amp;&gt;()</span><br><span class="line">&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line"><span class="keyword">explicit</span> <span class="built_in">pair</span>(_T1 <span class="type">const</span>&amp; __t1, _T2 <span class="type">const</span>&amp; __t2)</span><br><span class="line">    _NOEXCEPT_(is_nothrow_copy_constructible&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">               is_nothrow_copy_constructible&lt;second_type&gt;::value)</span><br><span class="line">    : <span class="built_in">first</span>(__t1), <span class="built_in">second</span>(__t2) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数检查 <code>__enable_explicit</code> 条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckArgs</span> &#123;</span><br><span class="line">  ...</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_U1</span>, <span class="keyword">class</span> <span class="title class_">_U2</span>&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit() &#123;</span><br><span class="line">      <span class="keyword">return</span> is_constructible&lt;first_type, _U1&gt;::value</span><br><span class="line">          &amp;&amp; is_constructible&lt;second_type, _U2&gt;::value</span><br><span class="line">          &amp;&amp; (!is_convertible&lt;_U1, first_type&gt;::value</span><br><span class="line">              || !is_convertible&lt;_U2, second_type&gt;::value);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_U1</span>, <span class="keyword">class</span> <span class="title class_">_U2</span>&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_implicit() &#123;</span><br><span class="line">      <span class="keyword">return</span> is_constructible&lt;first_type, _U1&gt;::value</span><br><span class="line">          &amp;&amp; is_constructible&lt;second_type, _U2&gt;::value</span><br><span class="line">          &amp;&amp; is_convertible&lt;_U1, first_type&gt;::value</span><br><span class="line">          &amp;&amp; is_convertible&lt;_U2, second_type&gt;::value;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这个条件除了要求 <code>_U1</code> 能以括号初始化 <code>_U1 b; first_type a(b);</code> 构造 first_type，还要求 <code>_U1</code> 不能以&#x3D;初始化 <code>_U1 b; first_type a = b;</code> 构造 first_type。</p>
+<p>而 <code>__enable_implicit</code> 则要求 <code>_U1</code> 能以括号初始化 <code>_U1 b; first_type a(b);</code> 构造 first_type，以及 <code>_U1</code> 能以&#x3D;初始化 <code>_U1 b; first_type a = b;</code> 构造 first_type。</p>
+<p>个人猜测之所以这样设计，是为了保持括号初始化的一致：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">F a, b;</span><br><span class="line">pair&lt;T, T&gt; c = &#123; a, b &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>当 pair 使用上面的 <code>=&#123;...&#125;</code> 初始化时，如果构造函数是 explicit 的，那么此构造函数是无法访问的。</p>
+<p>而上面模板函数根据 <code>is_convertible&lt;_U1, first_type&gt;</code> 和 <code>is_convertible&lt;_U2, second_type&gt;</code> 这两个条件决定是使用 implict 还是 explicit 版本：当 <code>_U1、_U2</code> 允许&#x3D;初始化时使用 implict，否则时用 explicit。</p>
+<p>这背后的逻辑是，如果 pair 内部的元素不支持&#x3D;初始化，那么 pair 就不应该支持 <code>=&#123;...&#125;</code> 初始化。</p>
+<p>参见：<a href="https://en.cppreference.com/w/cpp/language/explicit">https://en.cppreference.com/w/cpp/language/explicit</a></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">https://en.cppreference.com/w/cpp/types/is_convertible</span><br></pre></td></tr></table></figure>
+
+<h2 id="接受两个参数的移动构造"><a href="#接受两个参数的移动构造" class="headerlink" title="接受两个参数的移动构造"></a>接受两个参数的移动构造</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_U1</span>, <span class="keyword">class</span> <span class="title class_">_U2</span>, _EnableB&lt;</span><br><span class="line">         _CheckArgs::<span class="keyword">template</span> __enable_explicit&lt;_U1, _U2&gt;()</span><br><span class="line">&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line"><span class="keyword">explicit</span> <span class="built_in">pair</span>(_U1&amp;&amp; __u1, _U2&amp;&amp; __u2)</span><br><span class="line">    _NOEXCEPT_((is_nothrow_constructible&lt;first_type, _U1&gt;::value &amp;&amp;</span><br><span class="line">                is_nothrow_constructible&lt;second_type, _U2&gt;::value))</span><br><span class="line">    : <span class="built_in">first</span>(_VSTD::forward&lt;_U1&gt;(__u1)), <span class="built_in">second</span>(_VSTD::forward&lt;_U2&gt;(__u2)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>和上面一样，也有 implicit 和 explicit 版本，具体细节就不多赘述。</p>
+<h2 id="接受泛型-pair-的构造函数"><a href="#接受泛型-pair-的构造函数" class="headerlink" title="接受泛型 pair 的构造函数"></a>接受泛型 pair 的构造函数</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_U1</span>, <span class="keyword">class</span> <span class="title class_">_U2</span>, _EnableB&lt;</span><br><span class="line">            _CheckArgs::<span class="keyword">template</span> __enable_explicit&lt;_U1 <span class="type">const</span>&amp;, _U2 <span class="type">const</span>&amp;&gt;()</span><br><span class="line">    &gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="keyword">explicit</span> <span class="built_in">pair</span>(pair&lt;_U1, _U2&gt; <span class="type">const</span>&amp; __p)</span><br><span class="line">        _NOEXCEPT_((is_nothrow_constructible&lt;first_type, _U1 <span class="type">const</span>&amp;&gt;::value &amp;&amp;</span><br><span class="line">                    is_nothrow_constructible&lt;second_type, _U2 <span class="type">const</span>&amp;&gt;::value))</span><br><span class="line">        : <span class="built_in">first</span>(__p.first), <span class="built_in">second</span>(__p.second) &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span>&lt;<span class="keyword">class</span> _U1, <span class="keyword">class</span> _U2, _EnableB&lt;</span><br><span class="line">            _CheckArgs::<span class="keyword">template</span> __enable_explicit&lt;_U1, _U2&gt;()</span><br><span class="line">    &gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="keyword">explicit</span> <span class="built_in">pair</span>(pair&lt;_U1, _U2&gt;&amp;&amp;__p)</span><br><span class="line">        _NOEXCEPT_((is_nothrow_constructible&lt;first_type, _U1&amp;&amp;&gt;::value &amp;&amp;</span><br><span class="line">                    is_nothrow_constructible&lt;second_type, _U2&amp;&amp;&gt;::value))</span><br><span class="line">        : <span class="built_in">first</span>(_VSTD::forward&lt;_U1&gt;(__p.first)), <span class="built_in">second</span>(_VSTD::forward&lt;_U2&gt;(__p.second)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>有拷贝构造和移动构造两个版本。</p>
+<p>为什么接受右值的版本，forward 时使用 <code>_U1</code> 为参数？而没有考虑 <code>__p</code> 是左值引用还是右值引用</p>
+<p>因为当 <code>_U1</code> 为值类型（比如 int、char）时，<code>forward&lt;_U1&gt;</code> 会得到右值引用，当 <code>_U1</code> 为左值引用类型（比如 int&amp;），<code>forward&lt;_U1&gt;</code> 得到左值引用，刚好符合当前参数 <code>__p</code> 的右值语义：如果 <code>__p</code> 里面是值，那么应该传它的右值引用从而发生移动，如果 <code>__p</code> 里面是引用，那么此时即便是右值语义，也应该传递引用</p>
+<h2 id="逐元素构造"><a href="#逐元素构造" class="headerlink" title="逐元素构造"></a>逐元素构造</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span>... _Args1, <span class="keyword">class</span>... _Args2&gt;</span><br><span class="line">    <span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function">    <span class="title">pair</span><span class="params">(<span class="type">piecewise_construct_t</span> __pc,</span></span></span><br><span class="line"><span class="params"><span class="function">         tuple&lt;_Args1...&gt; __first_args, tuple&lt;_Args2...&gt; __second_args)</span></span></span><br><span class="line"><span class="function">        _<span class="title">NOEXCEPT_</span><span class="params">((is_nothrow_constructible&lt;first_type, _Args1...&gt;::value &amp;&amp;</span></span></span><br><span class="line"><span class="params"><span class="function">                    is_nothrow_constructible&lt;second_type, _Args2...&gt;::value))</span></span></span><br><span class="line"><span class="function">        : pair(__pc, __first_args, __second_args,</span></span><br><span class="line"><span class="function">                typename __make_tuple_indices&lt;sizeof...(_Args1)&gt;::type(),</span></span><br><span class="line"><span class="function">                typename __make_tuple_indices&lt;sizeof...(_Args2) &gt;::type()) &#123;</span>&#125;</span><br></pre></td></tr></table></figure>
+
+<p>为什么这里没有像 <code>__compressed_pair</code> 一样对 <code>__first_args</code>、<code>__second_args</code> 使用 move 进行传递？因为形参是引用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_T1</span>, <span class="keyword">class</span> <span class="title class_">_T2</span>&gt;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span>... _Args1, <span class="keyword">class</span>... _Args2, <span class="type">size_t</span> ..._I1, <span class="type">size_t</span> ..._I2&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">pair&lt;_T1, _T2&gt;::<span class="built_in">pair</span>(<span class="type">piecewise_construct_t</span>,</span><br><span class="line">                     tuple&lt;_Args1...&gt;&amp; __first_args, tuple&lt;_Args2...&gt;&amp; __second_args,</span><br><span class="line">                     __tuple_indices&lt;_I1...&gt;, __tuple_indices&lt;_I2...&gt;)</span><br><span class="line">    :  <span class="built_in">first</span>(_VSTD::forward&lt;_Args1&gt;(_VSTD::<span class="built_in">get</span>&lt;_I1&gt;( __first_args))...),</span><br><span class="line">      <span class="built_in">second</span>(_VSTD::forward&lt;_Args2&gt;(_VSTD::<span class="built_in">get</span>&lt;_I2&gt;(__second_args))...)</span><br><span class="line">&#123;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="拷贝赋值和移动赋值"><a href="#拷贝赋值和移动赋值" class="headerlink" title="拷贝赋值和移动赋值"></a>拷贝赋值和移动赋值</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">pair&amp; <span class="keyword">operator</span>=(<span class="keyword">typename</span> conditional&lt;</span><br><span class="line">                    is_copy_assignable&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">                    is_copy_assignable&lt;second_type&gt;::value,</span><br><span class="line">                pair, __nat&gt;::type <span class="type">const</span>&amp; __p)</span><br><span class="line">    _NOEXCEPT_(is_nothrow_copy_assignable&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">               is_nothrow_copy_assignable&lt;second_type&gt;::value)</span><br><span class="line">&#123;</span><br><span class="line">    first = __p.first;</span><br><span class="line">    second = __p.second;</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">pair&amp; <span class="keyword">operator</span>=(<span class="keyword">typename</span> conditional&lt;</span><br><span class="line">                    is_move_assignable&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">                    is_move_assignable&lt;second_type&gt;::value,</span><br><span class="line">                pair, __nat&gt;::type&amp;&amp; __p)</span><br><span class="line">    _NOEXCEPT_(is_nothrow_move_assignable&lt;first_type&gt;::value &amp;&amp;</span><br><span class="line">               is_nothrow_move_assignable&lt;second_type&gt;::value)</span><br><span class="line">&#123;</span><br><span class="line">    first = _VSTD::forward&lt;first_type&gt;(__p.first);</span><br><span class="line">    second = _VSTD::forward&lt;second_type&gt;(__p.second);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>也有一些条件检查，比如 copy_assignable、move_assignable，只有满足这些条件，相应的模板才能出现。</p>
+<p>此外赋值没有接受泛型 pair 的版本，但有接受 tuple 的版本</p>
+<h2 id="make-pair"><a href="#make-pair" class="headerlink" title="make_pair"></a>make_pair</h2><p>最后看看 make_pair，其实就是用输入的参数创建 pair，只不过 pair 的模板参数为 <code>typename __unwrap_ref_decay&lt;_T1&gt;::type</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_T1</span>, <span class="keyword">class</span> <span class="title class_">_T2</span>&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">pair&lt;<span class="keyword">typename</span> __unwrap_ref_decay&lt;_T1&gt;::type, <span class="keyword">typename</span> __unwrap_ref_decay&lt;_T2&gt;::type&gt;</span><br><span class="line"><span class="built_in">make_pair</span>(_T1&amp;&amp; __t1, _T2&amp;&amp; __t2)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> pair&lt;<span class="keyword">typename</span> __unwrap_ref_decay&lt;_T1&gt;::type, <span class="keyword">typename</span> __unwrap_ref_decay&lt;_T2&gt;::type&gt;</span><br><span class="line">               (_VSTD::forward&lt;_T1&gt;(__t1), _VSTD::forward&lt;_T2&gt;(__t2));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__unwrap_ref_decay</span></span><br><span class="line">    : __unwrap_reference&lt;<span class="keyword">typename</span> decay&lt;_Tp&gt;::type&gt;</span><br><span class="line">&#123; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__unwrap_ref_decay</code> 先对 <code>_Tp</code> 进行 decay，然后进行 <code>__unwrap_reference</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__unwrap_reference</span> &#123; <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Tp type; &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__unwrap_reference</span>&lt;reference_wrapper&lt;_Tp&gt; &gt; &#123; <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Tp&amp; type; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__unwrap_reference</code> 对于 <code>reference_wrapper&lt;_Tp&gt;</code> 会得到 <code>_Tp&amp;</code></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/17/C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-bind/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-17 22:32:59
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-C/" title="C/C++">
+                        <b>#</b> C/C++
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                        <b>#</b> C++标准库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%BB%98%E8%AE%A4%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">默认构造函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E4%B8%A4%E4%B8%AA%E5%8F%82%E6%95%B0%E7%9A%84%E6%8B%B7%E8%B4%9D%E6%9E%84%E9%80%A0"><span class="toc-text">接受两个参数的拷贝构造</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E4%B8%A4%E4%B8%AA%E5%8F%82%E6%95%B0%E7%9A%84%E7%A7%BB%E5%8A%A8%E6%9E%84%E9%80%A0"><span class="toc-text">接受两个参数的移动构造</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%B3%9B%E5%9E%8B-pair-%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受泛型 pair 的构造函数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E9%80%90%E5%85%83%E7%B4%A0%E6%9E%84%E9%80%A0"><span class="toc-text">逐元素构造</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8B%B7%E8%B4%9D%E8%B5%8B%E5%80%BC%E5%92%8C%E7%A7%BB%E5%8A%A8%E8%B5%8B%E5%80%BC"><span class="toc-text">拷贝赋值和移动赋值</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#make-pair"><span class="toc-text">make_pair</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
