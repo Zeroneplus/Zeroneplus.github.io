@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium base 库之 scoped_refptr 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium base 库之 scoped_refptr</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-20 15:35:15
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                    <b>#</b> Chromium base库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>之前做过小半年的 Chromium 多媒体项目，对 Chromium 的智能指针比较好奇，这篇文章分析一下 Chromium 的智能指针。</p>
+<p>Chromium 主要有 scoped_refptr、WeakPtr 两种智能指针，我们先看 scoped_refptr。</p>
+<h2 id="scoped-refptr"><a href="#scoped-refptr" class="headerlink" title="scoped_refptr"></a>scoped_refptr</h2><p>scoped_refptr 类似 shared_ptr，也是共享指针。先看一个例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">MyFoo</span> : <span class="keyword">public</span> RefCounted&lt;MyFoo&gt; &#123;</span><br><span class="line">   ...</span><br><span class="line">   <span class="keyword">private</span>:</span><br><span class="line">    <span class="keyword">friend</span> <span class="keyword">class</span> <span class="title class_">RefCounted</span>&lt;MyFoo&gt;;  <span class="comment">// Allow destruction by RefCounted&lt;&gt;.</span></span><br><span class="line">    ~<span class="built_in">MyFoo</span>();                        <span class="comment">// Destructor must be private/protected.</span></span><br><span class="line">  &#125;;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">some_function</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    scoped_refptr&lt;MyFoo&gt; foo = <span class="built_in">MakeRefCounted</span>&lt;MyFoo&gt;();</span><br><span class="line">    foo-&gt;<span class="built_in">Method</span>(param);</span><br><span class="line">    <span class="comment">// |foo| is released when this function returns</span></span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>由例子可知，使用 scoped_refptr 管理的类需要继承 RefCounted<T>，这和标准库不一样，标准库只有在需要使用 shared_from_this()时需要继承 enable_shared_from_this，其他情况是无需继承的。</p>
+<p>scoped_refptr 定义如下，他只有一个成员数据，指向被管理对象的指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">T</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">TRIVIAL_ABI</span> scoped_refptr &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">typedef</span> T element_type;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">constexpr</span> <span class="title">scoped_refptr</span><span class="params">()</span> </span>= <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Allow implicit construction from nullptr.</span></span><br><span class="line">  <span class="function"><span class="keyword">constexpr</span> <span class="title">scoped_refptr</span><span class="params">(std::<span class="type">nullptr_t</span>)</span> </span>&#123;&#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"> <span class="keyword">protected</span>:</span><br><span class="line">  T* ptr_ = <span class="literal">nullptr</span>;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受裸指针的构造函数"><a href="#接受裸指针的构造函数" class="headerlink" title="接受裸指针的构造函数"></a>接受裸指针的构造函数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Constructs from a raw pointer. Note that this constructor allows implicit</span></span><br><span class="line">  <span class="comment">// conversion from T* to scoped_refptr&lt;T&gt; which is strongly discouraged. If</span></span><br><span class="line">  <span class="comment">// you are creating a new ref-counted object please use</span></span><br><span class="line">  <span class="comment">// base::MakeRefCounted&lt;T&gt;() or base::WrapRefCounted&lt;T&gt;(). Otherwise you</span></span><br><span class="line">  <span class="comment">// should move or copy construct from an existing scoped_refptr&lt;T&gt; to the</span></span><br><span class="line">  <span class="comment">// ref-counted object.</span></span><br><span class="line">  <span class="built_in">scoped_refptr</span>(T* p) : <span class="built_in">ptr_</span>(p) &#123;</span><br><span class="line">    <span class="keyword">if</span> (ptr_)</span><br><span class="line">      <span class="built_in">AddRef</span>(ptr_);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>AddRef</code> 是静态函数，会调用 T 类型的 <code>AddRef</code> 函数增加引用计数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="type">void</span> scoped_refptr&lt;T&gt;::<span class="built_in">AddRef</span>(T* ptr) &#123;</span><br><span class="line">  base::subtle::<span class="built_in">AssertRefCountBaseMatches</span>(ptr, ptr);</span><br><span class="line">  ptr-&gt;<span class="built_in">AddRef</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>AssertRefCountBaseMatches 会检查输入的指针指向的类是否继承 RefCounted 类，以及当前类和 RefCounted 的模板参数类型是否是父子类关系</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> U, <span class="keyword">typename</span> V&gt;</span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">void</span> <span class="title">AssertRefCountBaseMatches</span><span class="params">(<span class="type">const</span> T*, <span class="type">const</span> RefCounted&lt;U, V&gt;*)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">static_assert</span>(std::is_base_of_v&lt;U, T&gt;,</span><br><span class="line">                <span class="string">&quot;T implements RefCounted&lt;U&gt;, but U is not a base of T.&quot;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> U, <span class="keyword">typename</span> V&gt;</span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">void</span> <span class="title">AssertRefCountBaseMatches</span><span class="params">(<span class="type">const</span> T*,</span></span></span><br><span class="line"><span class="params"><span class="function">                                         <span class="type">const</span> RefCountedThreadSafe&lt;U, V&gt;*)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">static_assert</span>(</span><br><span class="line">      std::is_base_of_v&lt;U, T&gt;,</span><br><span class="line">      <span class="string">&quot;T implements RefCountedThreadSafe&lt;U&gt;, but U is not a base of T.&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="拷贝-x2F-移动构造"><a href="#拷贝-x2F-移动构造" class="headerlink" title="拷贝&#x2F;移动构造"></a>拷贝&#x2F;移动构造</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Copy constructor. This is required in addition to the copy conversion</span></span><br><span class="line">  <span class="comment">// constructor below.</span></span><br><span class="line">  <span class="built_in">scoped_refptr</span>(<span class="type">const</span> scoped_refptr&amp; r) : <span class="built_in">scoped_refptr</span>(r.ptr_) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Copy conversion constructor.</span></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> U,</span><br><span class="line">            <span class="keyword">typename</span> = <span class="keyword">typename</span> std::enable_if&lt;</span><br><span class="line">                std::is_convertible&lt;U*, T*&gt;::value&gt;::type&gt;</span><br><span class="line">  <span class="built_in">scoped_refptr</span>(<span class="type">const</span> scoped_refptr&lt;U&gt;&amp; r) : <span class="built_in">scoped_refptr</span>(r.ptr_) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>拷贝构造函数内部会委托给接受裸指针的构造函数，同样会调用 AddRef。</p>
+<p>接受泛型 scoped_refptr 的拷贝构造函数需要满足 is_convertible 条件，比如父类-子类，才生效，内部也是委托给接受裸指针的构造函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Move constructor. This is required in addition to the move conversion</span></span><br><span class="line">  <span class="comment">// constructor below.</span></span><br><span class="line">  <span class="built_in">scoped_refptr</span>(scoped_refptr&amp;&amp; r) <span class="keyword">noexcept</span> : <span class="built_in">ptr_</span>(r.ptr_) &#123; r.ptr_ = <span class="literal">nullptr</span>; &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Move conversion constructor.</span></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> U,</span><br><span class="line">            <span class="keyword">typename</span> = <span class="keyword">typename</span> std::enable_if&lt;</span><br><span class="line">                std::is_convertible&lt;U*, T*&gt;::value&gt;::type&gt;</span><br><span class="line">  <span class="built_in">scoped_refptr</span>(scoped_refptr&lt;U&gt;&amp;&amp; r) <span class="keyword">noexcept</span> : <span class="built_in">ptr_</span>(r.ptr_) &#123;</span><br><span class="line">    r.ptr_ = <span class="literal">nullptr</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="析构函数"><a href="#析构函数" class="headerlink" title="析构函数"></a>析构函数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">~<span class="built_in">scoped_refptr</span>() &#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(!base::subtle::<span class="built_in">IsRefCountPreferenceOverridden</span>(</span><br><span class="line">                      <span class="built_in">static_cast</span>&lt;T*&gt;(<span class="literal">nullptr</span>), <span class="built_in">static_cast</span>&lt;T*&gt;(<span class="literal">nullptr</span>)),</span><br><span class="line">                  <span class="string">&quot;It&#x27;s unsafe to override the ref count preference.&quot;</span></span><br><span class="line">                  <span class="string">&quot; Please remove REQUIRE_ADOPTION_FOR_REFCOUNTED_TYPE&quot;</span></span><br><span class="line">                  <span class="string">&quot; from subclasses.&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (ptr_)</span><br><span class="line">      <span class="built_in">Release</span>(ptr_);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>析构函数则是调用静态的 Release 函数，Release 内部调用被管理对象的 Release 方法</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="type">void</span> scoped_refptr&lt;T&gt;::<span class="built_in">Release</span>(T* ptr) &#123;</span><br><span class="line">  base::subtle::<span class="built_in">AssertRefCountBaseMatches</span>(ptr, ptr);</span><br><span class="line">  ptr-&gt;<span class="built_in">Release</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>IsRefCountPreferenceOverridden 则是检查 RefCountPreference 是否被子类修改，RefCountPreference 控制引用计数是从 0 开始计算还是从 1 开始计算</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> U, <span class="keyword">typename</span> V&gt;</span><br><span class="line"><span class="function"><span class="keyword">constexpr</span> <span class="type">bool</span> <span class="title">IsRefCountPreferenceOverridden</span><span class="params">(<span class="type">const</span> T*,</span></span></span><br><span class="line"><span class="params"><span class="function">                                              <span class="type">const</span> RefCounted&lt;U, V&gt;*)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> !std::is_same&lt;std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(T::kRefCountPreference)&gt;,</span><br><span class="line">                       std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(U::kRefCountPreference)&gt;&gt;::value;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="重置-x2F-释放"><a href="#重置-x2F-释放" class="headerlink" title="重置&#x2F;释放"></a>重置&#x2F;释放</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Sets managed object to null and releases reference to the previous managed</span></span><br><span class="line">  <span class="comment">// object, if it existed.</span></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">reset</span><span class="params">()</span> </span>&#123; <span class="built_in">scoped_refptr</span>().<span class="built_in">swap</span>(*<span class="keyword">this</span>); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Returns the owned pointer (if any), releasing ownership to the caller. The</span></span><br><span class="line">  <span class="comment">// caller is responsible for managing the lifetime of the reference.</span></span><br><span class="line">  [[nodiscard]] <span class="function">T* <span class="title">release</span><span class="params">()</span> </span>&#123;</span><br><span class="line">      T* ptr = ptr_;</span><br><span class="line">      ptr_ = <span class="literal">nullptr</span>;</span><br><span class="line">      <span class="keyword">return</span> ptr;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="RefCountedThreadSafe"><a href="#RefCountedThreadSafe" class="headerlink" title="RefCountedThreadSafe"></a>RefCountedThreadSafe</h3><p>上面关于引用计数的 Release、AddRef 方法都是在 RefCounted 基类中定义。</p>
+<p>除了 RefCounted，还有另一个类 RefCountedThreadSafe。这两个类作用是一样的，但是 RefCountedThreadSafe 是线程安全的，所以这里只分析 RefCountedThreadSafe。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">T</span>, <span class="keyword">typename</span> Traits = DefaultRefCountedThreadSafeTraits&lt;T&gt; &gt;</span><br><span class="line"><span class="keyword">class</span> RefCountedThreadSafe : <span class="keyword">public</span> subtle::RefCountedThreadSafeBase &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line"> <span class="comment">// 默认的kRefCountPreference是kStartRefCountFromZeroTag，也就是引用计数从0开始</span></span><br><span class="line"> <span class="comment">// 用户可以在T类型中定义T::kRefCountPreference设置想要的RefCountPreference</span></span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> subtle::StartRefCountFromZeroTag kRefCountPreference =</span><br><span class="line">      subtle::kStartRefCountFromZeroTag;</span><br><span class="line"></span><br><span class="line"><span class="comment">/*</span></span><br><span class="line"><span class="comment">T继承RefCountedThreadSafe&lt;T&gt;，如果T中没有定义kRefCountPreference，</span></span><br><span class="line"><span class="comment">那么T::kRefCountPreference就是RefCountedThreadSafe中的kRefCountPreference，</span></span><br><span class="line"><span class="comment">如果T定义了kRefCountPreference，那么这里会使用用户自己希望的RefCountPreference</span></span><br><span class="line"><span class="comment">*/</span></span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">RefCountedThreadSafe</span><span class="params">()</span></span></span><br><span class="line"><span class="function">      : subtle::RefCountedThreadSafeBase(T::kRefCountPreference) &#123;</span>&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 继承RefCountedThreadSafe的类不能发生拷贝构造和拷贝赋值</span></span><br><span class="line"><span class="comment">// 只能通过scoped_refptr进行共享</span></span><br><span class="line">  <span class="built_in">RefCountedThreadSafe</span>(<span class="type">const</span> RefCountedThreadSafe&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">  RefCountedThreadSafe&amp; <span class="keyword">operator</span>=(<span class="type">const</span> RefCountedThreadSafe&amp;) = <span class="keyword">delete</span>;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefImpl</span>(T::kRefCountPreference); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">Release</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (subtle::RefCountedThreadSafeBase::<span class="built_in">Release</span>()) &#123;</span><br><span class="line">      <span class="built_in">ANALYZER_SKIP_THIS_PATH</span>();</span><br><span class="line">      Traits::<span class="built_in">Destruct</span>(<span class="built_in">static_cast</span>&lt;<span class="type">const</span> T*&gt;(<span class="keyword">this</span>));</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">protected</span>:</span><br><span class="line">  ~<span class="built_in">RefCountedThreadSafe</span>() = <span class="keyword">default</span>;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  <span class="keyword">friend</span> <span class="keyword">struct</span> <span class="title class_">DefaultRefCountedThreadSafeTraits</span>&lt;T&gt;;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> U&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">DeleteInternal</span><span class="params">(<span class="type">const</span> U* x)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">delete</span> x;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">(subtle::StartRefCountFromZeroTag)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    subtle::RefCountedThreadSafeBase::<span class="built_in">AddRef</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">(subtle::StartRefCountFromOneTag)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    subtle::RefCountedThreadSafeBase::<span class="built_in">AddRefWithCheck</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>重点看一下 AddRef 和 Release。</p>
+<p>AddRef 根据 <code>T::kRefCountPreference</code> 决定使用父类 RefCountedThreadSafeBase 的 AddRef 还是 AddRefWithCheck</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">AddRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefImpl</span>(T::kRefCountPreference); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">(subtle::StartRefCountFromZeroTag)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    subtle::RefCountedThreadSafeBase::<span class="built_in">AddRef</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">(subtle::StartRefCountFromOneTag)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    subtle::RefCountedThreadSafeBase::<span class="built_in">AddRefWithCheck</span>();</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>Release 会调用父类 RefCountedThreadSafeBase 的 Release，根据返回结果决定是否 Destruct。注意到这里析构时的指针类型被强转为 T，所以不能像 shared_ptr 一样正确析构子类，也就是 T 类型必须是虚析构。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Release</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (subtle::RefCountedThreadSafeBase::<span class="built_in">Release</span>()) &#123;</span><br><span class="line">      <span class="built_in">ANALYZER_SKIP_THIS_PATH</span>();</span><br><span class="line">      Traits::<span class="built_in">Destruct</span>(<span class="built_in">static_cast</span>&lt;<span class="type">const</span> T*&gt;(<span class="keyword">this</span>));</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="RefCountedThreadSafeBase"><a href="#RefCountedThreadSafeBase" class="headerlink" title="RefCountedThreadSafeBase"></a>RefCountedThreadSafeBase</h3><p>接下来看看 RefCountedThreadSafeBase 类。RefCountedThreadSafeBase 这个基类比较简单，只有一个引用计数以及增加、减小引用计数的方法</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BASE_EXPORT</span> RefCountedThreadSafeBase &#123;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">RefCountedThreadSafeBase</span>(<span class="type">const</span> RefCountedThreadSafeBase&amp;) = <span class="keyword">delete</span>;</span><br><span class="line">  RefCountedThreadSafeBase&amp; <span class="keyword">operator</span>=(<span class="type">const</span> RefCountedThreadSafeBase&amp;) = <span class="keyword">delete</span>;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">HasOneRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">      <span class="keyword">return</span> ref_count_.<span class="built_in">IsOne</span>();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">HasAtLeastOneRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">      <span class="keyword">return</span> !ref_count_.<span class="built_in">IsZero</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">protected</span>:</span><br><span class="line"> <span class="comment">//如果RefCountedThreadSafe使用默认的kRefCountPreference</span></span><br><span class="line"> <span class="comment">//那么RefCountedThreadSafeBase的ref_count_会初始化为0</span></span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="keyword">constexpr</span> <span class="title">RefCountedThreadSafeBase</span><span class="params">(StartRefCountFromZeroTag)</span> </span>&#123;&#125;</span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="keyword">constexpr</span> <span class="title">RefCountedThreadSafeBase</span><span class="params">(StartRefCountFromOneTag)</span></span></span><br><span class="line"><span class="function">      : ref_count_(<span class="number">1</span>) &#123;</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">Release</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> <span class="built_in">ReleaseImpl</span>(); &#125;</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefImpl</span>(); &#125;</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefWithCheck</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefWithCheckImpl</span>(); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    ref_count_.<span class="built_in">Increment</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">void</span> <span class="title">AddRefWithCheckImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="built_in">CHECK_GT</span>(ref_count_.<span class="built_in">Increment</span>(), <span class="number">0</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">bool</span> <span class="title">ReleaseImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!ref_count_.<span class="built_in">Decrement</span>()) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">mutable</span> AtomicRefCount ref_count_&#123;<span class="number">0</span>&#125;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>先看 AddRef。RefCountedThreadSafe 会根据 kRefCountPreference 来决定是调用父类的 AddRef 还是 AddRefWithCheck</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">AddRef</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefImpl</span>(); &#125;</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">AddRefWithCheck</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="built_in">AddRefWithCheckImpl</span>(); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">void</span> <span class="title">AddRefImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    ref_count_.<span class="built_in">Increment</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">void</span> <span class="title">AddRefWithCheckImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="built_in">CHECK_GT</span>(ref_count_.<span class="built_in">Increment</span>(), <span class="number">0</span>);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看 Release。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Release</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> <span class="built_in">ReleaseImpl</span>(); &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">ALWAYS_INLINE <span class="type">bool</span> <span class="title">ReleaseImpl</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!ref_count_.<span class="built_in">Decrement</span>()) &#123;</span><br><span class="line">      <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意 ReleaseImpl 里面没有区分引用计数从 0 开始还是从 1 开始，都是检查 Decrement 之后 <code>ref_count_</code> 是否减少至 0。所以如果引用计数从 0 开始，还需要在创建时额外进行 AddRef 操作。</p>
+<p>在上面接受裸指针的 scoped_refptr 的构造函数中总会进行 AddRef 操作，此时如果是从 0 开始，那么引用计数变为 1，没有问题，但是如果引用计数配置了从 1 开始，那么直接使用接受裸指针的 scoped_refptr 的构造函数得到的 scoped_refptr 的引用为 2，Release 操作就会出现问题。</p>
+<p>chromium 建议使用 MakeRefCounted 来创建 scoped_refptr，他内部使用 AdoptRefIfNeeded 会根据 T::kRefCountPreference 决定是否 AddRef</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="function">scoped_refptr&lt;T&gt; <span class="title">MakeRefCounted</span><span class="params">(Args&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">  T* obj = <span class="keyword">new</span> <span class="built_in">T</span>(std::forward&lt;Args&gt;(args)...);</span><br><span class="line">  <span class="keyword">return</span> subtle::<span class="built_in">AdoptRefIfNeeded</span>(obj, T::kRefCountPreference);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> subtle &#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function">scoped_refptr&lt;T&gt; <span class="title">AdoptRefIfNeeded</span><span class="params">(T* obj, StartRefCountFromZeroTag)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">scoped_refptr</span>&lt;T&gt;(obj);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function">scoped_refptr&lt;T&gt; <span class="title">AdoptRefIfNeeded</span><span class="params">(T* obj, StartRefCountFromOneTag)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">AdoptRef</span>(obj); <span class="comment">// 没有进行AddRef操作</span></span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function">scoped_refptr&lt;T&gt; <span class="title">AdoptRef</span><span class="params">(T* obj)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">using</span> Tag = std::<span class="type">decay_t</span>&lt;<span class="keyword">decltype</span>(T::kRefCountPreference)&gt;;</span><br><span class="line">  <span class="built_in">static_assert</span>(std::is_same&lt;subtle::StartRefCountFromOneTag, Tag&gt;::value,</span><br><span class="line">                <span class="string">&quot;Use AdoptRef only if the reference count starts from one.&quot;</span>);</span><br><span class="line"></span><br><span class="line">  obj-&gt;<span class="built_in">Adopted</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">scoped_refptr</span>&lt;T&gt;(obj, subtle::kAdoptRefTag);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>总的来说，scoped_refptr 更像一个弱化版的 shared_ptr，scoped_refptr 没有和 WeakPtr 一起配合使用，所以他的引用计数就是简单的自增、自减，没有 compare and swap 操作。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/20/C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-tuple/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-20 15:35:15
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                        <b>#</b> Chromium base库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/20/Chromium-base-%E5%BA%93%E4%B9%8B-WeakPtr/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#scoped-refptr"><span class="toc-text">scoped_refptr</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E8%A3%B8%E6%8C%87%E9%92%88%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受裸指针的构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8B%B7%E8%B4%9D-x2F-%E7%A7%BB%E5%8A%A8%E6%9E%84%E9%80%A0"><span class="toc-text">拷贝&#x2F;移动构造</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9E%90%E6%9E%84%E5%87%BD%E6%95%B0"><span class="toc-text">析构函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%87%8D%E7%BD%AE-x2F-%E9%87%8A%E6%94%BE"><span class="toc-text">重置&#x2F;释放</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RefCountedThreadSafe"><span class="toc-text">RefCountedThreadSafe</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#RefCountedThreadSafeBase"><span class="toc-text">RefCountedThreadSafeBase</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

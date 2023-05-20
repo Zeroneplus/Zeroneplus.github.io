@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      C++ 标准库之 tuple 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">C++ 标准库之 tuple</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-20 10:27:39
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/C-C/" title="C/C++">
+                    <b>#</b> C/C++
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                    <b>#</b> C++标准库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <h1 id="C-标准库之-tuple"><a href="#C-标准库之-tuple" class="headerlink" title="C++ 标准库之 tuple"></a>C++ 标准库之 tuple</h1><p>这篇文章分析一下 tuple，tuple 和之前分析的 <code>__compressed_pair</code> 类似，但也有自己的特殊之处。</p>
+<p>tuple 内部把具体存储对象的工作交给了 <code>__tuple_impl</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> __tuple_impl&lt;<span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Tp)&gt;::type, _Tp...&gt; _BaseT;</span><br><span class="line"></span><br><span class="line">    _BaseT __base_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__tuple_impl</code> 比较有意思，如果其第一个模板参数是 <code>__tuple_indices</code> 类型，那么有以下部分特化。在这个特化中，每一个 <code>_Tp</code> 都对应一个 <code>__tuple_leaf</code>，而 <code>__tuple_impl</code> 会继承所有的 <code>__tuple_leaf</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Indx</span>, <span class="keyword">class</span> ..._Tp&gt; <span class="keyword">struct</span> <span class="title class_">__tuple_impl</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="type">size_t</span> ..._Indx, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_DECLSPEC_EMPTY_BASES</span> __tuple_impl&lt;__tuple_indices&lt;_Indx...&gt;, _Tp...&gt;</span><br><span class="line">    : <span class="keyword">public</span> __tuple_leaf&lt;_Indx, _Tp&gt;...</span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="make-tuple-indices"><a href="#make-tuple-indices" class="headerlink" title="__make_tuple_indices"></a>__make_tuple_indices</h2><p>先看 <code>__make_tuple_indices</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ep, <span class="type">size_t</span> _Sp = <span class="number">0</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> __make_tuple_indices</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(_Sp &lt;= _Ep, <span class="string">&quot;__make_tuple_indices input error&quot;</span>);</span><br><span class="line">    <span class="keyword">typedef</span> __make_indices_imp&lt;_Ep, _Sp&gt; type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__make_tuple_indices</code> 内部使用 <code>__make_indices_imp</code>，它会创建从 <code>_Sp</code> 开始到 <code>_Ep</code> 的整数序列（就是 <code>[_Sp,_Ep)</code> 左闭右开）。有的编译器内部提供了这样的接口，但我们来看看如何不借助编译器实现这个功能，还是稍微有些复杂</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ep, <span class="type">size_t</span> _Sp&gt;</span><br><span class="line"><span class="keyword">using</span> __make_indices_imp =</span><br><span class="line">    <span class="keyword">typename</span> __detail::__make&lt;_Ep - _Sp&gt;::type::<span class="keyword">template</span> __to_tuple_indices&lt;_Sp&gt;;</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>__detail</code> 命名空间下有一个 <code>__make</code> 模板类，它里面有一个 type 类型，type 类型中有一个模板类 <code>__to_tuple_indices</code>，这就是为什么 <code>__to_tuple_indices</code> 前面有个 template。这是上面语句的含义。</p>
+<p><code>__make</code> 继承 <code>__parity</code> 类中的 <code>__pmake</code> 模板类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__make</span> : __parity&lt;_Np % <span class="number">8</span>&gt;::<span class="keyword">template</span> __pmake&lt;_Np&gt; &#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>上面给 <code>__parity</code> 的模板参数为 <code>_Np % 8</code>，所以 <code>__parity</code> 的模板参数一定小于 8，下面就是 <code>__parity</code> 全部的特化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">0</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">1</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">2</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">3</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">3</span>, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">4</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">4</span>, _Np - <span class="number">3</span>, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">5</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">5</span>, _Np - <span class="number">4</span>, _Np - <span class="number">3</span>, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">6</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">6</span>, _Np - <span class="number">5</span>, _Np - <span class="number">4</span>, _Np - <span class="number">3</span>, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">7</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">7</span>, _Np - <span class="number">6</span>, _Np - <span class="number">5</span>, _Np - <span class="number">4</span>, _Np - <span class="number">3</span>, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__pmake</code> 又继承 <code>__repeat</code>，而给 <code>__repeat</code> 的模板参数又来自 <code>__make</code>，但是这一次给 <code>__make</code> 的模板参数是 <code>_Np / 8</code>，<code>__make</code> 对于 0 到 7 有以下特化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">0</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">1</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">2</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">3</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">4</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">5</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">6</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>&gt; type; &#125;;</span><br><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__make</span>&lt;<span class="number">7</span>&gt; &#123; <span class="keyword">typedef</span> __integer_sequence&lt;<span class="type">size_t</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>&gt; type; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>再看 <code>__repeat</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Tp, <span class="type">size_t</span> ..._Extra&gt; <span class="keyword">struct</span> <span class="title class_">__repeat</span>;</span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Tp, _Tp ..._Np, <span class="type">size_t</span> ..._Extra&gt; <span class="keyword">struct</span> <span class="title class_">__repeat</span>&lt;__integer_sequence&lt;_Tp, _Np...&gt;, _Extra...&gt; &#123;</span><br><span class="line">  <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE __integer_sequence&lt;_Tp,</span><br><span class="line">                           _Np...,</span><br><span class="line">                           <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">2</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">3</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">4</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">5</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">6</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">7</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           _Extra...&gt; type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>从上面可以知道，他把整数分成整除 8 的部分和余数，对于余数，直接在 <code>__repeat</code> 构造时指明，对于整除的部分，在 <code>__repeat</code> 内部进行计算。</p>
+<p>比如现在想得到 0-17 的整数序列，那么 <code>_Np</code> 就是 18，0-15 是在 <code>__repeat</code> 里面计算得到，而 16、17 则是直接在创建 <code>__repeat</code> 时就确定，对于 18，会使用下面的 <code>__parity</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;&gt; <span class="keyword">struct</span> <span class="title class_">__parity</span>&lt;<span class="number">2</span>&gt; &#123; <span class="keyword">template</span>&lt;<span class="type">size_t</span> _Np&gt; <span class="keyword">struct</span> <span class="title class_">__pmake</span> : __repeat&lt;<span class="keyword">typename</span> __make&lt;_Np / <span class="number">8</span>&gt;::type, _Np - <span class="number">2</span>, _Np - <span class="number">1</span>&gt; &#123;&#125;; &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>对于 <code>__repeat</code>，<code>_Np</code> 就是 <code>0, 1</code>，<code>_Extra</code> 就是 <code>16, 17</code>，代入下面，就是 <code>0, 1, 2, ..., 17</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">typename</span> _Tp, _Tp ..._Np, <span class="type">size_t</span> ..._Extra&gt; <span class="keyword">struct</span> <span class="title class_">__repeat</span>&lt;__integer_sequence&lt;_Tp, _Np...&gt;, _Extra...&gt; &#123;</span><br><span class="line">  <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE __integer_sequence&lt;_Tp,</span><br><span class="line">                           _Np...,</span><br><span class="line">                           <span class="keyword">sizeof</span>...(_Np) + _Np...,    <span class="comment">// sizeof...(_Np) 就是 2</span></span><br><span class="line">                           <span class="number">2</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">3</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">4</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">5</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">6</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           <span class="number">7</span> * <span class="keyword">sizeof</span>...(_Np) + _Np...,</span><br><span class="line">                           _Extra...&gt; type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>但是注意通过这种方法算出来最大只能是 64，因为 <code>__repeat</code> 里面算整数部分只算了 0-7 的倍数。</p>
+<p>再回到上面</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ep, <span class="type">size_t</span> _Sp&gt;</span><br><span class="line"><span class="keyword">using</span> __make_indices_imp =</span><br><span class="line">    <span class="keyword">typename</span> __detail::__make&lt;_Ep - _Sp&gt;::type::<span class="keyword">template</span> __to_tuple_indices&lt;_Sp&gt;;</span><br></pre></td></tr></table></figure>
+
+<p>那么 <code>__detail::__make&lt;_Ep - _Sp&gt;::type</code> 就是 <code>__repeat</code> 中的 <code>__integer_sequence</code>，对该 <code>__integer_sequence</code> 再调用 <code>__to_tuple_indices</code> 就是</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span>...&gt; <span class="keyword">struct</span> <span class="title class_">__tuple_indices</span> &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_IdxType</span>, _IdxType... _Values&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__integer_sequence</span> &#123;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_OIdxType</span>, _OIdxType...&gt; <span class="keyword">class</span> <span class="title class_">_ToIndexSeq</span>, <span class="keyword">class</span> <span class="title class_">_ToIndexType</span>&gt;</span><br><span class="line">  <span class="keyword">using</span> __convert = _ToIndexSeq&lt;_ToIndexType, _Values...&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="type">size_t</span> _Sp&gt;</span><br><span class="line">  <span class="keyword">using</span> __to_tuple_indices = __tuple_indices&lt;(_Values + _Sp)...&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="tuple"><a href="#tuple" class="headerlink" title="tuple"></a>tuple</h2><p>回到 tuple，接下来通过分析它的成员函数来理解它内部的原理</p>
+<h3 id="默认构造函数"><a href="#默认构造函数" class="headerlink" title="默认构造函数"></a>默认构造函数</h3><p>也有 explicit、implicit 的版本，检查方法和 pair 一样</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>, _EnableIf&lt;</span><br><span class="line">    _CheckArgsConstructor&lt;_Dummy&gt;::__enable_implicit_default()</span><br><span class="line">, <span class="type">void</span>*&gt; = <span class="literal">nullptr</span>&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR</span><br><span class="line"><span class="built_in">tuple</span>()</span><br><span class="line">    _NOEXCEPT_(__all&lt;is_nothrow_default_constructible&lt;_Tp&gt;::value...&gt;::value) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面的 <code>__all</code> 就是要求所有的 <code>_Tp</code> 都满足。<code>__is_implicitly_default_constructible</code> 以及 implicit&#x2F;explicit 的区别在 pair 中已经介绍。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Dummy</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckArgsConstructor</span>&lt;<span class="literal">true</span>, _Dummy&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="type">int</span>&amp;...&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_implicit_default() &#123;</span><br><span class="line">       <span class="keyword">return</span> __all&lt;__is_implicitly_default_constructible&lt;_Tp&gt;::value... &gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="type">int</span>&amp;...&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit_default() &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">            __all&lt;is_default_constructible&lt;_Tp&gt;::value...&gt;::value &amp;&amp;</span><br><span class="line">            !__enable_implicit_default&lt; &gt;();</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受-const-左值引用参数的构造函数"><a href="#接受-const-左值引用参数的构造函数" class="headerlink" title="接受 const 左值引用参数的构造函数"></a>接受 const 左值引用参数的构造函数</h3><p>也有 implicit&#x2F;explicit 版本</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _Dummy = <span class="literal">true</span>,</span><br><span class="line">          <span class="keyword">typename</span> enable_if</span><br><span class="line">                  &lt;</span><br><span class="line">                     _CheckArgsConstructor&lt;</span><br><span class="line">                        _Dummy</span><br><span class="line">                     &gt;::<span class="keyword">template</span> __enable_implicit&lt;_Tp <span class="type">const</span>&amp;...&gt;(),</span><br><span class="line">                     <span class="type">bool</span></span><br><span class="line">                  &gt;::type = <span class="literal">false</span></span><br><span class="line">    &gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line"><span class="built_in">tuple</span>(<span class="type">const</span> _Tp&amp; ... <span class="type">__t</span>) _NOEXCEPT_((__all&lt;is_nothrow_copy_constructible&lt;_Tp&gt;::value...&gt;::value))</span><br><span class="line">    : __base_(<span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Tp)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">            <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">            <span class="keyword">typename</span> __make_tuple_indices&lt;<span class="number">0</span>&gt;::<span class="built_in">type</span>(),</span><br><span class="line">            <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="number">0</span>&gt;::<span class="built_in">type</span>(),</span><br><span class="line">            <span class="type">__t</span>...</span><br><span class="line">           ) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到上面调用 <code>__base_()</code> 时，分成两个 tuple，这是为了允许只给部分元素传参数，让其他元素默认初始化。但上面其实要求所有元素都传参数，因为 <code>__base_</code> 的参数的第二个 tuple 的 size 是 0，下面会看到允许部分参数为空的构造函数。</p>
+<p>看看检查条件。由于允许参数默认初始化，所以下面 <code>__make_tuple_types</code> 构造参数时只使用传参的部分。具体的检查条件和 pair 差不多：explicit 和 implicit 都要求 constructible，implicit 还额外要求 convertible。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Dummy</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckArgsConstructor</span>&lt;<span class="literal">true</span>, _Dummy&gt;</span><br><span class="line">&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit() &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">            __tuple_constructible&lt;</span><br><span class="line">                tuple&lt;_Args...&gt;,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="comment">// 从当前tuple中取类型</span></span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type  <span class="comment">// 构造参数时只构造传参的部分</span></span><br><span class="line">            &gt;::value &amp;&amp;</span><br><span class="line">            !__tuple_convertible&lt;</span><br><span class="line">                tuple&lt;_Args...&gt;,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple,</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value &amp;&amp;</span><br><span class="line">            __all_default_constructible&lt;</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp),</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_implicit() &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">           __tuple_constructible&lt;</span><br><span class="line">                tuple&lt;_Args...&gt;,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple,</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value &amp;&amp;</span><br><span class="line">            __tuple_convertible&lt;</span><br><span class="line">                tuple&lt;_Args...&gt;,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple,</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value &amp;&amp;</span><br><span class="line">            __all_default_constructible&lt;</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp),</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="make-tuple-types"><a href="#make-tuple-types" class="headerlink" title="__make_tuple_types"></a>__make_tuple_types</h4><p>就是取得 <code>_Tp</code> 从 <code>_Sp</code> 到 <code>_Ep</code> 索引处的 type，将他们组成 <code>__tuple_types</code>。先对 <code>_Tp</code> 去除 const&#x2F;volatile 和引用，后续再通过 <code>__apply_quals</code> 将 <code>_Tp</code> 的这些属性应用到它里面的 type</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="type">size_t</span> _Ep = tuple_size&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::value,</span><br><span class="line">          <span class="type">size_t</span> _Sp = <span class="number">0</span>,</span><br><span class="line">          <span class="type">bool</span> _SameSize = (_Ep == tuple_size&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::value)&gt;</span><br><span class="line"><span class="keyword">struct</span> __make_tuple_types</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(_Sp &lt;= _Ep, <span class="string">&quot;__make_tuple_types input error&quot;</span>);</span><br><span class="line">    <span class="keyword">using</span> _RawTp = <span class="keyword">typename</span> remove_cv&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::type;</span><br><span class="line">    <span class="keyword">using</span> _Maker = __make_tuple_types_flat&lt;_RawTp, <span class="keyword">typename</span> __make_tuple_indices&lt;_Ep, _Sp&gt;::type&gt;;</span><br><span class="line">    <span class="keyword">using</span> type = <span class="keyword">typename</span> _Maker::<span class="keyword">template</span> __apply_quals&lt;_Tp&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">template</span> &lt;<span class="keyword">class</span>...&gt; <span class="keyword">class</span> <span class="title class_">_Tuple</span>, <span class="keyword">class</span> ..._Types, <span class="type">size_t</span> ..._Idx&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__make_tuple_types_flat</span>&lt;_Tuple&lt;_Types...&gt;, __tuple_indices&lt;_Idx...&gt;&gt; &#123;</span><br><span class="line">  <span class="comment">// Specialization for pair, tuple, and __tuple_types</span></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_ApplyFn</span> = <span class="type">__apply_cv_t</span>&lt;_Tp&gt;&gt;</span><br><span class="line">  <span class="keyword">using</span> __apply_quals _LIBCPP_NODEBUG_TYPE = __tuple_types&lt;</span><br><span class="line">      <span class="keyword">typename</span> _ApplyFn::<span class="keyword">template</span> __apply&lt;__type_pack_element&lt;_Idx, _Types...&gt;&gt;...</span><br><span class="line">    &gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__make_tuple_types_flat</code> 会根据 <code>_Idx</code> 来对 <code>_Types</code> 进行索引，并将其组装成 <code>__tuple_types</code>。</p>
+<h5 id="type-pack-element"><a href="#type-pack-element" class="headerlink" title="__type_pack_element"></a>__type_pack_element</h5><p>先看 <code>__type_pack_element</code>，这个模板从 <code>_Types</code> 中根据 <code>_Idx</code> 索引来取类型，<code>__type_pack_element&lt;_Idx, _Types...&gt;</code> 就相当于 <code>_Types[_Idx]</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Tp&gt; <span class="keyword">struct</span> <span class="title class_">__tuple_types</span> &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">namespace</span> __indexer_detail &#123;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Idx, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__indexed</span> &#123; <span class="keyword">using</span> type _LIBCPP_NODEBUG_TYPE = _Tp; &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Types</span>, <span class="keyword">class</span> <span class="title class_">_Indexes</span>&gt; <span class="keyword">struct</span> <span class="title class_">__indexer</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Types, <span class="type">size_t</span> ..._Idx&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__indexer</span>&lt;__tuple_types&lt;_Types...&gt;, __tuple_indices&lt;_Idx...&gt;&gt;</span><br><span class="line">    : __indexed&lt;_Idx, _Types&gt;...</span><br><span class="line">&#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Idx, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line">__indexed&lt;_Idx, _Tp&gt; __at_index(__indexed&lt;_Idx, _Tp&gt; <span class="type">const</span>&amp;);</span><br><span class="line"></span><br><span class="line">&#125; <span class="comment">// namespace __indexer_detail</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Idx, <span class="keyword">class</span> ..._Types&gt;</span><br><span class="line"><span class="keyword">using</span> __type_pack_element _LIBCPP_NODEBUG_TYPE = <span class="keyword">typename</span> <span class="keyword">decltype</span>(</span><br><span class="line">    __indexer_detail::__at_index&lt;_Idx&gt;(</span><br><span class="line">        __indexer_detail::__indexer&lt;</span><br><span class="line">            __tuple_types&lt;_Types...&gt;,</span><br><span class="line">            <span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Types)&gt;::type</span><br><span class="line">        &gt;&#123;&#125;)</span><br><span class="line">  )::type;</span><br></pre></td></tr></table></figure>
+
+<p><code>__type_pack_element</code> 比较巧妙，通过 decltype 以及子类向父类转换的方式取得指定索引的 type，<code>__indexer</code> 继承所有的 <code>__indexed</code>。<code>__at_index</code> 函数的形参是指定 <code>index</code> 的 <code>__indexed</code>，而传给它的实参则是继承所有 <code>__indexed</code> 的 <code>__indexer</code>，通过子类向父类转换，就能取得指定 <code>index</code> 的 <code>__indexed</code>。</p>
+<p>除了这种方法，经典的 TypeList 也能取得指定索引处的 type，这里不继续展开。</p>
+<p>在 <code>__make_tuple_types_flat</code> 中还对取得的类型应用了属性，比如传给 <code>__make_tuple_types</code> 的是 <code>const tuple&lt;int, float&gt;</code>，那么 <code>__type_pack_element</code> 得到的是 <code>int, float</code>，还需要增加 tuple 自身的 const 属性，即最终得到的是 <code>const int, const float</code></p>
+<h4 id="tuple-constructible"><a href="#tuple-constructible" class="headerlink" title="__tuple_constructible"></a>__tuple_constructible</h4><p>这个模板就是检查由输入参数能否 construct 当前 tuple，<code>_Tp</code> 就是输入参数类型的 tuple，<code>_Up</code> 就是 tuple 自身的类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Up</span>, <span class="type">bool</span> = __tuple_like&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::value,</span><br><span class="line">                                <span class="type">bool</span> = __tuple_like&lt;_Up&gt;::value&gt;</span><br><span class="line"><span class="keyword">struct</span> __tuple_constructible</span><br><span class="line">    : <span class="keyword">public</span> false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Up</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__tuple_constructible</span>&lt;_Tp, _Up, <span class="literal">true</span>, <span class="literal">true</span>&gt;</span><br><span class="line">    : <span class="keyword">public</span> __tuple_sfinae_base::__constructible&lt;</span><br><span class="line">      <span class="keyword">typename</span> __make_tuple_types&lt;_Tp&gt;::type</span><br><span class="line">    , <span class="keyword">typename</span> __make_tuple_types&lt;_Up&gt;::type</span><br><span class="line">    &gt;</span><br><span class="line">&#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">__tuple_sfinae_base</span> &#123;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">template</span> &lt;<span class="keyword">class</span>, <span class="keyword">class</span>...&gt; <span class="keyword">class</span> <span class="title class_">_Trait</span>,</span><br><span class="line">            <span class="keyword">class</span> ..._LArgs, <span class="keyword">class</span> ..._RArgs&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">auto</span> __do_test(__tuple_types&lt;_LArgs...&gt;, __tuple_types&lt;_RArgs...&gt;)</span><br><span class="line">    -&gt; __all&lt;<span class="keyword">typename</span> enable_if&lt;_Trait&lt;_LArgs, _RArgs&gt;::value, <span class="type">bool</span>&gt;::type&#123;<span class="literal">true</span>&#125;...&gt;;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">template</span> &lt;<span class="keyword">class</span>...&gt; <span class="keyword">class</span>&gt;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">auto</span> __do_test(...) -&gt; false_type;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_FromArgs</span>, <span class="keyword">class</span> <span class="title class_">_ToArgs</span>&gt;</span><br><span class="line">  <span class="keyword">using</span> __constructible = <span class="keyword">decltype</span>(__do_test&lt;is_constructible&gt;(_ToArgs&#123;&#125;, _FromArgs&#123;&#125;));</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_FromArgs</span>, <span class="keyword">class</span> <span class="title class_">_ToArgs</span>&gt;</span><br><span class="line">  <span class="keyword">using</span> __convertible = <span class="keyword">decltype</span>(__do_test&lt;is_convertible&gt;(_FromArgs&#123;&#125;, _ToArgs&#123;&#125;));</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_FromArgs</span>, <span class="keyword">class</span> <span class="title class_">_ToArgs</span>&gt;</span><br><span class="line">  <span class="keyword">using</span> __assignable = <span class="keyword">decltype</span>(__do_test&lt;is_assignable&gt;(_ToArgs&#123;&#125;, _FromArgs&#123;&#125;));</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>上面其实就是检查每一个输入类型能否 construct tuple 中的类型</p>
+<p><code>__tuple_convertible</code> 和 <code>__tuple_constructible</code> 差不多，最终都是调用到 <code>__tuple_sfinae_base</code>，这里不再啰嗦</p>
+<p>最后再看看 <code>_CheckArgsConstructor</code> 中的 <code>__all_default_constructible</code>。把它单独拿出来，是因为它的 <code>__make_tuple_types</code> 的起始索引是 <code>sizeof...(_Args)</code>，也就是跳过了传了参数的类型，只检查没有传参的类型是否是 default_constructible，这和上面说的允许部分传参一致。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Dummy</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckArgsConstructor</span>&lt;<span class="literal">true</span>, _Dummy&gt;</span><br><span class="line">&#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit() &#123;</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">            ... &amp;&amp;</span><br><span class="line">            __all_default_constructible&lt;</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp),</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Args) &lt; <span class="keyword">sizeof</span>...(_Tp) ?</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Args) :</span><br><span class="line">                             <span class="keyword">sizeof</span>...(_Tp)&gt;::type</span><br><span class="line">            &gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受右值引用参数的构造函数"><a href="#接受右值引用参数的构造函数" class="headerlink" title="接受右值引用参数的构造函数"></a>接受右值引用参数的构造函数</h3><p>这个构造函数和上面的类似，只是接受的参数是右值类型。而且该函数中允许只对部分参数进行初始化。也有 implicit&#x2F;explicit 版本。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Up,</span><br><span class="line">          <span class="type">bool</span> _PackIsTuple = _PackExpandsToThisTuple&lt;_Up...&gt;::value,</span><br><span class="line">          <span class="keyword">typename</span> enable_if</span><br><span class="line">                  &lt;</span><br><span class="line">                     _CheckArgsConstructor&lt;</span><br><span class="line">                         <span class="keyword">sizeof</span>...(_Up) == <span class="keyword">sizeof</span>...(_Tp)</span><br><span class="line">                         &amp;&amp; !_PackIsTuple</span><br><span class="line">                     &gt;::<span class="keyword">template</span> __enable_implicit&lt;_Up...&gt;() ||</span><br><span class="line">                    _CheckArgsConstructor&lt;</span><br><span class="line">                        _EnableImplicitReducedArityExtension</span><br><span class="line">                        &amp;&amp; <span class="keyword">sizeof</span>...(_Up) &lt; <span class="keyword">sizeof</span>...(_Tp)</span><br><span class="line">                        &amp;&amp; !_PackIsTuple</span><br><span class="line">                     &gt;::<span class="keyword">template</span> __enable_implicit&lt;_Up...&gt;(),</span><br><span class="line">                     <span class="type">bool</span></span><br><span class="line">                  &gt;::type = <span class="literal">false</span></span><br><span class="line">         &gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="built_in">tuple</span>(_Up&amp;&amp;... __u)</span><br><span class="line">        _NOEXCEPT_((</span><br><span class="line">            is_nothrow_constructible&lt;_BaseT,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Up)&gt;::type,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Up)&gt;::type,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Tp), <span class="keyword">sizeof</span>...(_Up)&gt;::type,</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp), <span class="keyword">sizeof</span>...(_Up)&gt;::type,</span><br><span class="line">                _Up...</span><br><span class="line">            &gt;::value</span><br><span class="line">        ))</span><br><span class="line">        : __base_(<span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Up)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Up)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_indices&lt;<span class="keyword">sizeof</span>...(_Tp), <span class="keyword">sizeof</span>...(_Up)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">                <span class="keyword">typename</span> __make_tuple_types&lt;tuple, <span class="keyword">sizeof</span>...(_Tp), <span class="keyword">sizeof</span>...(_Up)&gt;::<span class="built_in">type</span>(),</span><br><span class="line">                _VSTD::forward&lt;_Up&gt;(__u)...) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>函数体部分比较好理解，还是来看看条件检查部分。<code>_PackExpandsToThisTuple</code> 检查输入的类型是否是当前 tuple。所以上面的构造函数是不允许输入类型为当前 tuple。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">_PackExpandsToThisTuple</span> : false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Arg</span>&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">_PackExpandsToThisTuple</span>&lt;_Arg&gt;</span><br><span class="line">        : is_same&lt;<span class="keyword">typename</span> __uncvref&lt;_Arg&gt;::type, tuple&gt; &#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>上面的检查条件分两种情况：如果输入参数个数等于 tuple 参数，正常检查；如果输入参数小于 tuple 参数，还要检查 <code>_EnableImplicitReducedArityExtension</code>：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">if</span> defined(_LIBCPP_ENABLE_TUPLE_IMPLICIT_REDUCED_ARITY_EXTENSION)</span></span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> _EnableImplicitReducedArityExtension = <span class="literal">true</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> _EnableImplicitReducedArityExtension = <span class="literal">false</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br></pre></td></tr></table></figure>
+
+<p>其他的检查条件也是在 <code>_CheckArgsConstructor</code> 类中，和接受 const 左值引用参数的构造函数中是一样的</p>
+<h3 id="接受-tuple-类型的构造函数"><a href="#接受-tuple-类型的构造函数" class="headerlink" title="接受 tuple 类型的构造函数"></a>接受 tuple 类型的构造函数</h3><p>这里的 tuple 内部可以是其他类型。也有 explicit&#x2F;implicit 版本。下面是接受左值&#x2F;右值的 implicit 版本</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>, _EnableImplicitTupleLikeConstructor&lt;_Tuple, <span class="literal">true</span>&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="built_in">tuple</span>(_Tuple&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_constructible&lt;_BaseT, _Tuple&gt;::value))</span><br><span class="line">        : __base_(_VSTD::forward&lt;_Tuple&gt;(<span class="type">__t</span>)) &#123;&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> _Tuple, _EnableImplicitTupleLikeConstructor&lt;<span class="type">const</span> _Tuple&amp;, <span class="literal">false</span>&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="built_in">tuple</span>(<span class="type">const</span> _Tuple&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_constructible&lt;_BaseT, <span class="type">const</span> _Tuple&amp;&gt;::value))</span><br><span class="line">        : __base_(<span class="type">__t</span>) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>两个检查条件。都不允许输入的 <code>_Tuple</code> 和当前 tuple 类型一样，因为这种场景应该由拷贝&#x2F;移动构造来定义。并且还要求输入的 tuple 的元素个数和当前 tuple 一致（<code>__tuple_like_with_size</code> 就是检查这个）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>, <span class="type">bool</span> _DisableIfLValue&gt;</span><br><span class="line">    <span class="keyword">using</span> _EnableImplicitTupleLikeConstructor = _EnableIf&lt;</span><br><span class="line">                         _CheckTupleLikeConstructor&lt;</span><br><span class="line">                             __tuple_like_with_size&lt;_Tuple, <span class="keyword">sizeof</span>...(_Tp)&gt;::value</span><br><span class="line">                             &amp;&amp; !_PackExpandsToThisTuple&lt;_Tuple&gt;::value</span><br><span class="line">                             &amp;&amp; (!is_lvalue_reference&lt;_Tuple&gt;::value || !_DisableIfLValue)</span><br><span class="line">                         &gt;::<span class="keyword">template</span> __enable_implicit&lt;_Tuple&gt;(),</span><br><span class="line">                         <span class="type">bool</span></span><br><span class="line">                      &gt;;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>, <span class="type">bool</span> _DisableIfLValue&gt;</span><br><span class="line">    <span class="keyword">using</span> _EnableExplicitTupleLikeConstructor = _EnableIf&lt;</span><br><span class="line">                         _CheckTupleLikeConstructor&lt;</span><br><span class="line">                             __tuple_like_with_size&lt;_Tuple, <span class="keyword">sizeof</span>...(_Tp)&gt;::value</span><br><span class="line">                             &amp;&amp; !_PackExpandsToThisTuple&lt;_Tuple&gt;::value</span><br><span class="line">                             &amp;&amp; (!is_lvalue_reference&lt;_Tuple&gt;::value || !_DisableIfLValue)</span><br><span class="line">                         &gt;::<span class="keyword">template</span> __enable_explicit&lt;_Tuple&gt;(),</span><br><span class="line">                         <span class="type">bool</span></span><br><span class="line">                      &gt;;</span><br></pre></td></tr></table></figure>
+
+<p>上面条件还检查了输入的 <code>_Tuple</code> 是否是左值引用。在下面这个构造函数中要求推断的 <code>_Tuple</code> 不能是引用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>, _EnableImplicitTupleLikeConstructor&lt;_Tuple, <span class="literal">true</span>&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="built_in">tuple</span>(_Tuple&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_constructible&lt;_BaseT, _Tuple&gt;::value))</span><br><span class="line">        : __base_(_VSTD::forward&lt;_Tuple&gt;(<span class="type">__t</span>)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果这里 <code>_Tuple</code> 被推断为引用，那么说明输入参数是左值，按理来说左值参数应该优先使用下面的构造函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>, _EnableImplicitTupleLikeConstructor&lt;<span class="type">const</span> _Tuple&amp;, <span class="literal">false</span>&gt; = <span class="literal">false</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="built_in">tuple</span>(<span class="type">const</span> _Tuple&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_constructible&lt;_BaseT, <span class="type">const</span> _Tuple&amp;&gt;::value))</span><br><span class="line">        : __base_(<span class="type">__t</span>) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下来检查就到了 <code>_CheckTupleLikeConstructor</code>，它对于 <code>sizeof...(_Tp) == 1</code> 有不同特化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> _MaybeEnable,</span><br><span class="line">          <span class="type">bool</span> = <span class="keyword">sizeof</span>...(_Tp) == <span class="number">1</span>,</span><br><span class="line">          <span class="keyword">class</span> _Dummy = <span class="type">void</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> _CheckTupleLikeConstructor : __check_tuple_constructor_fail &#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果 <code>sizeof...(_Tp)</code> 大于 1，那么检查方法和之前一样</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Dummy</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_CheckTupleLikeConstructor</span>&lt;<span class="literal">true</span>, <span class="literal">false</span>, _Dummy&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_implicit() &#123;</span><br><span class="line">        <span class="keyword">return</span> __tuple_constructible&lt;_Tuple, tuple&gt;::value</span><br><span class="line">            &amp;&amp; __tuple_convertible&lt;_Tuple, tuple&gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>&gt;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> __enable_explicit() &#123;</span><br><span class="line">        <span class="keyword">return</span> __tuple_constructible&lt;_Tuple, tuple&gt;::value</span><br><span class="line">           &amp;&amp; !__tuple_convertible&lt;_Tuple, tuple&gt;::value;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="拷贝-x2F-移动赋值函数"><a href="#拷贝-x2F-移动赋值函数" class="headerlink" title="拷贝&#x2F;移动赋值函数"></a>拷贝&#x2F;移动赋值函数</h3><p>这里是接受和自身相同 tuple 类型的赋值函数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">tuple&amp; <span class="keyword">operator</span>=(<span class="keyword">typename</span> conditional&lt;_CanCopyAssign::value, tuple, __nat&gt;::type <span class="type">const</span>&amp; <span class="type">__t</span>)</span><br><span class="line">    _NOEXCEPT_((__all&lt;is_nothrow_copy_assignable&lt;_Tp&gt;::value...&gt;::value))</span><br><span class="line">&#123;</span><br><span class="line">    __base_.<span class="keyword">operator</span>=(<span class="type">__t</span>.__base_);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">tuple&amp; <span class="keyword">operator</span>=(<span class="keyword">typename</span> conditional&lt;_CanMoveAssign::value, tuple, __nat&gt;::type&amp;&amp; <span class="type">__t</span>)</span><br><span class="line">    _NOEXCEPT_((__all&lt;is_nothrow_move_assignable&lt;_Tp&gt;::value...&gt;::value))</span><br><span class="line">&#123;</span><br><span class="line">    __base_.<span class="keyword">operator</span>=(<span class="built_in">static_cast</span>&lt;_BaseT&amp;&amp;&gt;(<span class="type">__t</span>.__base_));</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>_CanCopyAssign</code> 条件和 <code>_CanMoveAssign</code> 条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">using</span> _CanCopyAssign = __all&lt;is_copy_assignable&lt;_Tp&gt;::value...&gt;;</span><br><span class="line"><span class="keyword">using</span> _CanMoveAssign = __all&lt;is_move_assignable&lt;_Tp&gt;::value...&gt;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受泛型-tuple-的赋值函数"><a href="#接受泛型-tuple-的赋值函数" class="headerlink" title="接受泛型 tuple 的赋值函数"></a>接受泛型 tuple 的赋值函数</h3><p>该赋值函数可以接受和自身 tuple 类型不同的泛型 tuple 参数。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>,</span><br><span class="line">          <span class="keyword">class</span> = <span class="keyword">typename</span> enable_if</span><br><span class="line">                  &lt;</span><br><span class="line">                     __tuple_assignable&lt;_Tuple, tuple&gt;::value</span><br><span class="line">                  &gt;::type</span><br><span class="line">         &gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    tuple&amp;</span><br><span class="line">    <span class="keyword">operator</span>=(_Tuple&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_assignable&lt;_BaseT&amp;, _Tuple&gt;::value))</span><br><span class="line">    &#123;</span><br><span class="line">        __base_.<span class="keyword">operator</span>=(_VSTD::forward&lt;_Tuple&gt;(<span class="type">__t</span>));</span><br><span class="line">        <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__tuple_assignable</code> 条件。<code>_Tp</code> 是输入参数，<code>_Up</code> 是自身 tuple</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Up</span>, <span class="type">bool</span> = __tuple_like&lt;<span class="keyword">typename</span> remove_reference&lt;_Tp&gt;::type&gt;::value,</span><br><span class="line">                                <span class="type">bool</span> = __tuple_like&lt;_Up&gt;::value&gt;</span><br><span class="line"><span class="keyword">struct</span> __tuple_assignable</span><br><span class="line">    : <span class="keyword">public</span> false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Up</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__tuple_assignable</span>&lt;_Tp, _Up, <span class="literal">true</span>, <span class="literal">true</span>&gt;</span><br><span class="line">    : <span class="keyword">public</span> __tuple_sfinae_base::__assignable&lt;</span><br><span class="line">      <span class="keyword">typename</span> __make_tuple_types&lt;_Tp&gt;::type</span><br><span class="line">    , <span class="keyword">typename</span> __make_tuple_types&lt;_Up&amp;&gt;::type</span><br><span class="line">    &gt;</span><br><span class="line">&#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>上面条件最终会走到 <code>__tuple_sfinae_base</code> 中对每个 type 进行 is_assignable 判断。但是有一个问题，为什么上面是 <code>_Up&amp;</code>，为什么要加一个引号？</p>
+<p>这是因为 is_assignable 是进行如下判断，如果下面的表达式有意义，那么就是 assignable。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">std::<span class="built_in">declval</span>&lt;T&gt;() = std::<span class="built_in">declval</span>&lt;U&gt;()</span><br></pre></td></tr></table></figure>
+
+<p>declval 之前写过一篇文章介绍过，它相当于给 T 加上&amp;&amp;，得到一个 T&amp;&amp;类型的临时值，这个临时值会根据 T 的类型是将亡值或者左值引用。</p>
+<p>举个例子分析一下为什么要 <code>_Up&amp;</code>。</p>
+<p>假设在上面的赋值函数中，传的是 <code>tuple&lt;int, int&gt;</code> 的左值，那么 <code>_Tuple</code> 就是 <code>tuple&lt;int, int&gt;&amp;</code>，如果当前 tuple 是 <code>tuple&lt;double, int&gt;</code>，那么上面 <code>__tuple_assignable</code> 的 <code>_Tp</code> 就是 <code>tuple&lt;int, int&gt;&amp;</code>，<code>_Up</code> 就是 <code>tuple&lt;double, int&gt;</code>。</p>
+<p>如果不 <code>_Up&amp;</code>，那么最终判断的就是 <code>std::declval&lt;double&gt;() = std::declval&lt;int&amp;&gt;()</code>，这里 <code>int&amp;</code> 是因为 <code>__make_tuple_types</code> 会把 tuple 自身的属性附加到得到的类型上，比如 <code>__make_tuple_types&lt;tuple&lt;int, int&gt;const&amp;&gt;</code> 会得到 <code>&lt;int const&amp;, int const&amp;&gt;</code>。上面式子展开就是 <code>double&amp;&amp; = int&amp;</code>，给一个将亡值赋左值是不行的，只有左值才能被赋值，所以这里加了引号，加了引号之后折叠之后就是左值引用。</p>
+<p>再看看为什么 constructible 时不用加&amp;。constructible 的判断条件是这个</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">T <span class="title">obj</span><span class="params">(std::declval&lt;Args&gt;()...)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>加了引号之后反而会出错，比如使用下面 接受右值引用参数的构造函数 创建 <code>tuple&lt;int, int&gt;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line"><span class="built_in">tuple</span>(_Up&amp;&amp;... __u);</span><br></pre></td></tr></table></figure>
+
+<p>语句可以是 <code>tuple&lt;int, int&gt; a(1, 1);</code></p>
+<p>输入一个临时值，那么 <code>_Up</code> 被推断为 int，那么下面的 <code>_Tp</code> 和 <code>_Up</code> 都是 int</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>, <span class="keyword">class</span> <span class="title class_">_Up</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__tuple_constructible</span>&lt;_Tp, _Up, <span class="literal">true</span>, <span class="literal">true</span>&gt;</span><br><span class="line">    : <span class="keyword">public</span> __tuple_sfinae_base::__constructible&lt;</span><br><span class="line">      <span class="keyword">typename</span> __make_tuple_types&lt;_Tp&gt;::type</span><br><span class="line">    , <span class="keyword">typename</span> __make_tuple_types&lt;_Up&gt;::type</span><br><span class="line">    &gt;</span><br><span class="line">&#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果是 <code>_Up&amp;</code>，<code>T obj(std::declval&lt;Args&gt;()...);</code> 就是 <code>int &amp;obj(int&amp;&amp;);</code>，左值引用是无法接受将亡值参数的。</p>
+<h2 id="tuple-impl"><a href="#tuple-impl" class="headerlink" title="__tuple_impl"></a>__tuple_impl</h2><p>接下来回到 <code>__tuple_impl</code>。这里就比较简单了，因为没有 tuple 中的检查，基本上就是参数的转发。</p>
+<h3 id="默认构造函数-1"><a href="#默认构造函数-1" class="headerlink" title="默认构造函数"></a>默认构造函数</h3><p>什么也不做，全部调用默认初始化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">_LIBCPP_CONSTEXPR __tuple_impl()</span><br><span class="line">    _NOEXCEPT_(__all&lt;is_nothrow_default_constructible&lt;_Tp&gt;::value...&gt;::value) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="类似-emplace-的逐元素构造"><a href="#类似-emplace-的逐元素构造" class="headerlink" title="类似 emplace 的逐元素构造"></a>类似 emplace 的逐元素构造</h3><p>该构造函数有两组 <code>__tuple_indices</code> 和 <code>__tuple_types</code>，允许只传递部分参数，其他参数采用默认初始化。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> ..._Uf, <span class="keyword">class</span> ..._Tf,</span><br><span class="line">          <span class="type">size_t</span> ..._Ul, <span class="keyword">class</span> ..._Tl, <span class="keyword">class</span> ..._Up&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="keyword">explicit</span></span><br><span class="line">    __tuple_impl(__tuple_indices&lt;_Uf...&gt;, __tuple_types&lt;_Tf...&gt;,</span><br><span class="line">                 __tuple_indices&lt;_Ul...&gt;, __tuple_types&lt;_Tl...&gt;,</span><br><span class="line">                 _Up&amp;&amp;... __u)</span><br><span class="line">                 _NOEXCEPT_((__all&lt;is_nothrow_constructible&lt;_Tf, _Up&gt;::value...&gt;::value &amp;&amp;</span><br><span class="line">                             __all&lt;is_nothrow_default_constructible&lt;_Tl&gt;::value...&gt;::value)) :</span><br><span class="line">        __tuple_leaf&lt;_Uf, _Tf&gt;(_VSTD::forward&lt;_Up&gt;(__u))...,</span><br><span class="line">        __tuple_leaf&lt;_Ul, _Tl&gt;()...</span><br><span class="line">        &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受泛型-tuple-的构造函数"><a href="#接受泛型-tuple-的构造函数" class="headerlink" title="接受泛型 tuple 的构造函数"></a>接受泛型 tuple 的构造函数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>,</span><br><span class="line">          <span class="keyword">class</span> = <span class="keyword">typename</span> enable_if</span><br><span class="line">                  &lt;</span><br><span class="line">                     __tuple_constructible&lt;_Tuple, tuple&lt;_Tp...&gt; &gt;::value</span><br><span class="line">                  &gt;::type</span><br><span class="line">         &gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    __tuple_impl(_Tuple&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((__all&lt;is_nothrow_constructible&lt;_Tp, <span class="keyword">typename</span> tuple_element&lt;_Indx,</span><br><span class="line">                                   <span class="keyword">typename</span> __make_tuple_types&lt;_Tuple&gt;::type&gt;::type&gt;::value...&gt;::value))</span><br><span class="line">        : __tuple_leaf&lt;_Indx, _Tp&gt;(_VSTD::forward&lt;<span class="keyword">typename</span> tuple_element&lt;_Indx,</span><br><span class="line">                                   <span class="keyword">typename</span> __make_tuple_types&lt;_Tuple&gt;::type&gt;::type&gt;(_VSTD::<span class="built_in">get</span>&lt;_Indx&gt;(<span class="type">__t</span>)))...</span><br><span class="line">        &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__tuple_constructible</code> 之前已经介绍过。<code>_Tuple</code> 根据输入参数是左值还是右值可能会推断为值和引用，比如 <code>tuple&lt;int, int&gt;</code> 或者 <code>tuple&lt;int, int&gt;&amp;</code>，这会影响到 <code>__tuple_constructible</code>（因为 <code>__make_tuple_types</code> 会把 tuple 自身的属性加到 tuple 内部的 type 上）。</p>
+<h4 id="tuple-element"><a href="#tuple-element" class="headerlink" title="tuple_element"></a>tuple_element</h4><p>tuple_element 也会把输入的 tuple 上的属性加到取得的 type 中，下面的特化说明了这一点</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt; <span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element&lt;_Ip, <span class="type">const</span> _Tp&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> add_const&lt;<span class="keyword">typename</span> tuple_element&lt;_Ip, _Tp&gt;::type&gt;::type type;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element&lt;_Ip, <span class="keyword">volatile</span> _Tp&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> add_volatile&lt;<span class="keyword">typename</span> tuple_element&lt;_Ip, _Tp&gt;::type&gt;::type type;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element&lt;_Ip, <span class="type">const</span> <span class="keyword">volatile</span> _Tp&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> add_cv&lt;<span class="keyword">typename</span> tuple_element&lt;_Ip, _Tp&gt;::type&gt;::type type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果输入的是 <code>__tuple_types</code>，那么使用下面的特化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Types&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element&lt;_Ip, __tuple_types&lt;_Types...&gt;&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(_Ip &lt; <span class="keyword">sizeof</span>...(_Types), <span class="string">&quot;tuple_element index out of range&quot;</span>);</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE __type_pack_element&lt;_Ip, _Types...&gt; type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果输入的是 tuple，先转成 <code>__tuple_types</code>，然后使用上面的模板</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE <span class="keyword">typename</span> tuple_element&lt;_Ip, __tuple_types&lt;_Tp...&gt; &gt;::type type;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>所以最终获取 tuple 还是通过 <code>__type_pack_element</code></p>
+<h4 id="get"><a href="#get" class="headerlink" title="get"></a>get</h4><p>可以通过 get 获得指定索引处的元素。get 的结果和下面这些条件有关</p>
+<ul>
+<li>输入的 tuple 是否有 const 修饰</li>
+<li>输入的 tuple 是左值还是右值</li>
+<li>以及 tuple 内部的类型</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_SINCE_CXX14</span><br><span class="line"><span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::<span class="function">type&amp;</span></span><br><span class="line"><span class="function"><span class="title">get</span><span class="params">(tuple&lt;_Tp...&gt;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::type type;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">static_cast</span>&lt;__tuple_leaf&lt;_Ip, type&gt;&amp;&gt;(<span class="type">__t</span>.__base_).<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_SINCE_CXX14</span><br><span class="line"><span class="type">const</span> <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::<span class="function">type&amp;</span></span><br><span class="line"><span class="function"><span class="title">get</span><span class="params">(<span class="type">const</span> tuple&lt;_Tp...&gt;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::type type;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">static_cast</span>&lt;<span class="type">const</span> __tuple_leaf&lt;_Ip, type&gt;&amp;&gt;(<span class="type">__t</span>.__base_).<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_SINCE_CXX14</span><br><span class="line"><span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::<span class="function">type&amp;&amp;</span></span><br><span class="line"><span class="function"><span class="title">get</span><span class="params">(tuple&lt;_Tp...&gt;&amp;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::type type;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">static_cast</span>&lt;type&amp;&amp;&gt;(</span><br><span class="line">             <span class="keyword">static_cast</span>&lt;__tuple_leaf&lt;_Ip, type&gt;&amp;&amp;&gt;(<span class="type">__t</span>.__base_).<span class="built_in">get</span>());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_SINCE_CXX14</span><br><span class="line"><span class="type">const</span> <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::<span class="function">type&amp;&amp;</span></span><br><span class="line"><span class="function"><span class="title">get</span><span class="params">(<span class="type">const</span> tuple&lt;_Tp...&gt;&amp;&amp; <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG <span class="keyword">typename</span> tuple_element&lt;_Ip, tuple&lt;_Tp...&gt; &gt;::type type;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">static_cast</span>&lt;<span class="type">const</span> type&amp;&amp;&gt;(</span><br><span class="line">             <span class="keyword">static_cast</span>&lt;<span class="type">const</span> __tuple_leaf&lt;_Ip, type&gt;&amp;&amp;&gt;(<span class="type">__t</span>.__base_).<span class="built_in">get</span>());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受泛型-tuple-的赋值"><a href="#接受泛型-tuple-的赋值" class="headerlink" title="接受泛型 tuple 的赋值"></a>接受泛型 tuple 的赋值</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tuple</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    <span class="keyword">typename</span> enable_if</span><br><span class="line">    &lt;</span><br><span class="line">        __tuple_assignable&lt;_Tuple, tuple&lt;_Tp...&gt; &gt;::value,</span><br><span class="line">        __tuple_impl&amp;</span><br><span class="line">    &gt;::type</span><br><span class="line">    <span class="keyword">operator</span>=(_Tuple&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((__all&lt;is_nothrow_assignable&lt;_Tp&amp;, <span class="keyword">typename</span> tuple_element&lt;_Indx,</span><br><span class="line">                                   <span class="keyword">typename</span> __make_tuple_types&lt;_Tuple&gt;::type&gt;::type&gt;::value...&gt;::value))</span><br><span class="line">    &#123;</span><br><span class="line">        __swallow(__tuple_leaf&lt;_Indx, _Tp&gt;::<span class="keyword">operator</span>=(_VSTD::forward&lt;<span class="keyword">typename</span> tuple_element&lt;_Indx,</span><br><span class="line">                                   <span class="keyword">typename</span> __make_tuple_types&lt;_Tuple&gt;::type&gt;::type&gt;(_VSTD::<span class="built_in">get</span>&lt;_Indx&gt;(<span class="type">__t</span>)))...);</span><br><span class="line">        <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>内部调用父类 <code>__tuple_leaf</code> 的 <code>operator=()</code>，<code>__swallow</code> 就是空函数，用于接受展开后的计算结果</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Tp&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line"><span class="type">void</span> __swallow(_Tp&amp;&amp;...) _NOEXCEPT &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="接受-tuple-impl-的赋值函数"><a href="#接受-tuple-impl-的赋值函数" class="headerlink" title="接受__tuple_impl 的赋值函数"></a>接受__tuple_impl 的赋值函数</h3><p>基本上都是参数转发过程。</p>
+<p>const 左值直接 static_cast；而右值则根据 <code>_Tp</code> 进行转发，如果 <code>_Tp</code> 是值，那么得到将亡值，如果是引用，将得到左值引用，这是为了考虑 <code>_Tp</code> 为引用的场景</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">__tuple_impl&amp;</span><br><span class="line"><span class="keyword">operator</span>=(<span class="type">const</span> __tuple_impl&amp; <span class="type">__t</span>) _NOEXCEPT_((__all&lt;is_nothrow_copy_assignable&lt;_Tp&gt;::value...&gt;::value))</span><br><span class="line">&#123;</span><br><span class="line">    __swallow(__tuple_leaf&lt;_Indx, _Tp&gt;::<span class="keyword">operator</span>=(<span class="keyword">static_cast</span>&lt;<span class="type">const</span> __tuple_leaf&lt;_Indx, _Tp&gt;&amp;&gt;(<span class="type">__t</span>).<span class="built_in">get</span>())...);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">__tuple_impl&amp;</span><br><span class="line"><span class="keyword">operator</span>=(__tuple_impl&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((__all&lt;is_nothrow_move_assignable&lt;_Tp&gt;::value...&gt;::value))</span><br><span class="line">&#123;</span><br><span class="line">    __swallow(__tuple_leaf&lt;_Indx, _Tp&gt;::<span class="keyword">operator</span>=(_VSTD::forward&lt;_Tp&gt;(<span class="keyword">static_cast</span>&lt;__tuple_leaf&lt;_Indx, _Tp&gt;&amp;&gt;(<span class="type">__t</span>).<span class="built_in">get</span>()))...);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意这里 <code>static_cast&lt;__tuple_leaf&lt;_Indx, _Tp&gt;&amp;&gt;(__t).get()</code>，先将 <code>__t</code> 进行 <code>static_cast</code>，然后再 get，这个没有关系，因为 forward 是根据 <code>_Tp</code> 来决定得到什么类型的值，比如 <code>_Tp</code> 是值，forward 得到将亡值，如果 <code>_Tp</code> 是引用，forward 得到左值引用</p>
+<h2 id="tuple-leaf"><a href="#tuple-leaf" class="headerlink" title="__tuple_leaf"></a>__tuple_leaf</h2><p>再看 <code>__tuple_leaf</code>，他和之前的 compressed_pair 一样会做空基类优化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Hp</span>,</span><br><span class="line">          <span class="type">bool</span>=is_empty&lt;_Hp&gt;::value &amp;&amp; !__libcpp_is_final&lt;_Hp&gt;::value</span><br><span class="line">         &gt; <span class="comment">// 也是检查is_empty和is_final这两个条件</span></span><br><span class="line"><span class="keyword">class</span> __tuple_leaf;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Hp</span>, <span class="type">bool</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__tuple_leaf</span> <span class="comment">// 基类非空</span></span><br><span class="line">&#123;</span><br><span class="line">    _Hp __value_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">size_t</span> _Ip, <span class="keyword">class</span> <span class="title class_">_Hp</span>&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__tuple_leaf</span>&lt;_Ip, _Hp, <span class="literal">true</span>&gt;</span><br><span class="line">    : <span class="keyword">private</span> _Hp  <span class="comment">// 基类为空</span></span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>接着看看相关函数。</p>
+<p>默认构造。这里没有检查 <code>_Hp</code> 是否是 default_constructible，因为上层做了检查</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR __tuple_leaf()</span><br><span class="line">         _NOEXCEPT_(is_nothrow_default_constructible&lt;_Hp&gt;::value) : __value_()</span><br><span class="line">   &#123;<span class="built_in">static_assert</span>(!is_reference&lt;_Hp&gt;::value,</span><br><span class="line">          <span class="string">&quot;Attempted to default construct a reference element in a tuple&quot;</span>);&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接受一个参数的构造函数。要求 <code>_Tp</code> 不能是当前 <code>__tuple_leaf</code> 类型，以及由 <code>_Tp</code> 可以构造 <code>_Hp</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>,</span><br><span class="line">          <span class="keyword">class</span> = _EnableIf&lt;</span><br><span class="line">              _And&lt;</span><br><span class="line">                  _IsNotSame&lt;<span class="type">__uncvref_t</span>&lt;_Tp&gt;, __tuple_leaf&gt;,</span><br><span class="line">                  is_constructible&lt;_Hp, _Tp&gt;</span><br><span class="line">                &gt;::value</span><br><span class="line">            &gt;</span><br><span class="line">        &gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">    <span class="keyword">explicit</span> __tuple_leaf(_Tp&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_constructible&lt;_Hp, _Tp&gt;::value))</span><br><span class="line">        : __value_(_VSTD::forward&lt;_Tp&gt;(<span class="type">__t</span>))</span><br><span class="line">    &#123;<span class="built_in">static_assert</span>(__can_bind_reference&lt;_Tp&amp;&amp;&gt;(),</span><br><span class="line">   <span class="string">&quot;Attempted construction of reference element binds to a temporary whose lifetime has ended&quot;</span>);&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接受一个参数的赋值运算符。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Tp</span>&gt;</span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    __tuple_leaf&amp;</span><br><span class="line">    <span class="keyword">operator</span>=(_Tp&amp;&amp; <span class="type">__t</span>) _NOEXCEPT_((is_nothrow_assignable&lt;_Hp&amp;, _Tp&gt;::value))</span><br><span class="line">    &#123;</span><br><span class="line">        __value_ = _VSTD::forward&lt;_Tp&gt;(<span class="type">__t</span>);</span><br><span class="line">        <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="make-tuple"><a href="#make-tuple" class="headerlink" title="make_tuple"></a>make_tuple</h2><p>和 pair 一样对参数进行了 <code>__unwrap_ref_decay</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span>... _Tp&gt;</span><br><span class="line"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span><br><span class="line">tuple&lt;<span class="keyword">typename</span> __unwrap_ref_decay&lt;_Tp&gt;::type...&gt;</span><br><span class="line"><span class="built_in">make_tuple</span>(_Tp&amp;&amp;... <span class="type">__t</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> tuple&lt;<span class="keyword">typename</span> __unwrap_ref_decay&lt;_Tp&gt;::type...&gt;(_VSTD::forward&lt;_Tp&gt;(<span class="type">__t</span>)...);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="forward-as-tuple"><a href="#forward-as-tuple" class="headerlink" title="forward_as_tuple"></a>forward_as_tuple</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span>... _Tp&gt;</span><br><span class="line"><span class="function"><span class="keyword">inline</span> _LIBCPP_INLINE_VISIBILITY _LIBCPP_CONSTEXPR_AFTER_CXX11</span></span><br><span class="line"><span class="function">tuple&lt;_Tp&amp;&amp;...&gt;</span></span><br><span class="line"><span class="function"><span class="title">forward_as_tuple</span><span class="params">(_Tp&amp;&amp;... <span class="type">__t</span>)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">tuple</span>&lt;_Tp&amp;&amp;...&gt;(_VSTD::forward&lt;_Tp&gt;(<span class="type">__t</span>)...);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这个函数比较有意思，它创建的 tuple 的模板参数是引用类型，比如 <code>tuple&lt;int&amp;,int&amp;&amp;&gt;</code>。让 tuple 内部为引用一般用在参数的组装和转发，比如之前 pair 和 <code>__compressed_pair</code> 的 piecewise_construct 里的 tuple 参数的模板参数通常为引用。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/17/C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-pair/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-20 10:27:39
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-C/" title="C/C++">
+                        <b>#</b> C/C++
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                        <b>#</b> C++标准库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/20/Chromium-base-%E5%BA%93%E4%B9%8B-scoped-refptr/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-tuple"><span class="toc-text">C++ 标准库之 tuple</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#make-tuple-indices"><span class="toc-text">__make_tuple_indices</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tuple"><span class="toc-text">tuple</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%BB%98%E8%AE%A4%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">默认构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97-const-%E5%B7%A6%E5%80%BC%E5%BC%95%E7%94%A8%E5%8F%82%E6%95%B0%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受 const 左值引用参数的构造函数</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#make-tuple-types"><span class="toc-text">__make_tuple_types</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#type-pack-element"><span class="toc-text">__type_pack_element</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#tuple-constructible"><span class="toc-text">__tuple_constructible</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8%E5%8F%82%E6%95%B0%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受右值引用参数的构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97-tuple-%E7%B1%BB%E5%9E%8B%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受 tuple 类型的构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8B%B7%E8%B4%9D-x2F-%E7%A7%BB%E5%8A%A8%E8%B5%8B%E5%80%BC%E5%87%BD%E6%95%B0"><span class="toc-text">拷贝&#x2F;移动赋值函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%B3%9B%E5%9E%8B-tuple-%E7%9A%84%E8%B5%8B%E5%80%BC%E5%87%BD%E6%95%B0"><span class="toc-text">接受泛型 tuple 的赋值函数</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tuple-impl"><span class="toc-text">__tuple_impl</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%BB%98%E8%AE%A4%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0-1"><span class="toc-text">默认构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B1%BB%E4%BC%BC-emplace-%E7%9A%84%E9%80%90%E5%85%83%E7%B4%A0%E6%9E%84%E9%80%A0"><span class="toc-text">类似 emplace 的逐元素构造</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%B3%9B%E5%9E%8B-tuple-%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受泛型 tuple 的构造函数</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#tuple-element"><span class="toc-text">tuple_element</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#get"><span class="toc-text">get</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%B3%9B%E5%9E%8B-tuple-%E7%9A%84%E8%B5%8B%E5%80%BC"><span class="toc-text">接受泛型 tuple 的赋值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97-tuple-impl-%E7%9A%84%E8%B5%8B%E5%80%BC%E5%87%BD%E6%95%B0"><span class="toc-text">接受__tuple_impl 的赋值函数</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#tuple-leaf"><span class="toc-text">__tuple_leaf</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#make-tuple"><span class="toc-text">make_tuple</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#forward-as-tuple"><span class="toc-text">forward_as_tuple</span></a></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
