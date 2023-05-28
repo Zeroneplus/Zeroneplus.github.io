@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      C++ 标准库之 function 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">C++ 标准库之 function</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-28 14:55:42
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/C-C/" title="C/C++">
+                    <b>#</b> C/C++
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                    <b>#</b> C++标准库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章接着上一篇分析 function。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>function 可以把函数、可调用对象等包装为新的可调用对象。还是先看例子（来自 cppreference）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;functional&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">Foo</span> &#123;</span><br><span class="line">  <span class="built_in">Foo</span>(<span class="type">int</span> num) : <span class="built_in">num_</span>(num) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">print_add</span><span class="params">(<span class="type">int</span> i)</span> <span class="type">const</span> </span>&#123; </span><br><span class="line">    std::cout &lt;&lt; num_+i &lt;&lt; <span class="string">&#x27;&lt;strong&gt;\n&lt;/strong&gt;&#x27;</span>; </span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">int</span> num_;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">print_num</span><span class="params">(<span class="type">int</span> i)</span></span>&#123;</span><br><span class="line">  std::cout &lt;&lt; i &lt;&lt; <span class="string">&#x27;&lt;strong&gt;\n&lt;/strong&gt;&#x27;</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">PrintNum</span> &#123;</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">operator</span><span class="params">()</span><span class="params">(<span class="type">int</span> i)</span> <span class="type">const</span></span>&#123;</span><br><span class="line">    std::cout &lt;&lt; i &lt;&lt; <span class="string">&#x27;&lt;strong&gt;\n&lt;/strong&gt;&#x27;</span>;</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="comment">// store a free function</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>(<span class="type">int</span>)&gt; f_display = print_num;</span><br><span class="line">    <span class="built_in">f_display</span>(<span class="number">-9</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store a lambda</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>()&gt; f_display_42 = []() &#123; <span class="built_in">print_num</span>(<span class="number">42</span>); &#125;;</span><br><span class="line">    <span class="built_in">f_display_42</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store the result of a call to std::bind</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>()&gt; f_display_31337 = std::<span class="built_in">bind</span>(print_num, <span class="number">31337</span>);</span><br><span class="line">    <span class="built_in">f_display_31337</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store a call to a member function</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>(<span class="type">const</span> Foo&amp;, <span class="type">int</span>)&gt; f_add_display = &amp;Foo::print_add;</span><br><span class="line">    <span class="function"><span class="type">const</span> Foo <span class="title">foo</span><span class="params">(<span class="number">314159</span>)</span></span>;</span><br><span class="line">    <span class="built_in">f_add_display</span>(foo, <span class="number">1</span>);</span><br><span class="line">    <span class="built_in">f_add_display</span>(<span class="number">314159</span>, <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store a call to a data member accessor</span></span><br><span class="line">    std::function&lt;<span class="type">int</span>(Foo <span class="type">const</span>&amp;)&gt; f_num = &amp;Foo::num_;</span><br><span class="line">    std::cout &lt;&lt; <span class="string">&quot;num_: &quot;</span> &lt;&lt; <span class="built_in">f_num</span>(foo) &lt;&lt; <span class="string">&#x27;&lt;strong&gt;\n&lt;/strong&gt;&#x27;</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store a call to a member function and object using std::placeholders::_1;</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>(<span class="type">int</span>)&gt; f_add_display2 = std::<span class="built_in">bind</span>( &amp;Foo::print_add, foo, _1 );</span><br><span class="line">    <span class="built_in">f_add_display2</span>(<span class="number">2</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// store a call to a member function and object ptr</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>(<span class="type">int</span>)&gt; f_add_display3 = std::<span class="built_in">bind</span>( &amp;Foo::print_add, &amp;foo, _1 );</span><br><span class="line">    <span class="built_in">f_add_display3</span>(<span class="number">3</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="comment">// store a call to a function object</span></span><br><span class="line">    std::function&lt;<span class="type">void</span>(<span class="type">int</span>)&gt; f_display_obj = <span class="built_in">PrintNum</span>();</span><br><span class="line">    <span class="built_in">f_display_obj</span>(<span class="number">18</span>);</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">auto</span> factorial = [](<span class="type">int</span> n) &#123;</span><br><span class="line">      <span class="comment">// store a lambda object to emulate &quot;recursive lambda&quot;; aware of extra overhead</span></span><br><span class="line">      std::function&lt;<span class="built_in">int</span>(<span class="type">int</span>)&gt; fac = [&amp;](<span class="type">int</span> n)&#123; <span class="built_in">return</span> (n &lt; <span class="number">2</span>) ? <span class="number">1</span> : n*<span class="built_in">fac</span>(n<span class="number">-1</span>); &#125;;</span><br><span class="line">      <span class="comment">// note that &quot;auto fac = [&amp;](int n)&#123;...&#125;;&quot; does not work in recursive calls</span></span><br><span class="line">      <span class="keyword">return</span> <span class="built_in">fac</span>(n);</span><br><span class="line">    &#125;;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> i&#123;<span class="number">5</span>&#125;; i != <span class="number">8</span>; ++i) &#123; </span><br><span class="line">      std::cout &lt;&lt; i &lt;&lt; <span class="string">&quot;! = &quot;</span> &lt;&lt; <span class="built_in">factorial</span>(i) &lt;&lt; <span class="string">&quot;;  &quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，function 的实例可以存储、拷贝、调用任何可以拷贝构造的可调用对象：</p>
+<ul>
+<li>函数（会 decay 为函数指针）</li>
+<li>lambda 表达式返回值</li>
+<li>bind 函数返回值</li>
+<li>重载了调用运算符的类的实例</li>
+<li>类成员函数指针</li>
+<li>类成员数据指针</li>
+</ul>
+<p>注意如果给 function 的参数是类成员函数指针，那么调用时第一个参数必须是对象，要满足类成员函数指针的调用要求。</p>
+<h2 id="function"><a href="#function" class="headerlink" title="function"></a>function</h2><p>先看 function 类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt; <span class="keyword">class</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> function; <span class="comment">// undefined</span></span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">_LIBCPP_TEMPLATE_VIS</span> function&lt;_Rp(_ArgTypes...)&gt;</span><br><span class="line">    : <span class="keyword">public</span> __function::__maybe_derive_from_unary_function&lt;_Rp(_ArgTypes...)&gt;,</span><br><span class="line">      <span class="keyword">public</span> __function::__maybe_derive_from_binary_function&lt;_Rp(_ArgTypes...)&gt;</span><br><span class="line">&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">ifndef</span> _LIBCPP_ABI_OPTIMIZED_FUNCTION</span></span><br><span class="line">    <span class="keyword">typedef</span> __function::__value_func&lt;_Rp(_ArgTypes...)&gt; __func;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">    <span class="keyword">typedef</span> __function::__policy_func&lt;_Rp(_ArgTypes...)&gt; __func;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    __func __f_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>function 只有 <code>function&lt;_Rp(_ArgTypes...)&gt;</code> 这个特化版本是有定义的，其他都是未定义的。</p>
+<p>function 可以使用不同的 <code>__func</code>，这里先只分析 <code>__value_func</code> 作为 backend 的情况</p>
+<h2 id="接受模板参数的构造函数"><a href="#接受模板参数的构造函数" class="headerlink" title="接受模板参数的构造函数"></a>接受模板参数的构造函数</h2><p>function 有一个接受模板参数的构造函数，正是这个构造函数，function 才能接受函数指针、lambda 表达式返回值、bind 返回值作为参数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> = _EnableIfCallable&lt;_Fp&gt;&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="built_in">function</span>(_Fp __f) : __f_(_VSTD::<span class="built_in">move</span>(__f)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意这个构造函数参数没有带引用，所以模板类型会推断为值类型，比如输入参数是一个函数名，<code>_Fp</code> 会推断为函数指针类型，比如下面的例子：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">f</span><span class="params">()</span></span>&#123;&#125;</span><br><span class="line">function&lt;<span class="type">void</span>()&gt; func = f;</span><br></pre></td></tr></table></figure>
+
+<p>输入参数是函数名，所以 <code>_Fp</code> 推断为函数指针。由于是传值，这里要发生值的构造，但如果传的参数是右值引用，实参是值类型，那么 <code>__f</code> 会发生移动构造。在构造 <code>__f_</code> 时，把实参 <code>__f</code> 进行了 move，所以构造 <code>__f_</code> 时传的是右值引用。</p>
+<h3 id="EnableIfCallable"><a href="#EnableIfCallable" class="headerlink" title="_EnableIfCallable"></a>_EnableIfCallable</h3><p>看看 <code>_EnableIfCallable</code> 这个条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line"><span class="keyword">using</span> _EnableIfCallable = <span class="keyword">typename</span> enable_if&lt;__callable&lt;_Fp&gt;::value&gt;::type;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="type">bool</span> = _And&lt;</span><br><span class="line">    _IsNotSame&lt;<span class="type">__uncvref_t</span>&lt;_Fp&gt;, function&gt;,</span><br><span class="line">    __invokable&lt;_Fp&amp;, _ArgTypes...&gt;</span><br><span class="line">&gt;::value&gt;</span><br><span class="line"><span class="keyword">struct</span> __callable;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">__callable</span>&lt;_Fp, <span class="literal">true</span>&gt;</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">static</span> <span class="type">const</span> <span class="type">bool</span> value = is_same&lt;<span class="type">void</span>, _Rp&gt;::value ||</span><br><span class="line">            is_convertible&lt;<span class="keyword">typename</span> __invoke_of&lt;_Fp&amp;, _ArgTypes...&gt;::type,</span><br><span class="line">                           _Rp&gt;::value;</span><br><span class="line">    &#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">__callable</span>&lt;_Fp, <span class="literal">false</span>&gt;</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="type">static</span> <span class="type">const</span> <span class="type">bool</span> value = <span class="literal">false</span>;</span><br><span class="line">    &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>他要求 <code>_Fp</code> 满足：首先 <code>_Fp</code> 不是当前 function 类型，并且对于给定 <code>_ArgTypes</code>，<code>_Fp&amp;</code> 可以调用，其次要求</p>
+<p><code>_Rp</code> 是 void，或者 <code>_Fp</code> 的返回值可转换到 <code>_Rp</code> 类型。</p>
+<p><code>__invokable</code> 在 bind 里面已经介绍过了，这次看看 <code>__invoke_of</code>：在 <code>__invokable</code> 满足的条件下，通过 <code>__invokable_r</code> 得到返回值，<code>__invokable_r</code> 在 bind 里面也介绍了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> ..._Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__invoke_of</span></span><br><span class="line">    : <span class="keyword">public</span> enable_if&lt;</span><br><span class="line">        __invokable&lt;_Fp, _Args...&gt;::value,</span><br><span class="line">        <span class="keyword">typename</span> __invokable_r&lt;<span class="type">void</span>, _Fp, _Args...&gt;::_Result&gt;</span><br><span class="line">&#123;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h3 id="value-func-中接受右值引用的模板构造函数"><a href="#value-func-中接受右值引用的模板构造函数" class="headerlink" title="__value_func 中接受右值引用的模板构造函数"></a>__value_func 中接受右值引用的模板构造函数</h3><p>再看 function 内部的 <code>__f_</code>，<code>__f_</code> 是 <code>__function::__value_func</code> 类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt; <span class="keyword">class</span> <span class="title class_">__value_func</span>&lt;_Rp(_ArgTypes...)&gt;</span><br><span class="line">&#123;</span><br><span class="line">    _LIBCPP_SUPPRESS_DEPRECATED_PUSH</span><br><span class="line">    <span class="keyword">typename</span> aligned_storage&lt;<span class="number">3</span> * <span class="built_in">sizeof</span>(<span class="type">void</span>*)&gt;::type __buf_;</span><br><span class="line">    _LIBCPP_SUPPRESS_DEPRECATED_POP</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typedef</span> __base&lt;_Rp(_ArgTypes...)&gt; __func;</span><br><span class="line">    __func* __f_;</span><br><span class="line"></span><br><span class="line">    _LIBCPP_NO_CFI <span class="type">static</span> __func* __as_base(<span class="type">void</span>* __p)</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">reinterpret_cast</span>&lt;__func*&gt;(__p);</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>function 内部构造 <code>__value_func</code> 传的是右值引用，先看接受右值引用的模板构造函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>,</span><br><span class="line">    <span class="keyword">class</span> = <span class="keyword">typename</span> enable_if&lt;!is_same&lt;<span class="keyword">typename</span> decay&lt;_Fp&gt;::type, __value_func&gt;::value&gt;::type&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY <span class="keyword">explicit</span> __value_func(_Fp&amp;&amp; __f)</span><br><span class="line">    : __value_func(_VSTD::forward&lt;_Fp&gt;(__f), <span class="built_in">allocator</span>&lt;_Fp&gt;()) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__value_func(_Fp&amp;&amp; __f)</code> 内部调用了 <code>__value_func(_Fp&amp;&amp; __f, const _Alloc&amp; __a)</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Alloc</span>&gt;</span><br><span class="line">_LIBCPP_INLINE_VISIBILITY __value_func(_Fp&amp;&amp; __f, <span class="type">const</span> _Alloc&amp; __a)</span><br><span class="line">    : __f_(<span class="number">0</span>)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> allocator_traits&lt;_Alloc&gt; __alloc_traits;</span><br><span class="line">    <span class="keyword">typedef</span> __function::__func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt; _Fun;</span><br><span class="line">    <span class="keyword">typedef</span> <span class="keyword">typename</span> __rebind_alloc_helper&lt;__alloc_traits, _Fun&gt;::type</span><br><span class="line">        _FunAlloc;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (__function::__not_null(__f))</span><br><span class="line">    &#123;</span><br><span class="line">        _FunAlloc __af(__a);</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">sizeof</span>(_Fun) &lt;= <span class="built_in">sizeof</span>(__buf_) &amp;&amp;</span><br><span class="line">            is_nothrow_copy_constructible&lt;_Fp&gt;::value &amp;&amp;</span><br><span class="line">            is_nothrow_copy_constructible&lt;_FunAlloc&gt;::value)</span><br><span class="line">        &#123;</span><br><span class="line">            __f_ =</span><br><span class="line">                ::<span class="built_in">new</span> ((<span class="type">void</span>*)&amp;__buf_) _Fun(_VSTD::<span class="built_in">move</span>(__f), _Alloc(__af));</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            <span class="keyword">typedef</span> __allocator_destructor&lt;_FunAlloc&gt; _Dp;</span><br><span class="line">            unique_ptr&lt;__func, _Dp&gt; __hold(__af.<span class="built_in">allocate</span>(<span class="number">1</span>), _Dp(__af, <span class="number">1</span>));</span><br><span class="line">            ::<span class="keyword">new</span> ((<span class="type">void</span>*)__hold.<span class="built_in">get</span>()) _Fun(_VSTD::<span class="built_in">move</span>(__f), _Alloc(__a));</span><br><span class="line">            __f_ = __hold.<span class="built_in">release</span>();</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在上面函数中，真正存储可调用对象的是 <code>__function::__func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;</code> 的实例。如果 <code>__function::__func</code> 的 size 较小，就使用 <code>__value_func</code> 内部的 <code>__buf_</code>，否则就新申请内存。</p>
+<h4 id="function-func"><a href="#function-func" class="headerlink" title="__function::__func"></a>__function::__func</h4><p><code>__function::__func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;</code> 继承 <code>__function::__base&lt;_Rp(_ArgTypes...)&gt;</code>，<code>__base</code> 是虚基类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Alloc</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__func</span>&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;</span><br><span class="line">    : <span class="keyword">public</span>  __base&lt;_Rp(_ArgTypes...)&gt;</span><br><span class="line">&#123;</span><br><span class="line">    __alloc_func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt; __f_;</span><br><span class="line"></span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    <span class="keyword">explicit</span> __func(_Fp&amp;&amp; __f, _Alloc&amp;&amp; __a)</span><br><span class="line">        : __f_(_VSTD::<span class="built_in">move</span>(__f), _VSTD::<span class="built_in">move</span>(__a)) &#123;&#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__function::__func</code> 内部还有 <code>__alloc_func</code>，<code>__alloc_func</code> 才是真正存储可调用对象的地方</p>
+<h5 id="alloc-func"><a href="#alloc-func" class="headerlink" title="__alloc_func"></a>__alloc_func</h5><p>在 <code>__alloc_func</code> 内部有一个 <code>__compressed_pair</code> 来存储可调用对象和 allocator，<code>__compressed_pair</code> 之前已经介绍过了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Ap</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__alloc_func</span>&lt;_Fp, _Ap, _Rp(_ArgTypes...)&gt;</span><br><span class="line">&#123;</span><br><span class="line">    __compressed_pair&lt;_Fp, _Ap&gt; __f_;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Fp _Target;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Ap _Alloc;</span><br><span class="line"></span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    <span class="keyword">explicit</span> __alloc_func(_Target&amp;&amp; __f, _Alloc&amp;&amp; __a)</span><br><span class="line">        : __f_(piecewise_construct, _VSTD::forward_as_tuple(_VSTD::<span class="built_in">move</span>(__f)),</span><br><span class="line">               _VSTD::forward_as_tuple(_VSTD::<span class="built_in">move</span>(__a)))</span><br><span class="line">    &#123;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>__alloc_func</code> 内部使用了 <code>__compressed_pair</code> 的 piecewise_construct 函数，使用了之前说过的 forward_as_tuple，通过他得到的 tuple 里面的类型是引用类型</p>
+<p>通过上面的分析可知，在创建 function 对象时，最开始 function 的构造函数内由于传参是值类型，所以发生了值的构造，但是后面都是<strong>尽可能</strong>以右值引用的方式往下传参数，最后在 <code>__alloc_func</code> 内部，也就是真正保存可调用对象的地方是按值存储可调用对象的，但是构造该对象时传的是右值引用，所以会<strong>尽可能</strong>使用移动构造，把最开始 function 构造函数中创建的值的资源转移到 <code>__alloc_func</code> 的 <code>__compressed_pair</code> 的值中。</p>
+<p>当然上面说的是最理想的情况，如果可调用对象没有定义移动语义还是会拷贝构造。</p>
+<h2 id="function-operator"><a href="#function-operator" class="headerlink" title="function::operator()()"></a>function::operator()()</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line">_Rp</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="built_in">operator</span>()(_ArgTypes... __arg) <span class="type">const</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">return</span> __f_(_VSTD::forward&lt;_ArgTypes&gt;(__arg)...);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意 operator()()的参数不是模板类型，就是定义 function 时设定的模板类型，这和 bind 不一样。但是 <code>_ArgTypes</code> 中可以出现引用，比如 <code>function&lt;void(int&amp;)&gt;</code>，因为函数形参可以是引用类型</p>
+<h3 id="value-func-operator"><a href="#value-func-operator" class="headerlink" title="__value_func::operator()()"></a>__value_func::operator()()</h3><p><code>__f_</code> 是 <code>__value_func</code> 类型，所以 function::operator()()内部调用 <code>__value_func::operator()()</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__value_func</span>&lt;_Rp(_ArgTypes...)&gt;&#123;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="keyword">typedef</span> __base&lt;_Rp(_ArgTypes...)&gt; __func;</span><br><span class="line">__func* __f_;</span><br><span class="line"></span><br><span class="line"><span class="function">_Rp <span class="title">operator</span><span class="params">()</span><span class="params">(_ArgTypes&amp;&amp;... __args)</span> <span class="type">const</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (__f_ == <span class="number">0</span>)</span><br><span class="line">        __throw_bad_function_call();</span><br><span class="line">    <span class="keyword">return</span> (*__f_)(_VSTD::forward&lt;_ArgTypes&gt;(__args)...);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="function-func-operator"><a href="#function-func-operator" class="headerlink" title="__function::__func::operator()()"></a>__function::__func::operator()()</h4><p><code>__f_</code> 是 <code>__base&lt;_Rp(_ArgTypes...)&gt;</code> 类型的指针，但是实际指向 <code>__function::__func</code>，<code>__function::__func</code> 继承 <code>__function::__base</code>，而 <code>__function::__func::operator()()</code> 还是参数转发，交给 <code>__alloc_func::operator()()</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Alloc</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__func</span>&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;</span><br><span class="line">    : <span class="keyword">public</span>  __base&lt;_Rp(_ArgTypes...)&gt; &#123;</span><br><span class="line"></span><br><span class="line">__alloc_func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt; __f_;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">template</span>&lt;<span class="keyword">class</span> _Fp, <span class="keyword">class</span> _Alloc, <span class="keyword">class</span> _Rp, <span class="keyword">class</span> ..._ArgTypes&gt;</span></span><br><span class="line"><span class="function">_Rp <span class="title">operator</span><span class="params">()</span><span class="params">(_ArgTypes&amp;&amp; ... __arg)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">return</span> __f_(_VSTD::forward&lt;_ArgTypes&gt;(__arg)...);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="alloc-func-operator"><a href="#alloc-func-operator" class="headerlink" title="__alloc_func::operator()()"></a>__alloc_func::operator()()</h5><p><code>__alloc_func</code> 内部取出可调用对象，进行调用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Ap</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">__alloc_func</span>&lt;_Fp, _Ap, _Rp(_ArgTypes...)&gt;</span><br><span class="line">&#123;</span><br><span class="line">    __compressed_pair&lt;_Fp, _Ap&gt; __f_;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Fp _Target;</span><br><span class="line">    <span class="keyword">typedef</span> _LIBCPP_NODEBUG_TYPE _Ap _Alloc;</span><br><span class="line"></span><br><span class="line"><span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function">_Rp <span class="title">operator</span><span class="params">()</span><span class="params">(_ArgTypes&amp;&amp;... __arg)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">typedef</span> __invoke_void_return_wrapper&lt;_Rp&gt; _Invoker;</span><br><span class="line">    <span class="keyword">return</span> _Invoker::__call(__f_.<span class="built_in">first</span>(),</span><br><span class="line">                            _VSTD::forward&lt;_ArgTypes&gt;(__arg)...);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h6 id="invoke-void-return-wrapper"><a href="#invoke-void-return-wrapper" class="headerlink" title="__invoke_void_return_wrapper"></a>__invoke_void_return_wrapper</h6><p><code>__invoke_void_return_wrapper</code> 如下，内部调用了 <code>__invoke</code>，<code>__invoke</code> 之前已经介绍</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Ret</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__invoke_void_return_wrapper</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="type">static</span> _Ret __call(_Args&amp;&amp;... __args) &#123;</span><br><span class="line">        <span class="keyword">return</span> __invoke(_VSTD::forward&lt;_Args&gt;(__args)...);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">__invoke_void_return_wrapper</span>&lt;<span class="type">void</span>&gt;</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">class</span> ..._Args&gt;</span><br><span class="line">    <span class="type">static</span> <span class="type">void</span> __call(_Args&amp;&amp;... __args) &#123;</span><br><span class="line">        __invoke(_VSTD::forward&lt;_Args&gt;(__args)...);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h2 id="拷贝构造"><a href="#拷贝构造" class="headerlink" title="拷贝构造"></a>拷贝构造</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="built_in">function</span>(<span class="type">const</span> function&amp; __f) : __f_(__f.__f_) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>内部发生 <code>__value_func</code> 的拷贝构造</p>
+<h3 id="value-func"><a href="#value-func" class="headerlink" title="__value_func"></a>__value_func</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">__value_func(<span class="type">const</span> __value_func&amp; __f)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">if</span> (__f.__f_ == <span class="literal">nullptr</span>)</span><br><span class="line">        __f_ = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> ((<span class="type">void</span>*)__f.__f_ == &amp;__f.__buf_)</span><br><span class="line">    &#123;</span><br><span class="line">        __f_ = __as_base(&amp;__buf_);</span><br><span class="line">        __f.__f_-&gt;__clone(__f_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        __f_ = __f.__f_-&gt;__clone();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>__value_func</code> 内部调用 <code>__func</code> 的 clone 函数，由于 <code>__value_func.__f_</code> 指针指向的内存可能不是动态分配的，所以这里存在两种 clone 方式，一种输入指定地址，在指定地址上构造 <code>__func</code>，另一种则是直接动态分配 <code>__func</code> 的内存，然后构造。下面很多函数都针对这个机制做了不同处理</p>
+<h4 id="func-clone"><a href="#func-clone" class="headerlink" title="__func::__clone"></a>__func::__clone</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Alloc</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line">__base&lt;_Rp(_ArgTypes...)&gt;*</span><br><span class="line">__func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;::__clone() <span class="type">const</span></span><br><span class="line">&#123;</span><br><span class="line">    <span class="keyword">typedef</span> allocator_traits&lt;_Alloc&gt; __alloc_traits;</span><br><span class="line">    <span class="keyword">typedef</span> __rebind_alloc&lt;__alloc_traits, __func&gt; _Ap;</span><br><span class="line">    _Ap __a(__f_.__get_allocator());</span><br><span class="line">    <span class="keyword">typedef</span> __allocator_destructor&lt;_Ap&gt; _Dp;</span><br><span class="line">    unique_ptr&lt;__func, _Dp&gt; __hold(__a.<span class="built_in">allocate</span>(<span class="number">1</span>), _Dp(__a, <span class="number">1</span>));</span><br><span class="line">    ::<span class="keyword">new</span> ((<span class="type">void</span>*)__hold.<span class="built_in">get</span>()) __func(__f_.__target(), _Alloc(__a));</span><br><span class="line">    <span class="keyword">return</span> __hold.<span class="built_in">release</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span> <span class="title class_">_Alloc</span>, <span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="type">void</span></span><br><span class="line">__func&lt;_Fp, _Alloc, _Rp(_ArgTypes...)&gt;::__clone(__base&lt;_Rp(_ArgTypes...)&gt;* __p) <span class="type">const</span></span><br><span class="line">&#123;</span><br><span class="line">    ::<span class="keyword">new</span> ((<span class="type">void</span>*)__p) __func(__f_.__target(), __f_.__get_allocator());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="alloc-func-1"><a href="#alloc-func-1" class="headerlink" title="__alloc_func"></a>__alloc_func</h5><p>真正的构造发生在 <code>__alloc_func</code> 中，因为 <code>__alloc_func</code> 有 <code>__compressed_pair</code> 真正存储可调用对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// __compressed_pair&lt;_Fp, _Ap&gt; __f_;</span></span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    <span class="type">const</span> _Target&amp; __target() <span class="type">const</span> &#123; <span class="keyword">return</span> __f_.<span class="built_in">first</span>(); &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// WIN32 APIs may define __allocator, so use __get_allocator instead.</span></span><br><span class="line">    _LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    <span class="type">const</span> _Alloc&amp; __get_allocator() <span class="type">const</span> &#123; <span class="keyword">return</span> __f_.<span class="built_in">second</span>(); &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="移动构造"><a href="#移动构造" class="headerlink" title="移动构造"></a>移动构造</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span>... _ArgTypes&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="built_in">function</span>(function&amp;&amp; __f) _NOEXCEPT</span><br><span class="line">    : __f_(_VSTD::<span class="built_in">move</span>(__f.__f_)) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>调用 <code>__value_func</code> 的移动构造</p>
+<h3 id="value-func-1"><a href="#value-func-1" class="headerlink" title="__value_func"></a>__value_func</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    __value_func(__value_func&amp;&amp; __f) _NOEXCEPT</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="keyword">if</span> (__f.__f_ == <span class="literal">nullptr</span>)</span><br><span class="line">            __f_ = <span class="literal">nullptr</span>;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((<span class="type">void</span>*)__f.__f_ == &amp;__f.__buf_)</span><br><span class="line">        &#123;</span><br><span class="line">            __f_ = __as_base(&amp;__buf_);</span><br><span class="line">            __f.__f_-&gt;__clone(__f_);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            __f_ = __f.__f_;</span><br><span class="line">            __f.__f_ = <span class="literal">nullptr</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>针对__f_指针是否动态分配有不同处理，如果是动态分配，直接把输入 <code>__value_func</code> 的 <code>__f_</code> 指针赋给当前 <code>__value_func</code> 的 <code>__f_</code>，否则要 clone</p>
+<h2 id="拷贝赋值"><a href="#拷贝赋值" class="headerlink" title="拷贝赋值"></a>拷贝赋值</h2><p>先构造一个临时 function，然后进行 swap</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;&amp;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="keyword">operator</span>=(<span class="type">const</span> function&amp; __f)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">function</span>(__f).<span class="built_in">swap</span>(*<span class="keyword">this</span>);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面函数调用了 <code>__value_func::swap</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="type">void</span></span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="built_in">swap</span>(function&amp; __f) _NOEXCEPT</span><br><span class="line">&#123;</span><br><span class="line">    __f_.<span class="built_in">swap</span>(__f.__f_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="value-func-swap"><a href="#value-func-swap" class="headerlink" title="__value_func::swap"></a>__value_func::swap</h3><p><code>__value_func</code> 内部根据 <code>__f_</code> 是否指向 <code>__buf_</code> 来做不同的处理。</p>
+<p>最简单的情况，如果输入的 <code>__f.__f_</code> 和当前 <code>__value_func</code> 的 <code>__f_</code> 都是动态分配的，那么直接交换 <code>__f_</code> 指针，这对应下面 if 语句的最后一种情况。其他的情况则要根据 <code>__f_</code> 是否动态分配进行一些 destroy 和 clone 操作</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">_LIBCPP_INLINE_VISIBILITY</span></span><br><span class="line"><span class="function">    <span class="type">void</span> <span class="title">swap</span><span class="params">(__value_func&amp; __f)</span> _NOEXCEPT</span></span><br><span class="line"><span class="function">    </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (&amp;__f == <span class="keyword">this</span>)</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        <span class="keyword">if</span> ((<span class="type">void</span>*)__f_ == &amp;__buf_ &amp;&amp; (<span class="type">void</span>*)__f.__f_ == &amp;__f.__buf_)</span><br><span class="line">        &#123;</span><br><span class="line">            _LIBCPP_SUPPRESS_DEPRECATED_PUSH</span><br><span class="line">            <span class="keyword">typename</span> aligned_storage&lt;<span class="built_in">sizeof</span>(__buf_)&gt;::type __tempbuf;</span><br><span class="line">            _LIBCPP_SUPPRESS_DEPRECATED_POP</span><br><span class="line">            __func* <span class="type">__t</span> = __as_base(&amp;__tempbuf);</span><br><span class="line">            __f_-&gt;__clone(<span class="type">__t</span>);</span><br><span class="line">            __f_-&gt;<span class="built_in">destroy</span>();</span><br><span class="line">            __f_ = <span class="literal">nullptr</span>;</span><br><span class="line">            __f.__f_-&gt;__clone(__as_base(&amp;__buf_));</span><br><span class="line">            __f.__f_-&gt;<span class="built_in">destroy</span>();</span><br><span class="line">            __f.__f_ = <span class="literal">nullptr</span>;</span><br><span class="line">            __f_ = __as_base(&amp;__buf_);</span><br><span class="line">            <span class="type">__t</span>-&gt;__clone(__as_base(&amp;__f.__buf_));</span><br><span class="line">            <span class="type">__t</span>-&gt;<span class="built_in">destroy</span>();</span><br><span class="line">            __f.__f_ = __as_base(&amp;__f.__buf_);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((<span class="type">void</span>*)__f_ == &amp;__buf_)</span><br><span class="line">        &#123;</span><br><span class="line">            __f_-&gt;__clone(__as_base(&amp;__f.__buf_));</span><br><span class="line">            __f_-&gt;<span class="built_in">destroy</span>();</span><br><span class="line">            __f_ = __f.__f_;</span><br><span class="line">            __f.__f_ = __as_base(&amp;__f.__buf_);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((<span class="type">void</span>*)__f.__f_ == &amp;__f.__buf_)</span><br><span class="line">        &#123;</span><br><span class="line">            __f.__f_-&gt;__clone(__as_base(&amp;__buf_));</span><br><span class="line">            __f.__f_-&gt;<span class="built_in">destroy</span>();</span><br><span class="line">            __f.__f_ = __f_;</span><br><span class="line">            __f_ = __as_base(&amp;__buf_);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            _VSTD::<span class="built_in">swap</span>(__f_, __f.__f_);</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="接受泛型参数的赋值"><a href="#接受泛型参数的赋值" class="headerlink" title="接受泛型参数的赋值"></a>接受泛型参数的赋值</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">class</span> <span class="title class_">_Fp</span>, <span class="keyword">class</span>&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;&amp;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="keyword">operator</span>=(_Fp&amp;&amp; __f)</span><br><span class="line">&#123;</span><br><span class="line">    <span class="built_in">function</span>(_VSTD::forward&lt;_Fp&gt;(__f)).<span class="built_in">swap</span>(*<span class="keyword">this</span>);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>和上面一样，先创建临时 function 对象，然后 swap</p>
+<h2 id="移动赋值"><a href="#移动赋值" class="headerlink" title="移动赋值"></a>移动赋值</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span>&lt;<span class="keyword">class</span> <span class="title class_">_Rp</span>, <span class="keyword">class</span> ..._ArgTypes&gt;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;&amp;</span><br><span class="line">function&lt;_Rp(_ArgTypes...)&gt;::<span class="keyword">operator</span>=(function&amp;&amp; __f) _NOEXCEPT</span><br><span class="line">&#123;</span><br><span class="line">    __f_ = _VSTD::<span class="built_in">move</span>(__f.__f_);</span><br><span class="line">    <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先释放当前 <code>__value_func</code> 的资源，然后根据输入 <code>__value_func</code> 的 <code>__f_</code> 指针指向的内存是否是动态分配决定是直接接管 <code>__f_</code> 指针还是进行 clone。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">_LIBCPP_INLINE_VISIBILITY</span><br><span class="line">    __value_func&amp; <span class="keyword">operator</span>=(__value_func&amp;&amp; __f)</span><br><span class="line">    &#123;</span><br><span class="line">        *<span class="keyword">this</span> = <span class="literal">nullptr</span>;</span><br><span class="line">        <span class="keyword">if</span> (__f.__f_ == <span class="literal">nullptr</span>)</span><br><span class="line">            __f_ = <span class="literal">nullptr</span>;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> ((<span class="type">void</span>*)__f.__f_ == &amp;__f.__buf_)</span><br><span class="line">        &#123;</span><br><span class="line">            __f_ = __as_base(&amp;__buf_);</span><br><span class="line">            __f.__f_-&gt;__clone(__f_);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">        &#123;</span><br><span class="line">            __f_ = __f.__f_;</span><br><span class="line">            __f.__f_ = <span class="literal">nullptr</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> *<span class="keyword">this</span>;</span><br><span class="line">    &#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 <code>__value_func</code> 中，由于存在内存优化机制，即：如果可调用对象内存较小，将直接存在 <code>__value_func</code> 内部而不额外动态分配内存。导致上面的代码针对这个机制做了很多处理，虽然看起来繁杂，但其实不难理解。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/23/Chromium-base-%E5%BA%93%E4%B9%8B-Bind-%E5%92%8C-Callback/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-28 14:55:42
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-C/" title="C/C++">
+                        <b>#</b> C/C++
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/C-%E6%A0%87%E5%87%86%E5%BA%93/" title="C++标准库">
+                        <b>#</b> C++标准库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-text">示例代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#function"><span class="toc-text">function</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%A8%A1%E6%9D%BF%E5%8F%82%E6%95%B0%E7%9A%84%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">接受模板参数的构造函数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#EnableIfCallable"><span class="toc-text">_EnableIfCallable</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#value-func-%E4%B8%AD%E6%8E%A5%E5%8F%97%E5%8F%B3%E5%80%BC%E5%BC%95%E7%94%A8%E7%9A%84%E6%A8%A1%E6%9D%BF%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">__value_func 中接受右值引用的模板构造函数</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#function-func"><span class="toc-text">__function::__func</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#alloc-func"><span class="toc-text">__alloc_func</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#function-operator"><span class="toc-text">function::operator()()</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#value-func-operator"><span class="toc-text">__value_func::operator()()</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#function-func-operator"><span class="toc-text">__function::__func::operator()()</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#alloc-func-operator"><span class="toc-text">__alloc_func::operator()()</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#invoke-void-return-wrapper"><span class="toc-text">__invoke_void_return_wrapper</span></a></li></ol></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8B%B7%E8%B4%9D%E6%9E%84%E9%80%A0"><span class="toc-text">拷贝构造</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#value-func"><span class="toc-text">__value_func</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#func-clone"><span class="toc-text">__func::__clone</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#alloc-func-1"><span class="toc-text">__alloc_func</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A7%BB%E5%8A%A8%E6%9E%84%E9%80%A0"><span class="toc-text">移动构造</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#value-func-1"><span class="toc-text">__value_func</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8B%B7%E8%B4%9D%E8%B5%8B%E5%80%BC"><span class="toc-text">拷贝赋值</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#value-func-swap"><span class="toc-text">__value_func::swap</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%8E%A5%E5%8F%97%E6%B3%9B%E5%9E%8B%E5%8F%82%E6%95%B0%E7%9A%84%E8%B5%8B%E5%80%BC"><span class="toc-text">接受泛型参数的赋值</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A7%BB%E5%8A%A8%E8%B5%8B%E5%80%BC"><span class="toc-text">移动赋值</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

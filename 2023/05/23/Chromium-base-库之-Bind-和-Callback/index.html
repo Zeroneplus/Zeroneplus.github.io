@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium base 库之 Bind 和 Callback 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium base 库之 Bind 和 Callback</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-05-23 22:19:56
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                    <b>#</b> Chromium base库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>Chromium 也实现了自己的 Bind 和 Callback 机制，和标准库的 bind 和 function 有一些不同之处。</p>
+<p>这篇文章分析 Chromium 的 Bind 和 Callback。</p>
+<h1 id="bind"><a href="#bind" class="headerlink" title="bind"></a>bind</h1><p>Chromium 有两种 bind，BindOnce 和 BindRepeating，分别返回 OnceCallback 和 RepeatingCallback。Chromium 的 bind 不支持占位符，只能绑定前 n 个参数，后 m 个参数需要在 Callback 调用时传入，和标准库的 bind_front 有些类似。</p>
+<h2 id="BindOnce"><a href="#BindOnce" class="headerlink" title="BindOnce"></a>BindOnce</h2><p>先看例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">base::OnceCallback&lt;<span class="built_in">long</span>(<span class="type">int</span>, <span class="type">long</span>)&gt; cb = base::<span class="built_in">BindOnce</span>(</span><br><span class="line">    [](<span class="type">short</span> x, <span class="type">int</span> y, <span class="type">long</span> z) &#123; <span class="keyword">return</span> x * y * z; &#125;, <span class="number">42</span>);</span><br></pre></td></tr></table></figure>
+
+<p>上面 lambda 函数第一个参数被绑定，后两个参数需要后续调用时传入</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">C</span> : <span class="keyword">public</span> base::RefCounted&lt;C&gt; &#123; <span class="function"><span class="type">void</span> <span class="title">F</span><span class="params">()</span></span>; &#125;;</span><br><span class="line"><span class="keyword">auto</span> instance = base::<span class="built_in">MakeRefCounted</span>&lt;C&gt;();</span><br><span class="line"><span class="keyword">auto</span> cb = base::<span class="built_in">BindOnce</span>(&amp;C::F, instance);</span><br><span class="line">std::<span class="built_in">move</span>(cb).<span class="built_in">Run</span>();  <span class="comment">// Identical to instance-&gt;F()</span></span><br></pre></td></tr></table></figure>
+
+<p>这个例子绑定了一个类成员函数指针，当 Bind 绑定类成员函数指针时，必须要在创建时指定被绑定的对象，这和 std::bind 不一样，std::bind 可以将对象作为参数传给 operator()()函数，无需在调用 bind 时就指定对象。</p>
+<h3 id="BindOnce-函数"><a href="#BindOnce-函数" class="headerlink" title="BindOnce 函数"></a>BindOnce 函数</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">inline</span> OnceCallback&lt;internal::MakeUnboundRunType&lt;Functor, Args...&gt;&gt; <span class="built_in">BindOnce</span>(</span><br><span class="line">    Functor&amp;&amp; functor,</span><br><span class="line">    Args&amp;&amp;... args) &#123;</span><br><span class="line">  <span class="built_in">static_assert</span>(!internal::IsOnceCallback&lt;std::<span class="type">decay_t</span>&lt;Functor&gt;&gt;() ||</span><br><span class="line">                    (std::<span class="built_in">is_rvalue_reference</span>&lt;Functor&amp;&amp;&gt;() &amp;&amp;</span><br><span class="line">                     !std::is_const&lt;std::<span class="type">remove_reference_t</span>&lt;Functor&gt;&gt;()),</span><br><span class="line">                <span class="string">&quot;BindOnce requires non-const rvalue for OnceCallback binding.&quot;</span></span><br><span class="line">                <span class="string">&quot; I.e.: base::BindOnce(std::move(callback)).&quot;</span>);</span><br><span class="line">  <span class="built_in">static_assert</span>(</span><br><span class="line">      std::conjunction&lt;</span><br><span class="line">          internal::AssertBindArgIsNotBasePassed&lt;std::<span class="type">decay_t</span>&lt;Args&gt;&gt;...&gt;::value,</span><br><span class="line">      <span class="string">&quot;Use std::move() instead of base::Passed() with base::BindOnce()&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> internal::<span class="built_in">BindImpl</span>&lt;OnceCallback&gt;(std::forward&lt;Functor&gt;(functor),</span><br><span class="line">                                          std::forward&lt;Args&gt;(args)...);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>先看第一个 static_assert 限制，他要求</p>
+<ul>
+<li>传入的 functor 不是 OnceCallback</li>
+<li>或者 传入的 functor 是 OnceCallback，如果 functor 是右值引用，那么其不能是 const</li>
+</ul>
+<p>第二个 static_assert 要求参数不能通过 base::Passed()来传递，应使用 std::move()变为右值引用</p>
+<h4 id="BindImpl"><a href="#BindImpl" class="headerlink" title="BindImpl"></a>BindImpl</h4><p>BindOnce 内部调用 <code>BindImpl&lt;OnceCallback&gt;</code> 来创建 OnceCallback。</p>
+<p>BindImpl 内部有 bool 常量 kIsOnce 判断是否为 OnceCallback，这是通过模板参数为模板类型实现的。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">template</span> &lt;<span class="keyword">typename</span>&gt; <span class="keyword">class</span> <span class="title class_">CallbackT</span>,</span><br><span class="line">          <span class="keyword">typename</span> Functor,</span><br><span class="line">          <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="function"><span class="keyword">decltype</span>(<span class="keyword">auto</span>) <span class="title">BindImpl</span><span class="params">(Functor&amp;&amp; functor, Args&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> kIsOnce = IsOnceCallback&lt;CallbackT&lt;<span class="built_in">void</span>()&gt;&gt;::value;</span><br><span class="line">  <span class="keyword">using</span> Helper = BindTypeHelper&lt;Functor, Args...&gt;; <span class="comment">// 注意这里不是Args&amp;&amp;</span></span><br><span class="line">  <span class="keyword">using</span> FunctorTraits = <span class="keyword">typename</span> Helper::FunctorTraits;</span><br><span class="line">  <span class="keyword">using</span> BoundArgsList = <span class="keyword">typename</span> Helper::BoundArgsList;<span class="comment">// 就是TypeList&lt;Args...&gt;</span></span><br><span class="line">  <span class="keyword">using</span> UnwrappedArgsList = </span><br><span class="line">      MakeUnwrappedTypeList&lt;kIsOnce, FunctorTraits::is_method, Args&amp;&amp;...&gt;;</span><br><span class="line">  <span class="keyword">using</span> BoundParamsList = <span class="keyword">typename</span> Helper::BoundParamsList;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">static_assert</span>(</span><br><span class="line">      MakeFunctorTraits&lt;Functor&gt;::is_stateless,</span><br><span class="line">      <span class="string">&quot;Capturing lambdas and stateful lambdas are intentionally not supported. &quot;</span></span><br><span class="line">      <span class="string">&quot;Please use base::Bind&#123;Once,Repeating&#125; directly to bind arguments.&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">static_assert</span>(</span><br><span class="line">      AssertBindArgsValidity&lt;FunctorTraits::is_method,</span><br><span class="line">                             std::make_index_sequence&lt;Helper::num_bounds&gt;,</span><br><span class="line">                             BoundArgsList, UnwrappedArgsList,</span><br><span class="line">                             BoundParamsList&gt;::ok,</span><br><span class="line">      <span class="string">&quot;The bound args need to be convertible to the target params.&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> BindState = MakeBindStateType&lt;Functor, Args...&gt;;</span><br><span class="line">  <span class="keyword">using</span> UnboundRunType = MakeUnboundRunType&lt;Functor, Args...&gt;;</span><br><span class="line">  <span class="keyword">using</span> Invoker = Invoker&lt;BindState, UnboundRunType&gt;;</span><br><span class="line">  <span class="keyword">using</span> CallbackType = CallbackT&lt;UnboundRunType&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// CallbackType::PolymorphicInvoke是函数指针类型</span></span><br><span class="line">  <span class="keyword">using</span> PolymorphicInvoke = <span class="keyword">typename</span> CallbackType::PolymorphicInvoke;</span><br><span class="line">  PolymorphicInvoke invoke_func; <span class="comment">// 声明一个指针</span></span><br><span class="line">  <span class="function"><span class="keyword">if</span> <span class="title">constexpr</span> <span class="params">(kIsOnce)</span> </span>&#123;</span><br><span class="line">    invoke_func = Invoker::RunOnce;  <span class="comment">// 让这个指针的值为Invoker::RunOnce</span></span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    invoke_func = Invoker::Run;  <span class="comment">// 让这个指针的值为Invoker::Run</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> InvokeFuncStorage = BindStateBase::InvokeFuncStorage; <span class="comment">// 也是指针类型</span></span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">CallbackType</span>(BindState::<span class="built_in">Create</span>(</span><br><span class="line">      <span class="built_in">reinterpret_cast</span>&lt;InvokeFuncStorage&gt;(invoke_func), <span class="comment">// 强制转换指针类型</span></span><br><span class="line">      std::forward&lt;Functor&gt;(functor), std::forward&lt;Args&gt;(args)...));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="和函数参数相关的-type-trait"><a href="#和函数参数相关的-type-trait" class="headerlink" title="和函数参数相关的 type trait"></a>和函数参数相关的 type trait</h5><p>BindImpl 里面有很多和函数类型、函数参数相关的 type trait，比如 BindTypeHelper、FunctorTraits、BoundArgsList、UnwrappedArgsList、BoundParamsList。</p>
+<p>我们先分析这些 type trait。</p>
+<h6 id="BindTypeHelper"><a href="#BindTypeHelper" class="headerlink" title="BindTypeHelper"></a>BindTypeHelper</h6><p>BindTypeHelper 是辅助类，提供函数参数、返回值类型信息</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">using</span> Helper = BindTypeHelper&lt;Functor, Args...&gt;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Extracts necessary type info from Functor and BoundArgs.</span></span><br><span class="line"><span class="comment">// Used to implement MakeUnboundRunType, BindOnce and BindRepeating.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">BindTypeHelper</span> &#123;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">size_t</span> num_bounds = <span class="keyword">sizeof</span>...(BoundArgs);</span><br><span class="line">  <span class="keyword">using</span> FunctorTraits = MakeFunctorTraits&lt;Functor&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Example:</span></span><br><span class="line">  <span class="comment">//   When Functor is `double (Foo::*)(int, const std::string&amp;)`, and BoundArgs</span></span><br><span class="line">  <span class="comment">//   is a template pack of `Foo*` and `int16_t`:</span></span><br><span class="line">  <span class="comment">//    - RunType is `double(Foo*, int, const std::string&amp;)`,</span></span><br><span class="line">  <span class="comment">//    - ReturnType is `double`,</span></span><br><span class="line">  <span class="comment">//    - RunParamsList is `TypeList&lt;Foo*, int, const std::string&amp;&gt;`,</span></span><br><span class="line">  <span class="comment">//    - BoundParamsList is `TypeList&lt;Foo*, int&gt;`,</span></span><br><span class="line">  <span class="comment">//    - UnboundParamsList is `TypeList&lt;const std::string&amp;&gt;`,</span></span><br><span class="line">  <span class="comment">//    - BoundArgsList is `TypeList&lt;Foo*, int16_t&gt;`,</span></span><br><span class="line">  <span class="comment">//    - UnboundRunType is `double(const std::string&amp;)`.</span></span><br><span class="line">  <span class="keyword">using</span> RunType = <span class="keyword">typename</span> FunctorTraits::RunType;</span><br><span class="line">  <span class="keyword">using</span> ReturnType = ExtractReturnType&lt;RunType&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> RunParamsList = ExtractArgs&lt;RunType&gt;;</span><br><span class="line">  <span class="keyword">using</span> BoundParamsList = TakeTypeListItem&lt;num_bounds, RunParamsList&gt;;</span><br><span class="line">  <span class="keyword">using</span> UnboundParamsList = DropTypeListItem&lt;num_bounds, RunParamsList&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> BoundArgsList = TypeList&lt;BoundArgs...&gt;;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> UnboundRunType = MakeFunctionType&lt;ReturnType, UnboundParamsList&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>####### MakeFunctorTraits</p>
+<p>BindTypeHelper 会使用 MakeFunctorTraits。</p>
+<p>MakeFunctorTraits 先对 Functor 做了一个 decay，比如函数引用退化为函数指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor&gt;</span><br><span class="line"><span class="keyword">using</span> MakeFunctorTraits = FunctorTraits&lt;std::<span class="type">decay_t</span>&lt;Functor&gt;&gt;;</span><br></pre></td></tr></table></figure>
+
+<p>######## FunctorTraits</p>
+<p>MakeFunctorTraits 内部调用了 FunctorTraits</p>
+<p>FunctorTraits 针对函数指针和成员函数指针等分别特化，目的就是为了取得返回类型和参数类型，注意 FunctorTraits 里面还定义了 Invoke 函数，后面发生函数调用时会使用这个</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// For functions</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> R, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">FunctorTraits</span>&lt;<span class="built_in">R</span> (*)(Args...)&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> RunType = <span class="built_in">R</span>(Args...);</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_method = <span class="literal">false</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_nullable = <span class="literal">true</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_callback = <span class="literal">false</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_stateless = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Function, <span class="keyword">typename</span>... RunArgs&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> R <span class="title">Invoke</span><span class="params">(Function&amp;&amp; function, RunArgs&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> std::forward&lt;Function&gt;(function)(std::forward&lt;RunArgs&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="comment">// For methods.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> R, <span class="keyword">typename</span> Receiver, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">FunctorTraits</span>&lt;<span class="built_in">R</span> (Receiver::*)(Args...)&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> RunType = <span class="built_in">R</span>(Receiver*, Args...);</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_method = <span class="literal">true</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_nullable = <span class="literal">true</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_callback = <span class="literal">false</span>;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_stateless = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Method, <span class="keyword">typename</span> ReceiverPtr, <span class="keyword">typename</span>... RunArgs&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> R <span class="title">Invoke</span><span class="params">(Method method,</span></span></span><br><span class="line"><span class="params"><span class="function">                  ReceiverPtr&amp;&amp; receiver_ptr,</span></span></span><br><span class="line"><span class="params"><span class="function">                  RunArgs&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> ((*receiver_ptr).*method)(std::forward&lt;RunArgs&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>####### 计算参数类型</p>
+<p>在通过 MakeFunctorTraits 取得 Functor 的 RunType 之后，会进行类型计算，比如计算当前 Functor 的参数哪些被绑定了，哪些没有被绑定，绑定时传的参数类型又是什么，具体可以看下面的例子</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Example:</span></span><br><span class="line">  <span class="comment">//   When Functor is `double (Foo::*)(int, const std::string&amp;)`, and BoundArgs</span></span><br><span class="line">  <span class="comment">//   is a template pack of `Foo*` and `int16_t`:</span></span><br><span class="line">  <span class="comment">//    - RunType is `double(Foo*, int, const std::string&amp;)`,</span></span><br><span class="line">  <span class="comment">//    - ReturnType is `double`,</span></span><br><span class="line">  <span class="comment">//    - RunParamsList is `TypeList&lt;Foo*, int, const std::string&amp;&gt;`,</span></span><br><span class="line">  <span class="comment">//    - BoundParamsList is `TypeList&lt;Foo*, int&gt;`,</span></span><br><span class="line">  <span class="comment">//    - UnboundParamsList is `TypeList&lt;const std::string&amp;&gt;`,</span></span><br><span class="line">  <span class="comment">//    - BoundArgsList is `TypeList&lt;Foo*, int16_t&gt;`,</span></span><br><span class="line">  <span class="comment">//    - UnboundRunType is `double(const std::string&amp;)`.</span></span><br></pre></td></tr></table></figure>
+
+<h6 id="MakeUnwrappedTypeList"><a href="#MakeUnwrappedTypeList" class="headerlink" title="MakeUnwrappedTypeList"></a>MakeUnwrappedTypeList</h6><p>在 BindTypeHelper 之后，会计算输入参数的 Unwrapped Type</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_once, <span class="type">bool</span> is_method, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">using</span> MakeUnwrappedTypeList =</span><br><span class="line">    <span class="keyword">typename</span> MakeUnwrappedTypeListImpl&lt;is_once, is_method, Args...&gt;::Type;</span><br></pre></td></tr></table></figure>
+
+<p>如果是类成员函数指针，会对输入的 Receiver 做额外处理</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Transforms |Args| into `Unwrapped` types, and packs them into a TypeList.</span></span><br><span class="line"><span class="comment">// If |is_method| is true, tries to dereference the first argument to support</span></span><br><span class="line"><span class="comment">// smart pointers.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_once, <span class="type">bool</span> is_method, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeUnwrappedTypeListImpl</span> &#123;</span><br><span class="line">  <span class="keyword">using</span> Type = TypeList&lt;TransformToUnwrappedType&lt;is_once, Args&gt;...&gt;;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Performs special handling for this pointers.</span></span><br><span class="line"><span class="comment">// Example:</span></span><br><span class="line"><span class="comment">//   int* -&gt; int*,</span></span><br><span class="line"><span class="comment">//   std::unique_ptr&lt;int&gt; -&gt; int*.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_once, <span class="keyword">typename</span> Receiver, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeUnwrappedTypeListImpl</span>&lt;is_once, <span class="literal">true</span>, Receiver, Args...&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> ReceiverStorageType =</span><br><span class="line">      <span class="keyword">typename</span> MethodReceiverStorageType&lt;std::<span class="type">decay_t</span>&lt;Receiver&gt;&gt;::Type;</span><br><span class="line">  <span class="keyword">using</span> UnwrappedReceiver =</span><br><span class="line">      TransformToUnwrappedType&lt;is_once, ReceiverStorageType&gt;;</span><br><span class="line">  <span class="keyword">using</span> Type = TypeList&lt;<span class="keyword">decltype</span>(&amp;*std::<span class="built_in">declval</span>&lt;UnwrappedReceiver&gt;()),</span><br><span class="line">                        TransformToUnwrappedType&lt;is_once, Args&gt;...&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>####### TransformToUnwrappedType</p>
+<p>先看 TransformToUnwrappedType 如何对非 Receiver 参数进行 Unwrap。</p>
+<p>从下面的注释可以知道，TransformToUnwrappedType 主要是把输入的引用类型根据 is_once 条件进行合适的转换。注意 BindImpl 中 MakeUnwrappedTypeList 传递的是 Args&amp;&amp;，也就是模板参数一定是引用类型。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Transform |T| into `Unwrapped` type, which is passed to the target function.</span></span><br><span class="line"><span class="comment">// Example:</span></span><br><span class="line"><span class="comment">//   In is_once == true case,</span></span><br><span class="line"><span class="comment">//     `int&amp;&amp;` -&gt; `int&amp;&amp;`,</span></span><br><span class="line"><span class="comment">//     `const int&amp;` -&gt; `int&amp;&amp;`,</span></span><br><span class="line"><span class="comment">//     `OwnedWrapper&lt;int&gt;&amp;` -&gt; `int*&amp;&amp;`.</span></span><br><span class="line"><span class="comment">//   In is_once == false case,</span></span><br><span class="line"><span class="comment">//     `int&amp;&amp;` -&gt; `const int&amp;`,</span></span><br><span class="line"><span class="comment">//     `const int&amp;` -&gt; `const int&amp;`,</span></span><br><span class="line"><span class="comment">//     `OwnedWrapper&lt;int&gt;&amp;` -&gt; `int* const &amp;`.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_once, <span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">using</span> TransformToUnwrappedType =</span><br><span class="line">    <span class="keyword">typename</span> TransformToUnwrappedTypeImpl&lt;is_once, T&gt;::Unwrapped;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_once, <span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">TransformToUnwrappedTypeImpl</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">TransformToUnwrappedTypeImpl</span>&lt;<span class="literal">true</span>, T&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> StoredType = std::<span class="type">decay_t</span>&lt;T&gt;; <span class="comment">// 参数的存储类型</span></span><br><span class="line">  <span class="keyword">using</span> ForwardType = StoredType&amp;&amp;;</span><br><span class="line">  <span class="keyword">using</span> Unwrapped = <span class="keyword">decltype</span>(<span class="built_in">Unwrap</span>(std::<span class="built_in">declval</span>&lt;ForwardType&gt;()));</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">TransformToUnwrappedTypeImpl</span>&lt;<span class="literal">false</span>, T&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> StoredType = std::<span class="type">decay_t</span>&lt;T&gt;;</span><br><span class="line">  <span class="keyword">using</span> ForwardType = <span class="type">const</span> StoredType&amp;;</span><br><span class="line">  <span class="keyword">using</span> Unwrapped = <span class="keyword">decltype</span>(<span class="built_in">Unwrap</span>(std::<span class="built_in">declval</span>&lt;ForwardType&gt;()));</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="function"><span class="keyword">decltype</span>(<span class="keyword">auto</span>) <span class="title">Unwrap</span><span class="params">(T&amp;&amp; o)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> Unwrapper&lt;T&gt;::<span class="built_in">Unwrap</span>(std::forward&lt;T&gt;(o));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">using</span> Unwrapper = BindUnwrapTraits&lt;std::<span class="type">decay_t</span>&lt;T&gt;&gt;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span>&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">BindUnwrapTraits</span> &#123;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> T&amp;&amp; <span class="title">Unwrap</span><span class="params">(T&amp;&amp; o)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> std::forward&lt;T&gt;(o);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>BindUnwrapTraits 有很多不同的特化，都是针对 UnretainedWrapper 这些包装类型，这里先不考虑这些类型，那么 BindUnwrapTraits 对于非 Wrapper 类型其实就是参数的转发，没有对参数类型做任何修改，即 TransformToUnwrappedTypeImpl 里的 Unwrapped 类型对于非 Wrapper 类型就是 ForwardType，这和前面注释的内容刚好对上。</p>
+<p>####### MethodReceiverStorageType</p>
+<p>这部分放在下面介绍。</p>
+<h6 id="AssertBindArgsValidity"><a href="#AssertBindArgsValidity" class="headerlink" title="AssertBindArgsValidity"></a>AssertBindArgsValidity</h6><p>再看看检查条件</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Takes three same-length TypeLists, and applies AssertConstructible for each</span></span><br><span class="line"><span class="comment">// triples.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_method,</span><br><span class="line">          <span class="keyword">typename</span> Index,</span><br><span class="line">          <span class="keyword">typename</span> Args,</span><br><span class="line">          <span class="keyword">typename</span> UnwrappedTypeList,</span><br><span class="line">          <span class="keyword">typename</span> ParamsList&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">AssertBindArgsValidity</span>;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Args 就是 BindImpl 函数推断得到的模板参数类型（注意没有加&amp;&amp;）</li>
+<li>UnwrappedTypeList 就是将来存储 bind 输入的参数时传的参数</li>
+<li>ParamsList 就是 Functor 的形参</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_method,</span><br><span class="line">          <span class="type">size_t</span>... Ns,</span><br><span class="line">          <span class="keyword">typename</span>... Args,</span><br><span class="line">          <span class="keyword">typename</span>... Unwrapped,</span><br><span class="line">          <span class="keyword">typename</span>... Params&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">AssertBindArgsValidity</span>&lt;is_method,</span><br><span class="line">                              std::index_sequence&lt;Ns...&gt;,</span><br><span class="line">                              TypeList&lt;Args...&gt;,</span><br><span class="line">                              TypeList&lt;Unwrapped...&gt;,</span><br><span class="line">                              TypeList&lt;Params...&gt;&gt;</span><br><span class="line">    : AssertConstructible&lt;Ns,</span><br><span class="line">                          is_method,</span><br><span class="line">                          Args,</span><br><span class="line">                          std::<span class="type">decay_t</span>&lt;Args&gt;, <span class="comment">// decay之后作为存储类型</span></span><br><span class="line">                          Unwrapped,</span><br><span class="line">                          Params&gt;... &#123;</span><br><span class="line">  <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> ok = <span class="literal">true</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>AssertBindArgsValidity 内部对每个绑定参数进行 AssertConstructible 检查</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">int</span> i,</span><br><span class="line">          <span class="type">bool</span> is_method,</span><br><span class="line">          <span class="keyword">typename</span> Arg,</span><br><span class="line">          <span class="keyword">typename</span> Storage,</span><br><span class="line">          <span class="keyword">typename</span> Unwrapped,</span><br><span class="line">          <span class="keyword">typename</span> Param&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">AssertConstructible</span> &#123;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>具体的检查条件就不一一分析，这里只分析两个</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">static_assert</span>(</span><br><span class="line">      BindArgument&lt;i&gt;::<span class="keyword">template</span> ForwardedAs&lt;Unwrapped&gt;::</span><br><span class="line">          <span class="keyword">template</span> ToParamWithType&lt;Param&gt;::kCanBeForwardedToBoundFunctor,</span><br><span class="line">      <span class="string">&quot;Type mismatch between bound argument and bound functor&#x27;s parameter.&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> ForwardingType&gt;</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">ForwardedAs</span> &#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> FunctorParamType&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">ToParamWithType</span> &#123;</span><br><span class="line">      <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> kNotARawPtr = !IsRawPtrV&lt;FunctorParamType&gt;;</span><br><span class="line"></span><br><span class="line">      <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> kCanBeForwardedToBoundFunctor =</span><br><span class="line">          std::is_constructible_v&lt;FunctorParamType, ForwardingType&gt;;</span><br><span class="line">    &#125;;</span><br><span class="line">  &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这个条件要求 Unwrapped 类型（就是形参）能构造 Param（也就是实参）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="built_in">static_assert</span>(</span><br><span class="line">      BindArgument&lt;i&gt;::<span class="keyword">template</span> BoundAs&lt;Arg&gt;::<span class="keyword">template</span> StoredAs&lt;</span><br><span class="line">          Storage&gt;::kBindArgumentCanBeCaptured,</span><br><span class="line">      <span class="string">&quot;Cannot capture argument: is the argument copyable or movable?&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> BoundAsType&gt;</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">BoundAs</span> &#123;</span><br><span class="line">    <span class="keyword">template</span> &lt;<span class="keyword">typename</span> StorageType&gt;</span><br><span class="line">    <span class="keyword">struct</span> <span class="title class_">StoredAs</span> &#123;</span><br><span class="line">      <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> kBindArgumentCanBeCaptured =</span><br><span class="line">          std::is_constructible_v&lt;StorageType, BoundAsType&gt;;</span><br><span class="line">      <span class="comment">// Note that this intentionally drops the const qualifier from</span></span><br><span class="line">      <span class="comment">// `BoundAsType`, to test if it *could* have been successfully bound if</span></span><br><span class="line">      <span class="comment">// `std::move()` had been used.</span></span><br><span class="line">      <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> kMoveOnlyTypeMustUseStdMove =</span><br><span class="line">          kBindArgumentCanBeCaptured ||</span><br><span class="line">          !std::is_constructible_v&lt;StorageType, std::<span class="type">decay_t</span>&lt;BoundAsType&gt;&amp;&amp;&gt;;</span><br><span class="line">    &#125;;</span><br><span class="line">  &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这个条件要求 BoundAsType 能构造 StorageType。刚开始有点不理解，BoundAsType 是 BindImpl 推断的参数类型不加&amp;&amp;，后来发现 is_constructible 条件要求 <code>T obj(std::declval&lt;Args&gt;()...);</code>，而 declval 会在 Args 后加&amp;&amp;，所以 BoundAsType 不需要额外的&amp;&amp;。</p>
+<h5 id="MakeBindStateType"><a href="#MakeBindStateType" class="headerlink" title="MakeBindStateType"></a>MakeBindStateType</h5><p>介绍完基本的函数类型的 type trait。接下来看看 Bind 是如何存储参数的。参数存储在 BindState，我们通过 MakeBindStateType 创建 BindState 类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">using</span> MakeBindStateType =</span><br><span class="line">    <span class="keyword">typename</span> MakeBindStateTypeImpl&lt;MakeFunctorTraits&lt;Functor&gt;::is_method,</span><br><span class="line">                                   Functor,</span><br><span class="line">                                   BoundArgs...&gt;::Type;</span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_method, <span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeBindStateTypeImpl</span>;</span><br></pre></td></tr></table></figure>
+
+<p>MakeBindStateTypeImpl 有不同的特化：</p>
+<ul>
+<li>如果 Functor 不是成员函数，那么不允许：参数是裸指针，并且指针指向类型继承 RefCounted</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeBindStateTypeImpl</span>&lt;<span class="literal">false</span>, Functor, BoundArgs...&gt; &#123;</span><br><span class="line">  <span class="built_in">static_assert</span>(!HasRefCountedTypeAsRawPtr&lt;std::<span class="type">decay_t</span>&lt;BoundArgs&gt;...&gt;::value,</span><br><span class="line">                <span class="string">&quot;A parameter is a refcounted type and needs scoped_refptr.&quot;</span>);</span><br><span class="line">  <span class="keyword">using</span> Type = BindState&lt;std::<span class="type">decay_t</span>&lt;Functor&gt;, MakeStorageType&lt;BoundArgs&gt;...&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>如果 Functor 是成员函数，但是没有绑定任何参数</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeBindStateTypeImpl</span>&lt;<span class="literal">true</span>, Functor&gt; &#123;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> Type = BindState&lt;std::<span class="type">decay_t</span>&lt;Functor&gt;&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>如果 Functor 是成员函数，而且绑定了 Receiver</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span> Receiver, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MakeBindStateTypeImpl</span>&lt;<span class="literal">true</span>, Functor, Receiver, BoundArgs...&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> DecayedReceiver = std::<span class="type">decay_t</span>&lt;Receiver&gt;;</span><br><span class="line">  <span class="keyword">using</span> ReceiverStorageType =</span><br><span class="line">      <span class="keyword">typename</span> MethodReceiverStorageType&lt;DecayedReceiver&gt;::Type;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="keyword">using</span> Type = BindState&lt;std::<span class="type">decay_t</span>&lt;Functor&gt;,</span><br><span class="line">                         ReceiverStorageType,</span><br><span class="line">                         MakeStorageType&lt;BoundArgs&gt;...&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>MakeBindStateTypeImpl 会先创建参数的存储类型，然后用这些存储类型去创建 BindState。之前 std::bind 里面创建存储类型用的是 decay，而这里则稍微有些不同</p>
+<h6 id="MakeStorageType"><a href="#MakeStorageType" class="headerlink" title="MakeStorageType"></a>MakeStorageType</h6><p>创建非 Receiver 参数的存储类型</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">using</span> MakeStorageType = <span class="keyword">typename</span> StorageTraits&lt;std::<span class="type">decay_t</span>&lt;T&gt;&gt;::Type;</span><br></pre></td></tr></table></figure>
+
+<p>会对 T 是指针类型的情况进行特殊处理，如果是裸指针，用 UnretainedWrapper 来存储，所以参数尽量不要使用裸指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">StorageTraits</span> &#123;</span><br><span class="line">  <span class="keyword">using</span> Type = T;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// For T*, store as UnretainedWrapper&lt;T&gt; for safety, as it internally uses</span></span><br><span class="line"><span class="comment">// raw_ptr&lt;T&gt; (when possible).</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">StorageTraits</span>&lt;T*&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> Type = UnretainedWrapper&lt;T, unretained_traits::MayNotDangle&gt;;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// For raw_ptr&lt;T&gt;, store as UnretainedWrapper&lt;T&gt; for safety. This may seem</span></span><br><span class="line"><span class="comment">// contradictory, but this ensures guaranteed protection for the pointer even</span></span><br><span class="line"><span class="comment">// during execution of callbacks with parameters of type raw_ptr&lt;T&gt;.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> I&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">StorageTraits</span>&lt;raw_ptr&lt;T, I&gt;&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> Type = UnretainedWrapper&lt;T, unretained_traits::MayNotDangle&gt;;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Unwrap std::reference_wrapper and store it in a custom wrapper so that</span></span><br><span class="line"><span class="comment">// references are also protected with raw_ptr&lt;T&gt;.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">StorageTraits</span>&lt;std::reference_wrapper&lt;T&gt;&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> Type = UnretainedRefWrapper&lt;T, unretained_traits::MayNotDangle&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h6 id="MethodReceiverStorageType"><a href="#MethodReceiverStorageType" class="headerlink" title="MethodReceiverStorageType"></a>MethodReceiverStorageType</h6><p>如果 Receiver 是指针，会使用 scoped_refptr 来存储，所以如果不想这样处理，需要 <code>base::UnRetained</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// MethodReceiverStorageType converts the current receiver type to its stored</span></span><br><span class="line"><span class="comment">// type. For instance, it converts pointers to `scoped_refptr`, and wraps</span></span><br><span class="line"><span class="comment">// `UnretainedRefWrapper` to make it compliant with the internal callback</span></span><br><span class="line"><span class="comment">// invocation mechanism.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MethodReceiverStorageType</span> &#123;</span><br><span class="line">  <span class="keyword">using</span> Type =</span><br><span class="line">      std::<span class="type">conditional_t</span>&lt;IsPointerV&lt;T&gt;, scoped_refptr&lt;RemovePointerT&lt;T&gt;&gt;, T&gt;;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> Trait, <span class="type">bool</span> b&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">MethodReceiverStorageType</span>&lt;UnretainedRefWrapper&lt;T, Trait, b&gt;&gt; &#123;</span><br><span class="line">  <span class="comment">// We can&#x27;t use UnretainedRefWrapper as a receiver directly (see</span></span><br><span class="line">  <span class="comment">// UnretainedRefWrapperReceiver for why).</span></span><br><span class="line">  <span class="keyword">using</span> Type = UnretainedRefWrapperReceiver&lt;T, Trait, b&gt;;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsPointer</span> : std::false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsPointer</span>&lt;T*&gt; : std::true_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> I&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsPointer</span>&lt;raw_ptr&lt;T, I&gt;&gt; : std::true_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">inline</span> <span class="keyword">constexpr</span> <span class="type">bool</span> IsPointerV = IsPointer&lt;T&gt;::value;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">RemovePointer</span> &#123;</span><br><span class="line">  <span class="keyword">using</span> type = T;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">RemovePointer</span>&lt;T*&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> type = T;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span> I&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">RemovePointer</span>&lt;raw_ptr&lt;T, I&gt;&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> type = T;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">using</span> RemovePointerT = <span class="keyword">typename</span> RemovePointer&lt;T&gt;::type;</span><br></pre></td></tr></table></figure>
+
+<h6 id="BindState"><a href="#BindState" class="headerlink" title="BindState"></a>BindState</h6><p>再看 BindState 类型。这里的 Functor、BoundArgs 是上一步 MakeBindStateType 中通过 MakeStorageType、MethodReceiverStorageType 创建得到的</p>
+<p>从下面可以看到 BindState 内部也是通过 tuple 来存储参数的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">BindState</span> <span class="keyword">final</span> : BindStateBase &#123;</span><br><span class="line">  Functor functor_;</span><br><span class="line">  std::tuple&lt;BoundArgs...&gt; bound_args_;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> IsCancellable = std::bool_constant&lt;</span><br><span class="line">      CallbackCancellationTraits&lt;Functor,</span><br><span class="line">                                 std::tuple&lt;BoundArgs...&gt;&gt;::is_cancellable&gt;;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> ForwardFunctor, <span class="keyword">typename</span>... ForwardBoundArgs&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> BindState* <span class="title">Create</span><span class="params">(BindStateBase::InvokeFuncStorage invoke_func,</span></span></span><br><span class="line"><span class="params"><span class="function">                           ForwardFunctor&amp;&amp; functor,</span></span></span><br><span class="line"><span class="params"><span class="function">                           ForwardBoundArgs&amp;&amp;... bound_args)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Ban ref counted receivers that were not yet fully constructed to avoid</span></span><br><span class="line">    <span class="comment">// a common pattern of racy situation.</span></span><br><span class="line">    <span class="built_in">BanUnconstructedRefCountedReceiver</span>&lt;ForwardFunctor&gt;(bound_args...);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// IsCancellable is std::false_type if</span></span><br><span class="line">    <span class="comment">// CallbackCancellationTraits&lt;&gt;::IsCancelled returns always false.</span></span><br><span class="line">    <span class="comment">// Otherwise, it&#x27;s std::true_type.</span></span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">new</span> <span class="built_in">BindState</span>(IsCancellable&#123;&#125;, invoke_func,</span><br><span class="line">                         std::forward&lt;ForwardFunctor&gt;(functor),</span><br><span class="line">                         std::forward&lt;ForwardBoundArgs&gt;(bound_args)...);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> ForwardFunctor, <span class="keyword">typename</span>... ForwardBoundArgs&gt;</span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">BindState</span><span class="params">(std::true_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                     BindStateBase::InvokeFuncStorage invoke_func,</span></span></span><br><span class="line"><span class="params"><span class="function">                     ForwardFunctor&amp;&amp; functor,</span></span></span><br><span class="line"><span class="params"><span class="function">                     ForwardBoundArgs&amp;&amp;... bound_args)</span></span></span><br><span class="line"><span class="function">      : BindStateBase(invoke_func,</span></span><br><span class="line"><span class="function">                      &amp;Destroy,</span></span><br><span class="line"><span class="function">                      &amp;QueryCancellationTraits&lt;BindState&gt;),</span></span><br><span class="line"><span class="function">        functor_(std::forward&lt;ForwardFunctor&gt;(functor)),</span></span><br><span class="line"><span class="function">        bound_args_(std::forward&lt;ForwardBoundArgs&gt;(bound_args)...) &#123;</span></span><br><span class="line">    <span class="comment">// We check the validity of nested callbacks (e.g., Bind(callback, ...)) in</span></span><br><span class="line">    <span class="comment">// release builds to avoid null pointers from ending up in posted tasks,</span></span><br><span class="line">    <span class="comment">// causing hard-to-diagnose crashes. Ideally we&#x27;d do this for all functors</span></span><br><span class="line">    <span class="comment">// here, but that would have a large binary size impact.</span></span><br><span class="line">    <span class="keyword">if</span> (is_nested_callback) &#123;</span><br><span class="line">      <span class="built_in">CHECK</span>(!<span class="built_in">IsNull</span>(functor_));</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="built_in">DCHECK</span>(!<span class="built_in">IsNull</span>(functor_));</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>BindState::Create 函数内部调用 BindState 的构造函数，在构造函数里面把 functor 和 bound_args 存在 <code>functor_</code> 和 <code>bound_args_</code> 中，同时把 invoke_func 存在父类 BindStateBase 中</p>
+<p>####### BindStateBase</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BASE_EXPORT</span> BindStateBase</span><br><span class="line">    : <span class="keyword">public</span> RefCountedThreadSafe&lt;BindStateBase, BindStateBaseRefCountTraits&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> InvokeFuncStorage = <span class="built_in">void</span> (*)();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">  InvokeFuncStorage polymorphic_invoke_;</span><br><span class="line">  <span class="built_in">void</span> (*destructor_)(<span class="type">const</span> BindStateBase*);</span><br><span class="line">  <span class="built_in">bool</span> (*query_cancellation_traits_)(<span class="type">const</span> BindStateBase*,</span><br><span class="line">                                     CancellationQueryMode mode);</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="MakeUnboundRunType"><a href="#MakeUnboundRunType" class="headerlink" title="MakeUnboundRunType"></a>MakeUnboundRunType</h5><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Returns a RunType of bound functor.</span></span><br><span class="line"><span class="comment">// E.g. MakeUnboundRunType&lt;R(A, B, C), A, B&gt; is evaluated to R(C).</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span>... BoundArgs&gt;</span><br><span class="line"><span class="keyword">using</span> MakeUnboundRunType =</span><br><span class="line">    <span class="keyword">typename</span> BindTypeHelper&lt;Functor, BoundArgs...&gt;::UnboundRunType;</span><br></pre></td></tr></table></figure>
+
+<p>里面调用了 BindTypeHelper，上面已经介绍过了。</p>
+<h5 id="Invoker"><a href="#Invoker" class="headerlink" title="Invoker"></a>Invoker</h5><p>再看看 Invoker。Invoker 里面有 RunOnce 和 Run 函数。上面创建 BindState 时会把 <code>Run/RunOnce</code> 的函数指针传给 BindState</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> StorageType, <span class="keyword">typename</span> UnboundRunType&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">Invoker</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">// StorageType就是BindState</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> StorageType, <span class="keyword">typename</span> R, <span class="keyword">typename</span>... UnboundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">Invoker</span>&lt;StorageType, <span class="built_in">R</span>(UnboundArgs...)&gt; &#123;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">static</span> R <span class="title">RunOnce</span><span class="params">(BindStateBase* base,</span></span></span><br><span class="line"><span class="params"><span class="function">                   PassingType&lt;UnboundArgs&gt;... unbound_args)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Local references to make debugger stepping easier. If in a debugger,</span></span><br><span class="line">    <span class="comment">// you really want to warp ahead and step through the</span></span><br><span class="line">    <span class="comment">// InvokeHelper&lt;&gt;::MakeItSo() call below.</span></span><br><span class="line">    StorageType* storage = <span class="built_in">static_cast</span>&lt;StorageType*&gt;(base);</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">size_t</span> num_bound_args =</span><br><span class="line">        std::tuple_size_v&lt;<span class="keyword">decltype</span>(storage-&gt;bound_args_)&gt;;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">RunImpl</span>(std::<span class="built_in">move</span>(storage-&gt;functor_),</span><br><span class="line">                   std::<span class="built_in">move</span>(storage-&gt;bound_args_),</span><br><span class="line">                   std::<span class="built_in">make_index_sequence</span>&lt;num_bound_args&gt;(),</span><br><span class="line">                   std::forward&lt;UnboundArgs&gt;(unbound_args)...);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// RunOnce和Run的区别在于RunOnce会把functor_和bound_args_进行move</span></span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">static</span> R <span class="title">Run</span><span class="params">(BindStateBase* base, PassingType&lt;UnboundArgs&gt;... unbound_args)</span> </span>&#123;</span><br><span class="line">    <span class="comment">// Local references to make debugger stepping easier. If in a debugger,</span></span><br><span class="line">    <span class="comment">// you really want to warp ahead and step through the</span></span><br><span class="line">    <span class="comment">// InvokeHelper&lt;&gt;::MakeItSo() call below.</span></span><br><span class="line">    <span class="type">const</span> StorageType* storage = <span class="built_in">static_cast</span>&lt;StorageType*&gt;(base);</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">size_t</span> num_bound_args =</span><br><span class="line">        std::tuple_size_v&lt;<span class="keyword">decltype</span>(storage-&gt;bound_args_)&gt;;</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">RunImpl</span>(storage-&gt;functor_, storage-&gt;bound_args_,</span><br><span class="line">                   std::<span class="built_in">make_index_sequence</span>&lt;num_bound_args&gt;(),</span><br><span class="line">                   std::forward&lt;UnboundArgs&gt;(unbound_args)...);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>PassingType 如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">using</span> PassingType = std::<span class="type">conditional_t</span>&lt;std::is_scalar_v&lt;T&gt;, T, T&amp;&amp;&gt;;</span><br></pre></td></tr></table></figure>
+
+<p>RunOnce 和 Run 都调用了 RunImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// StorageType就是BindState</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> StorageType, <span class="keyword">typename</span> R, <span class="keyword">typename</span>... UnboundArgs&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">Invoker</span>&lt;StorageType, <span class="built_in">R</span>(UnboundArgs...)&gt; &#123;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span> BoundArgsTuple, <span class="type">size_t</span>... indices&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="keyword">inline</span> R <span class="title">RunImpl</span><span class="params">(Functor&amp;&amp; functor,</span></span></span><br><span class="line"><span class="params"><span class="function">                          BoundArgsTuple&amp;&amp; bound,</span></span></span><br><span class="line"><span class="params"><span class="function">                          std::index_sequence&lt;indices...&gt; seq,</span></span></span><br><span class="line"><span class="params"><span class="function">                          UnboundArgs&amp;&amp;... unbound_args)</span> </span>&#123;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_method = MakeFunctorTraits&lt;Functor&gt;::is_method;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">using</span> DecayedArgsTuple = std::<span class="type">decay_t</span>&lt;BoundArgsTuple&gt;;</span><br><span class="line">    <span class="type">static</span> <span class="keyword">constexpr</span> <span class="type">bool</span> is_weak_call =</span><br><span class="line">        IsWeakMethod&lt;is_method,</span><br><span class="line">                     std::<span class="type">tuple_element_t</span>&lt;indices, DecayedArgsTuple&gt;...&gt;();</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> InvokeHelper&lt;is_weak_call, R, indices...&gt;::<span class="built_in">MakeItSo</span>(</span><br><span class="line">        std::forward&lt;Functor&gt;(functor), std::forward&lt;BoundArgsTuple&gt;(bound),</span><br><span class="line">        std::forward&lt;UnboundArgs&gt;(unbound_args)...);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>RunImpl 会根据当前绑定的 Receiver 是否是 WeakPtr 进行不同的调用</p>
+<h6 id="IsWeakMethod"><a href="#IsWeakMethod" class="headerlink" title="IsWeakMethod"></a>IsWeakMethod</h6><p>RunImpl 先通过 IsWeakMethod 判断 Receiver 是否是 WeakPtr</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// IsWeakMethod is a helper that determine if we are binding a WeakPtr&lt;&gt; to a</span></span><br><span class="line"><span class="comment">// method.  It is used internally by Bind() to select the correct</span></span><br><span class="line"><span class="comment">// InvokeHelper that will no-op itself in the event the WeakPtr&lt;&gt; for</span></span><br><span class="line"><span class="comment">// the target object is invalidated.</span></span><br><span class="line"><span class="comment">//</span></span><br><span class="line"><span class="comment">// The first argument should be the type of the object that will be received by</span></span><br><span class="line"><span class="comment">// the method.</span></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_method, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsWeakMethod</span> : std::false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsWeakMethod</span>&lt;<span class="literal">true</span>, T, Args...&gt; : IsWeakReceiver&lt;T&gt; &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsWeakReceiver</span> : std::false_type &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsWeakReceiver</span>&lt;std::reference_wrapper&lt;T&gt;&gt; : IsWeakReceiver&lt;T&gt; &#123;&#125;;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> T&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">IsWeakReceiver</span>&lt;WeakPtr&lt;T&gt;&gt; : std::true_type &#123;&#125;;</span><br></pre></td></tr></table></figure>
+
+<h6 id="InvokeHelper"><a href="#InvokeHelper" class="headerlink" title="InvokeHelper"></a>InvokeHelper</h6><p>然后调用 InvokeHelper。InvokeHelper 根据是否是 weak_call 做不同处理。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="type">bool</span> is_weak_call, <span class="keyword">typename</span> ReturnType, <span class="type">size_t</span>... indices&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">InvokeHelper</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> ReturnType, <span class="type">size_t</span>... indices&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">InvokeHelper</span>&lt;<span class="literal">false</span>, ReturnType, indices...&gt; &#123;</span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span> BoundArgsTuple, <span class="keyword">typename</span>... RunArgs&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="keyword">inline</span> ReturnType <span class="title">MakeItSo</span><span class="params">(Functor&amp;&amp; functor,</span></span></span><br><span class="line"><span class="params"><span class="function">                                    BoundArgsTuple&amp;&amp; bound,</span></span></span><br><span class="line"><span class="params"><span class="function">                                    RunArgs&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">using</span> Traits = MakeFunctorTraits&lt;Functor&gt;;</span><br><span class="line">    <span class="keyword">return</span> Traits::<span class="built_in">Invoke</span>(</span><br><span class="line">        std::forward&lt;Functor&gt;(functor),</span><br><span class="line">        <span class="built_in">Unwrap</span>(std::<span class="built_in">get</span>&lt;indices&gt;(std::forward&lt;BoundArgsTuple&gt;(bound)))...,</span><br><span class="line">        std::forward&lt;RunArgs&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>如果不是 weak_call，那么直接使用 <code>MakeFunctorTraits&lt;Functor&gt;::Invoke</code>。</p>
+<p>注意这里从存储参数的 tuple 中取参数时，是直接先从 tuple 中 get，然后 Unwrap，所以这里的返回值要么是&amp;要么是&amp;&amp;。但是 AssertBindArgsValidity 中检查参数时如果是 OnceCallback，那么检查的参数是&amp;&amp;，如果是 RepeatingCallback，检查的参数是 const&amp;，所以虽然这里调用时取参数不带 const，但是下面这种定义还是不允许（AssertBindArgsValidity 检查会不通过）：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">int</span> i = <span class="number">0</span>;</span><br><span class="line">base::RepeatingCallback&lt;<span class="built_in">long</span>(<span class="type">int</span>, <span class="type">long</span>)&gt; cb = base::<span class="built_in">BindRepeating</span>(</span><br><span class="line">    [](<span class="type">int</span>&amp; x, <span class="type">int</span> y, <span class="type">long</span> z) &#123; <span class="keyword">return</span> x * y * z; &#125;, i); <span class="comment">// error</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// RepeatingCallback中只能是</span></span><br><span class="line">base::RepeatingCallback&lt;<span class="built_in">long</span>(<span class="type">int</span>, <span class="type">long</span>)&gt; cb = base::<span class="built_in">BindRepeating</span>(</span><br><span class="line">    [](<span class="type">const</span> <span class="type">int</span>&amp; x, <span class="type">int</span> y, <span class="type">long</span> z) &#123; <span class="keyword">return</span> x * y * z; &#125;, i);</span><br></pre></td></tr></table></figure>
+
+<p>接下来看看是 weak_call 的情况下，InvokeHelper 如何调用。</p>
+<p>可以看到，先判断 Receiver 的 WeakPtr 是否还有效，只有在有效的情况下才进行调用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> ReturnType, <span class="type">size_t</span>... indices&gt;</span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">InvokeHelper</span>&lt;<span class="literal">true</span>, ReturnType, indices...&gt; &#123;</span><br><span class="line">  <span class="comment">// WeakCalls are only supported for functions with a void return type.</span></span><br><span class="line">  <span class="comment">// Otherwise, the function result would be undefined if the WeakPtr&lt;&gt;</span></span><br><span class="line">  <span class="comment">// is invalidated.</span></span><br><span class="line">  <span class="built_in">static_assert</span>(std::is_void_v&lt;ReturnType&gt;,</span><br><span class="line">                <span class="string">&quot;weak_ptrs can only bind to methods without return values&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">template</span> &lt;<span class="keyword">typename</span> Functor, <span class="keyword">typename</span> BoundArgsTuple, <span class="keyword">typename</span>... RunArgs&gt;</span><br><span class="line">  <span class="function"><span class="type">static</span> <span class="keyword">inline</span> <span class="type">void</span> <span class="title">MakeItSo</span><span class="params">(Functor&amp;&amp; functor,</span></span></span><br><span class="line"><span class="params"><span class="function">                              BoundArgsTuple&amp;&amp; bound,</span></span></span><br><span class="line"><span class="params"><span class="function">                              RunArgs&amp;&amp;... args)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!std::<span class="built_in">get</span>&lt;<span class="number">0</span>&gt;(bound))</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    <span class="keyword">using</span> Traits = MakeFunctorTraits&lt;Functor&gt;;</span><br><span class="line">    Traits::<span class="built_in">Invoke</span>(</span><br><span class="line">        std::forward&lt;Functor&gt;(functor),</span><br><span class="line">        <span class="built_in">Unwrap</span>(std::<span class="built_in">get</span>&lt;indices&gt;(std::forward&lt;BoundArgsTuple&gt;(bound)))...,</span><br><span class="line">        std::forward&lt;RunArgs&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h5 id="创建-OnceCallback"><a href="#创建-OnceCallback" class="headerlink" title="创建 OnceCallback"></a>创建 OnceCallback</h5><p>BindImpl 函数的最后就是创建 OnceCallback。</p>
+<p>先通过 BindState::Create 函数创建一个 BindState 对象并返回他的指针，然后通过该指针创建 OnceCallback 对象。</p>
+<p>OnceCallback 类结构如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">template</span> &lt;<span class="keyword">typename</span> R, <span class="keyword">typename</span>... Args&gt;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">TRIVIAL_ABI</span> OnceCallback&lt;<span class="built_in">R</span>(Args...)&gt; &#123;</span><br><span class="line">  <span class="keyword">using</span> ResultType = R;</span><br><span class="line">  <span class="keyword">using</span> RunType = <span class="built_in">R</span>(Args...);</span><br><span class="line">  <span class="keyword">using</span> PolymorphicInvoke = <span class="built_in">R</span> (*)(internal::BindStateBase*,</span><br><span class="line">                                  internal::PassingType&lt;Args&gt;...);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">OnceCallback</span>(OnceCallback&amp;&amp;) <span class="keyword">noexcept</span> = <span class="keyword">default</span>;</span><br><span class="line">  OnceCallback&amp; <span class="keyword">operator</span>=(OnceCallback&amp;&amp;) <span class="keyword">noexcept</span> = <span class="keyword">default</span>;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// Internal constructor for `base::BindOnce()`.</span></span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">OnceCallback</span><span class="params">(internal::BindStateBase* bind_state)</span></span></span><br><span class="line"><span class="function">      : holder_(bind_state) &#123;</span>&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">R <span class="title">Run</span><span class="params">(Args... args)</span> <span class="type">const</span>&amp; </span>&#123;</span><br><span class="line">    <span class="built_in">static_assert</span>(!<span class="built_in">sizeof</span>(*<span class="keyword">this</span>),</span><br><span class="line">                  <span class="string">&quot;OnceCallback::Run() may only be invoked on a non-const &quot;</span></span><br><span class="line">                  <span class="string">&quot;rvalue, i.e. std::move(callback).Run().&quot;</span>);</span><br><span class="line">    <span class="built_in">NOTREACHED</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">R <span class="title">Run</span><span class="params">(Args... args)</span> &amp;&amp; </span>&#123;</span><br><span class="line">    <span class="comment">// Move the callback instance into a local variable before the invocation,</span></span><br><span class="line">    <span class="comment">// that ensures the internal state is cleared after the invocation.</span></span><br><span class="line">    <span class="comment">// It&#x27;s not safe to touch |this| after the invocation, since running the</span></span><br><span class="line">    <span class="comment">// bound function may destroy |this|.</span></span><br><span class="line">    internal::BindStateHolder holder = std::<span class="built_in">move</span>(holder_);</span><br><span class="line">    PolymorphicInvoke f = <span class="comment">// 强制转换函数指针</span></span><br><span class="line">        <span class="built_in">reinterpret_cast</span>&lt;PolymorphicInvoke&gt;(holder.<span class="built_in">polymorphic_invoke</span>());</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">f</span>(holder.<span class="built_in">bind_state</span>().<span class="built_in">get</span>(), std::forward&lt;Args&gt;(args)...);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  internal::BindStateHolder holder_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>OnceCallback 的构造函数接受 BindStateBase 指针，而 BindState 就是 BindStateBase 的子类。</p>
+<p>在 OnceCallback 内部，BindStateHolder 会存储构造函数输入的 BindState 指针，看看这个类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BASE_EXPORT</span> TRIVIAL_ABI BindStateHolder &#123;</span><br><span class="line">  <span class="keyword">using</span> InvokeFuncStorage = BindStateBase::InvokeFuncStorage;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">BindStateHolder</span>(BindStateBase* bind_state)</span><br><span class="line">    : <span class="built_in">bind_state_</span>(<span class="built_in">AdoptRef</span>(bind_state)) &#123;&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">InvokeFuncStorage <span class="title">polymorphic_invoke</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> bind_state_-&gt;polymorphic_invoke_;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="keyword">inline</span> <span class="keyword">explicit</span> <span class="title">BindStateHolder</span><span class="params">(BindStateBase* bind_state)</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">const</span> scoped_refptr&lt;BindStateBase&gt;&amp; <span class="title">bind_state</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> bind_state_; &#125;</span><br><span class="line"></span><br><span class="line">  scoped_refptr&lt;BindStateBase&gt; bind_state_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>BindStateHolder 内部通过 scoped_refptr<BindStateBase>来管理 BindState 指针。BindStateHolder 可以拷贝和移动，因为他会用在 OnceCallback 和 RepeatingCallback 中。</p>
+<p>再回到 OnceCallback 的 Run 函数，其只有右值版本，左值版本不允许使用。Run 内部就是调用 BindState 的 polymorphic_invoke 函数指针发起调用</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">R <span class="title">Run</span><span class="params">(Args... args)</span> &amp;&amp; </span>&#123;</span><br><span class="line">    <span class="comment">// Move the callback instance into a local variable before the invocation,</span></span><br><span class="line">    <span class="comment">// that ensures the internal state is cleared after the invocation.</span></span><br><span class="line">    <span class="comment">// It&#x27;s not safe to touch |this| after the invocation, since running the</span></span><br><span class="line">    <span class="comment">// bound function may destroy |this|.</span></span><br><span class="line">    internal::BindStateHolder holder = std::<span class="built_in">move</span>(holder_);</span><br><span class="line">    PolymorphicInvoke f = <span class="comment">// 强制转换函数指针</span></span><br><span class="line">        <span class="built_in">reinterpret_cast</span>&lt;PolymorphicInvoke&gt;(holder.<span class="built_in">polymorphic_invoke</span>());</span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">f</span>(holder.<span class="built_in">bind_state</span>().<span class="built_in">get</span>(), std::forward&lt;Args&gt;(args)...);</span><br><span class="line">  &#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面在创建 BindState 时会传给 BindState 一个 invoke 指针，这个指针根据是 OnceCallback 还是 RepeatingCallback 会分别为 Invoker::RunOnce、Invoker::Run，这两个函数上面 Invoker 已经介绍。</p>
+<p>总的来说，Chromium 的 Bind 和标准库的 bind_front 比较类似，而 Callback 和 std::function 则有不小的差别，Callback 只能由 Bind 创建，无法接受其他可调用对象为参数，相对 std::function 来说要简单一些。</p>
+<p>参考资料：</p>
+<p><a href="https://chromium.googlesource.com/chromium/src/+/HEAD/docs/callback.md">https://chromium.googlesource.com/chromium/src/+/HEAD/docs/callback.md</a></p>
+<p><a href="https://blog.csdn.net/Luoshengyang/article/details/46747797">https://blog.csdn.net/Luoshengyang/article/details/46747797</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/05/20/Chromium-base-%E5%BA%93%E4%B9%8B-WeakPtr/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-05-23 22:19:56
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                        <b>#</b> Chromium base库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/05/28/C-%E6%A0%87%E5%87%86%E5%BA%93%E4%B9%8B-function/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#bind"><span class="toc-text">bind</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#BindOnce"><span class="toc-text">BindOnce</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#BindOnce-%E5%87%BD%E6%95%B0"><span class="toc-text">BindOnce 函数</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#BindImpl"><span class="toc-text">BindImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%92%8C%E5%87%BD%E6%95%B0%E5%8F%82%E6%95%B0%E7%9B%B8%E5%85%B3%E7%9A%84-type-trait"><span class="toc-text">和函数参数相关的 type trait</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#BindTypeHelper"><span class="toc-text">BindTypeHelper</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#MakeUnwrappedTypeList"><span class="toc-text">MakeUnwrappedTypeList</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#AssertBindArgsValidity"><span class="toc-text">AssertBindArgsValidity</span></a></li></ol></li><li class="toc-item toc-level-5"><a class="toc-link" href="#MakeBindStateType"><span class="toc-text">MakeBindStateType</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#MakeStorageType"><span class="toc-text">MakeStorageType</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#MethodReceiverStorageType"><span class="toc-text">MethodReceiverStorageType</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#BindState"><span class="toc-text">BindState</span></a></li></ol></li><li class="toc-item toc-level-5"><a class="toc-link" href="#MakeUnboundRunType"><span class="toc-text">MakeUnboundRunType</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#Invoker"><span class="toc-text">Invoker</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#IsWeakMethod"><span class="toc-text">IsWeakMethod</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#InvokeHelper"><span class="toc-text">InvokeHelper</span></a></li></ol></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-OnceCallback"><span class="toc-text">创建 OnceCallback</span></a></li></ol></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
