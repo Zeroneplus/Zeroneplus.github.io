@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium base 库之 thread（一） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium base 库之 thread（一）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-08 22:50:06
+        </span>
+        
+      </div>
+      <div class="markdown-body">
+        <p>之前研究过 Chromium thread 相关内容，打算写几篇文章介绍一下这块的内容。</p>
+<p>这篇文章先通过一个例子介绍基本的类结构关系。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>先看下面的例子（来自 <a href="https://keyou.github.io/blog/2019/06/11/Chromium-MessageLoop-and-TaskScheduler/">https://keyou.github.io/blog/2019/06/11/Chromium-MessageLoop-and-TaskScheduler/</a>）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/logging.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/message_loop/message_loop.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/message_loop/message_loop_current.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/task/post_task.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/task/single_thread_task_executor.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/task/thread_pool/thread_pool_impl.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/task/thread_pool/thread_pool_instance.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/threading/thread_task_runner_handle.h&quot;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&quot;base/timer/timer.h&quot;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">Hello</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">LOG</span>(INFO) &lt;&lt; <span class="string">&quot;hello,demo!&quot;</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">(<span class="type">int</span> argc, <span class="type">char</span>** argv)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// 创建消息循环</span></span><br><span class="line">  base::SingleThreadTaskExecutor main_task_executer;</span><br><span class="line">  </span><br><span class="line">  base::RunLoop run_loop;</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 获取当前线程的 task runner，并PostTask</span></span><br><span class="line">  base::ThreadTaskRunnerHandle::<span class="built_in">Get</span>()-&gt;<span class="built_in">PostTask</span>(FROM_HERE,base::<span class="built_in">BindOnce</span>(&amp;Hello));</span><br><span class="line">  </span><br><span class="line">  <span class="comment">// 启动消息循环，即使没有任务也会阻塞程序运行。当前进程中只有一个线程。</span></span><br><span class="line">  run_loop.<span class="built_in">Run</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的代码把 main thread 变成了一个 RunLoop，main thread 会不停的从任务队列中取任务，但是由于上面只有一个线程，所以当 <code>run_loop.Run();</code> 执行后，main thread 会在执行完 Hello 函数就进入睡眠状态。</p>
+<p>实际开发中一般不会这么写，更多的是直接启动一个 thread，然后往该 thread 中 PostTask，但是我们可以以这个例子为研究对象来分析 Chromium thread 的原理。</p>
+<h2 id="SingleThreadTaskExecutor"><a href="#SingleThreadTaskExecutor" class="headerlink" title="SingleThreadTaskExecutor"></a>SingleThreadTaskExecutor</h2><p>第一步，先创建一个 SingleThreadTaskExecutor 类型的对象，这个类里面有一个非常重要的类型，SequenceManager，的对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">SingleThreadTaskExecutor</span> &#123;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"><span class="keyword">private</span>:</span><br><span class="line">  std::unique_ptr&lt;sequence_manager::SequenceManager&gt; sequence_manager_;</span><br><span class="line">  scoped_refptr&lt;sequence_manager::TaskQueue&gt; default_task_queue_;</span><br><span class="line">  MessagePumpType type_;</span><br><span class="line">  SimpleTaskExecutor simple_task_executor_; <span class="comment">// 以task_runner作为参数</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>当默认构造 SingleThreadTaskExecutor 时，type 参数为 MessagePumpType::DEFAULT</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">SingleThreadTaskExecutor::<span class="built_in">SingleThreadTaskExecutor</span>(MessagePumpType type = MessagePumpType::DEFAULT)</span><br><span class="line">    : <span class="built_in">SingleThreadTaskExecutor</span>(type, MessagePump::<span class="built_in">Create</span>(type)) &#123;</span><br><span class="line">  <span class="built_in">DCHECK_NE</span>(type, MessagePumpType::CUSTOM);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>进而调用下面的构造函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">SingleThreadTaskExecutor::<span class="built_in">SingleThreadTaskExecutor</span>(</span><br><span class="line">    MessagePumpType type,</span><br><span class="line">    std::unique_ptr&lt;MessagePump&gt; pump)</span><br><span class="line">    : <span class="built_in">sequence_manager_</span>(sequence_manager::<span class="built_in">CreateUnboundSequenceManager</span>(</span><br><span class="line">          sequence_manager::SequenceManager::Settings::<span class="built_in">Builder</span>()</span><br><span class="line">              .<span class="built_in">SetMessagePumpType</span>(type)</span><br><span class="line">              .<span class="built_in">Build</span>())),</span><br><span class="line">      <span class="built_in">default_task_queue_</span>(sequence_manager_-&gt;<span class="built_in">CreateTaskQueue</span>(</span><br><span class="line">          sequence_manager::TaskQueue::<span class="built_in">Spec</span>(<span class="string">&quot;default_tq&quot;</span>))),</span><br><span class="line">      <span class="built_in">type_</span>(type),</span><br><span class="line">      <span class="built_in">simple_task_executor_</span>(<span class="built_in">task_runner</span>()) &#123;</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">SetDefaultTaskRunner</span>(default_task_queue_-&gt;<span class="built_in">task_runner</span>());</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">BindToMessagePump</span>(std::<span class="built_in">move</span>(pump));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在构造函数里面会：</p>
+<ul>
+<li>创建 SequenceManager</li>
+<li>然后从 SequenceManager 创建 TaskQueue</li>
+<li>从 TaskQueue 中取得 task_runner，用于后续 post task</li>
+<li>最后对 SequenceManager 进行初始化</li>
+</ul>
+<h3 id="创建-SequenceManager"><a href="#创建-SequenceManager" class="headerlink" title="创建 SequenceManager"></a>创建 SequenceManager</h3><p>SingleThreadTaskExecutor()中通过 sequence_manager::CreateUnboundSequenceManager 这个函数创建 SequenceManagerImpl，而 SequenceManagerImpl 继承 SequenceManager。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;SequenceManager&gt; <span class="title">CreateUnboundSequenceManager</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    SequenceManager::Settings settings)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> internal::SequenceManagerImpl::<span class="built_in">CreateUnbound</span>(std::<span class="built_in">move</span>(settings));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>SequenceManager::Settings 就是一些参数设置，可以暂时不管</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">SequenceManager</span>::Settings &#123;</span><br><span class="line">    MessagePumpType message_loop_type = MessagePumpType::DEFAULT;</span><br><span class="line">    <span class="type">bool</span> randomised_sampling_enabled = <span class="literal">false</span>;</span><br><span class="line">    raw_ptr&lt;<span class="type">const</span> TickClock&gt; clock = DefaultTickClock::<span class="built_in">GetInstance</span>();</span><br><span class="line"></span><br><span class="line">    <span class="comment">// If true, add the timestamp the task got queued to the task.</span></span><br><span class="line">    <span class="type">bool</span> add_queue_time_to_tasks = <span class="literal">false</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="创建-ThreadControllerWithMessagePumpImpl"><a href="#创建-ThreadControllerWithMessagePumpImpl" class="headerlink" title="创建 ThreadControllerWithMessagePumpImpl"></a>创建 ThreadControllerWithMessagePumpImpl</h4><p>CreateUnbound 里面先创建 ThreadControllerWithMessagePumpImpl，然后用他来创建 SequenceManagerImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="function">std::unique_ptr&lt;SequenceManagerImpl&gt; <span class="title">SequenceManagerImpl::CreateUnbound</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    SequenceManager::Settings settings)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">auto</span> thread_controller =</span><br><span class="line">      ThreadControllerWithMessagePumpImpl::<span class="built_in">CreateUnbound</span>(settings);</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">WrapUnique</span>(<span class="keyword">new</span> <span class="built_in">SequenceManagerImpl</span>(std::<span class="built_in">move</span>(thread_controller),</span><br><span class="line">                                            std::<span class="built_in">move</span>(settings)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ThreadController 顾名思义就是和线程管理相关。</p>
+<p><strong>ThreadController 内部持有 MessagePump</strong>，而 MessagePump 会反过来调用 ThreadController，ThreadController 则从 SequenceManager 中取 task，调用流程是 <code>RunLoop-&gt;ThreadController-&gt;MessagePump-&gt;ThreadController-&gt;SequenceManager</code>。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="function">std::unique_ptr&lt;ThreadControllerWithMessagePumpImpl&gt;</span></span><br><span class="line"><span class="function"><span class="title">ThreadControllerWithMessagePumpImpl::CreateUnbound</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SequenceManager::Settings&amp; settings)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> base::<span class="built_in">WrapUnique</span>(<span class="keyword">new</span> <span class="built_in">ThreadControllerWithMessagePumpImpl</span>(settings));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ThreadControllerWithMessagePumpImpl::<span class="built_in">ThreadControllerWithMessagePumpImpl</span>(</span><br><span class="line">    <span class="type">const</span> SequenceManager::Settings&amp; settings)</span><br><span class="line">    : <span class="built_in">associated_thread_</span>(AssociatedThreadId::<span class="built_in">CreateUnbound</span>()),</span><br><span class="line">      <span class="built_in">work_deduplicator_</span>(associated_thread_),</span><br><span class="line">      <span class="built_in">time_source_</span>(settings.clock) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>associated_thread_</code> 是 <code>scoped_refptr&lt;AssociatedThreadId&gt; associated_thread_;</code>。</p>
+<p><code>AssociatedThreadId</code> 类中有一个成员 <code>std::atomic&lt;PlatformThreadId&gt; thread_id_&#123;kInvalidThreadId&#125;;</code></p>
+<p><code>AssociatedThreadId::CreateUnbound()</code> 函数返回的 <code>AssociatedThreadId</code> 里面 <code>thread_id_</code> 是 <code>kInvalidThreadId</code>，也就是无效值</p>
+<h3 id="继续创建-SequenceManager"><a href="#继续创建-SequenceManager" class="headerlink" title="继续创建 SequenceManager"></a>继续创建 SequenceManager</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line">SequenceManagerImpl::<span class="built_in">SequenceManagerImpl</span>(</span><br><span class="line">    std::unique_ptr&lt;internal::ThreadController&gt; controller,</span><br><span class="line">    SequenceManager::Settings settings)</span><br><span class="line">    : <span class="built_in">associated_thread_</span>(controller-&gt;<span class="built_in">GetAssociatedThread</span>()),</span><br><span class="line">      <span class="built_in">controller_</span>(std::<span class="built_in">move</span>(controller)),</span><br><span class="line">      <span class="built_in">settings_</span>(std::<span class="built_in">move</span>(settings)),</span><br><span class="line">      <span class="built_in">metric_recording_settings_</span>(<span class="built_in">InitializeMetricRecordingSettings</span>(</span><br><span class="line">          settings_.randomised_sampling_enabled)),</span><br><span class="line">      <span class="built_in">add_queue_time_to_tasks_</span>(settings_.add_queue_time_to_tasks), <span class="comment">// bool</span></span><br><span class="line">      <span class="built_in">empty_queues_to_reload_</span>(associated_thread_),</span><br><span class="line">      <span class="built_in">memory_corruption_sentinel_</span>(kMemoryCorruptionSentinelValue),</span><br><span class="line">      <span class="built_in">main_thread_only_</span>(<span class="keyword">this</span>, associated_thread_, settings_, settings_.clock),</span><br><span class="line">      <span class="built_in">clock_</span>(settings_.clock) &#123;</span><br><span class="line">...</span><br><span class="line">  <span class="built_in">main_thread_only</span>().selector.<span class="built_in">SetTaskQueueSelectorObserver</span>(<span class="keyword">this</span>);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">main_thread_only</span>().next_time_to_reclaim_memory =</span><br><span class="line">      <span class="built_in">main_thread_clock</span>()-&gt;<span class="built_in">NowTicks</span>() + kReclaimMemoryInterval;</span><br><span class="line"></span><br><span class="line">  controller_-&gt;<span class="built_in">SetSequencedTaskSource</span>(<span class="keyword">this</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面创建 SequenceManagerImpl 中 <code>controller-&gt;GetAssociatedThread()</code> 返回的就是上面 ThreadControllerWithMessagePumpImpl 中的 <code>associated_thread_</code>。</p>
+<p>SequenceManagerImpl 会持有 ThreadControllerWithMessagePumpImpl。</p>
+<p>注意 <code>controller_-&gt;SetSequencedTaskSource(this);</code> 这一步会将 SequenceManagerImpl 指针设置到 ThreadControllerWithMessagePumpImpl 中，后面 ThreadControllerWithMessagePumpImpl 就能从 SequenceManagerImpl 中取任务。</p>
+<p>SequenceManagerImpl 中有一个 main_thread_only 的数据结构，main_thread_only 的意思是他只能被执行 RunLoop::Run()的线程访问。thread 模型是这样的：thread 的线程执行 RunLoop.run()，不停的执行任务队列中的 task，其他线程则往 thread 中 post task。</p>
+<p>接下来简要分析 SequenceManagerImpl 中重要的数据。</p>
+<p>首先是 MainThreadOnly，SequenceManagerImpl 中有 MainThreadOnly 类型的对象，MainThreadOnly 的含义上面已经说了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">MainThreadOnly</span> &#123;</span><br><span class="line">...</span><br><span class="line">    internal::TaskQueueSelector selector;</span><br><span class="line">...</span><br><span class="line">    std::unique_ptr&lt;WakeUpQueue&gt; wake_up_queue;</span><br><span class="line">    std::unique_ptr&lt;WakeUpQueue&gt; non_waking_wake_up_queue;</span><br><span class="line">...</span><br><span class="line">    <span class="comment">// List of task queues managed by this SequenceManager.</span></span><br><span class="line">    <span class="comment">// - active_queues contains queues that are still running tasks.</span></span><br><span class="line">    <span class="comment">//   Most often they are owned by relevant TaskQueues, but</span></span><br><span class="line">    <span class="comment">//   queues_to_gracefully_shutdown_ are included here too.</span></span><br><span class="line">    <span class="comment">// - queues_to_gracefully_shutdown contains queues which should be deleted</span></span><br><span class="line">    <span class="comment">//   when they become empty.</span></span><br><span class="line">    <span class="comment">// - queues_to_delete contains soon-to-be-deleted queues, because some</span></span><br><span class="line">    <span class="comment">//   internal scheduling code does not expect queues to be pulled</span></span><br><span class="line">    <span class="comment">//   from underneath.</span></span><br><span class="line"></span><br><span class="line">    std::set&lt;internal::TaskQueueImpl*&gt; active_queues;</span><br><span class="line"></span><br><span class="line">    std::map&lt;internal::TaskQueueImpl*, std::unique_ptr&lt;internal::TaskQueueImpl&gt;&gt;</span><br><span class="line">        queues_to_gracefully_shutdown;</span><br><span class="line">    std::map&lt;internal::TaskQueueImpl*, std::unique_ptr&lt;internal::TaskQueueImpl&gt;&gt;</span><br><span class="line">        queues_to_delete;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">  &#125;;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueueSelector 用于选择 TaskQueue，一个 SequenceManager 可以管理多个 TaskQueue，当 SequenceManager 希望执行任务时，需要决定从哪个 TaskQueue 中取任务</p>
+<p>WakeUpQueue 用于 TaskQueue 给持有 SequenceManager 的线程设置唤醒时间，当 TaskQueue 发送一个 dealyed task 时可能会往 WakeUpQueue 发送一个唤醒时间，指示 main thread 在指定时间后唤醒</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BASE_EXPORT</span> SequenceManagerImpl &#123;</span><br><span class="line">...</span><br><span class="line">  <span class="type">const</span> std::unique_ptr&lt;internal::ThreadController&gt; controller_;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  AtomicFlagSet empty_queues_to_reload_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>SequenceManagerImpl 中持有 ThreadController，但是调用顺序却是 ThreadController 调用 SequenceManagerImpl，后面会看到 ThreadController 会被保存在 thread local storage 中被 RunLoop 类取得。</p>
+<h3 id="从-SequenceManager-创建-TaskQueue"><a href="#从-SequenceManager-创建-TaskQueue" class="headerlink" title="从 SequenceManager 创建 TaskQueue"></a>从 SequenceManager 创建 TaskQueue</h3><p>先通过 SequenceManagerImpl::CreateTaskQueueImpl 创建 TaskQueueImpl，然后通过 TaskQueueImpl 创建 TaskQueue。TaskQueueImpl 和 TaskQueue 不是继承关系，TaskQueue 类里面有一个成员 <code>std::unique_ptr&lt;internal::TaskQueueImpl&gt; impl_;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">scoped_refptr&lt;TaskQueue&gt; <span class="title">SequenceManagerImpl::CreateTaskQueue</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> TaskQueue::Spec&amp; spec)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">WrapRefCounted</span>(<span class="keyword">new</span> <span class="built_in">TaskQueue</span>(<span class="built_in">CreateTaskQueueImpl</span>(spec), spec));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueue::Spec 类如下，暂时不用管</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">Spec</span> &#123;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span>* name;</span><br><span class="line">    <span class="type">bool</span> should_monitor_quiescence = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">bool</span> should_notify_observers = <span class="literal">true</span>;</span><br><span class="line">    <span class="type">bool</span> delayed_fence_allowed = <span class="literal">false</span>;</span><br><span class="line">    <span class="type">bool</span> non_waking = <span class="literal">false</span>;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<h4 id="创建-TaskQueueImpl"><a href="#创建-TaskQueueImpl" class="headerlink" title="创建 TaskQueueImpl"></a>创建 TaskQueueImpl</h4><p>主线程通过 SequenceManagerImpl 管理 TaskQueueImpl，其他线程通过 TaskQueueImpl 往主线程 post task。</p>
+<p>创建好 TaskQueueImpl 后会把他加到 SequenceManagerImpl 的 main_thread_only().active_queues 和 main_thread_only().selector，后面 SequenceManagerImpl 取 task 时会通过 main_thread_only().selector 从 TaskQueueImpl 中取任务。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;internal::TaskQueueImpl&gt;</span></span><br><span class="line"><span class="function"><span class="title">SequenceManagerImpl::CreateTaskQueueImpl</span><span class="params">(<span class="type">const</span> TaskQueue::Spec&amp; spec)</span> </span>&#123;</span><br><span class="line">  std::unique_ptr&lt;internal::TaskQueueImpl&gt; task_queue =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;internal::TaskQueueImpl&gt;(</span><br><span class="line">          <span class="keyword">this</span>,</span><br><span class="line">          spec.non_waking ? <span class="built_in">main_thread_only</span>().non_waking_wake_up_queue.<span class="built_in">get</span>()</span><br><span class="line">                          : <span class="built_in">main_thread_only</span>().wake_up_queue.<span class="built_in">get</span>(),</span><br><span class="line">          spec);</span><br><span class="line">  <span class="built_in">main_thread_only</span>().active_queues.<span class="built_in">insert</span>(task_queue.<span class="built_in">get</span>());</span><br><span class="line">  <span class="built_in">main_thread_only</span>().selector.<span class="built_in">AddQueue</span>(task_queue.<span class="built_in">get</span>());</span><br><span class="line">  <span class="keyword">return</span> task_queue;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueueImpl 有以下重要数据结构</p>
+<p>在 MainThreadOnly 中的</p>
+<ul>
+<li>delayed_work_queue</li>
+<li>immediate_work_queue</li>
+<li>delayed_incoming_queue</li>
+</ul>
+<p>在 AnyThread 中的</p>
+<ul>
+<li>immediate_incoming_queue</li>
+</ul>
+<p>其他线程往 TaskQueueImpl 中 post task 时，只能送到 AnyThread 的 immediate_incoming_queue，送完之后会根据 task 类型，比如是否 delay，来通知 main thread 处理这个 task，注意这里不是执行 task，而是把 immediate_incoming_queue 中刚刚到送入的 task 移到 MainThreadOnly 中的 queue，执行 task 则有其他的逻辑</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">BASE_EXPORT</span> TaskQueueImpl &#123;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">MainThreadOnly</span> &#123;</span><br><span class="line">...</span><br><span class="line">    std::unique_ptr&lt;WorkQueue&gt; delayed_work_queue;</span><br><span class="line">    std::unique_ptr&lt;WorkQueue&gt; immediate_work_queue;</span><br><span class="line">    DelayedIncomingQueue delayed_incoming_queue;</span><br><span class="line">...</span><br><span class="line">    <span class="type">bool</span> is_enabled = <span class="literal">true</span>;</span><br><span class="line">...</span><br><span class="line">    <span class="comment">// Last reported wake up, used only in UpdateWakeUp to avoid</span></span><br><span class="line">    <span class="comment">// excessive calls.</span></span><br><span class="line">    absl::optional&lt;WakeUp&gt; scheduled_wake_up;</span><br><span class="line">...</span><br><span class="line">  &#125;;</span><br><span class="line">...</span><br><span class="line">  <span class="type">const</span> raw_ptr&lt;SequenceManagerImpl&gt; sequence_manager_;</span><br><span class="line"></span><br><span class="line">  scoped_refptr&lt;AssociatedThreadId&gt; associated_thread_;</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> scoped_refptr&lt;GuardedTaskPoster&gt; task_poster_;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">struct</span> <span class="title class_">AnyThread</span> &#123;</span><br><span class="line">...</span><br><span class="line">    TaskDeque immediate_incoming_queue;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// True if main_thread_only().immediate_work_queue is empty.</span></span><br><span class="line">    <span class="type">bool</span> immediate_work_queue_empty = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> post_immediate_task_should_schedule_work = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">bool</span> unregistered = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">  &#125;;</span><br><span class="line">...</span><br><span class="line">  AtomicFlagSet::AtomicFlag empty_queues_to_reload_handle_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>从 TaskQueueImpl 构造函数可知，TaskQueueImpl 中有 SequenceManagerImpl 指针，SequenceManagerImpl 中的 WakeUpQueue，还把 SequenceManagerImpl 中的 <code>empty_queues_to_reload_</code> 设到了 <code>empty_queues_to_reload_handle_</code>（这个和 main thread 唤醒有关，后面再分析）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">TaskQueueImpl::<span class="built_in">TaskQueueImpl</span>(SequenceManagerImpl* sequence_manager,</span><br><span class="line">                             WakeUpQueue* wake_up_queue,</span><br><span class="line">                             <span class="type">const</span> TaskQueue::Spec&amp; spec)</span><br><span class="line">    : <span class="built_in">name_</span>(spec.name),</span><br><span class="line">      <span class="built_in">sequence_manager_</span>(sequence_manager),</span><br><span class="line">      <span class="built_in">associated_thread_</span>(sequence_manager</span><br><span class="line">                             ? sequence_manager-&gt;<span class="built_in">associated_thread</span>()</span><br><span class="line">                             : AssociatedThreadId::<span class="built_in">CreateBound</span>()),</span><br><span class="line">      <span class="built_in">task_poster_</span>(<span class="built_in">MakeRefCounted</span>&lt;GuardedTaskPoster&gt;(<span class="keyword">this</span>)),</span><br><span class="line">      <span class="built_in">main_thread_only_</span>(<span class="keyword">this</span>, wake_up_queue),</span><br><span class="line">      <span class="built_in">empty_queues_to_reload_handle_</span>(</span><br><span class="line">          sequence_manager</span><br><span class="line">              ? sequence_manager-&gt;<span class="built_in">GetFlagToRequestReloadForEmptyQueue</span>(<span class="keyword">this</span>)</span><br><span class="line">              : AtomicFlagSet::<span class="built_in">AtomicFlag</span>()),</span><br><span class="line">      <span class="built_in">should_monitor_quiescence_</span>(spec.should_monitor_quiescence),</span><br><span class="line">      <span class="built_in">should_notify_observers_</span>(spec.should_notify_observers),</span><br><span class="line">      <span class="built_in">delayed_fence_allowed_</span>(spec.delayed_fence_allowed) &#123;</span><br><span class="line">  <span class="built_in">UpdateCrossThreadQueueStateLocked</span>();</span><br><span class="line">  <span class="comment">// SequenceManager can&#x27;t be set later, so we need to prevent task runners</span></span><br><span class="line">  <span class="comment">// from posting any tasks.</span></span><br><span class="line">  <span class="keyword">if</span> (sequence_manager_)</span><br><span class="line">    task_poster_-&gt;<span class="built_in">StartAcceptingOperations</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="创建-TaskQueue"><a href="#创建-TaskQueue" class="headerlink" title="创建 TaskQueue"></a>创建 TaskQueue</h4><p>创建 TaskQueueImpl 后就可以创建 TaskQueue 了</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">TaskQueue</span>&#123;</span><br><span class="line">...</span><br><span class="line">  std::unique_ptr&lt;internal::TaskQueueImpl&gt; impl_;</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> WeakPtr&lt;internal::SequenceManagerImpl&gt; sequence_manager_;</span><br><span class="line"></span><br><span class="line">  scoped_refptr&lt;internal::AssociatedThreadId&gt; associated_thread_;</span><br><span class="line">  scoped_refptr&lt;SingleThreadTaskRunner&gt; default_task_runner_;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">TaskQueue::<span class="built_in">TaskQueue</span>(std::unique_ptr&lt;internal::TaskQueueImpl&gt; impl,</span><br><span class="line">                     <span class="type">const</span> TaskQueue::Spec&amp; spec)</span><br><span class="line">    : <span class="built_in">impl_</span>(std::<span class="built_in">move</span>(impl)),</span><br><span class="line">      <span class="built_in">sequence_manager_</span>(impl_ ? impl_-&gt;<span class="built_in">GetSequenceManagerWeakPtr</span>() : <span class="literal">nullptr</span>),</span><br><span class="line">      <span class="built_in">associated_thread_</span>((impl_ &amp;&amp; impl_-&gt;<span class="built_in">sequence_manager</span>())</span><br><span class="line">                             ? impl_-&gt;<span class="built_in">sequence_manager</span>()-&gt;<span class="built_in">associated_thread</span>()</span><br><span class="line">                             : <span class="built_in">MakeRefCounted</span>&lt;internal::AssociatedThreadId&gt;()),</span><br><span class="line">      <span class="built_in">default_task_runner_</span>(impl_ ? impl_-&gt;<span class="built_in">CreateTaskRunner</span>(kTaskTypeNone)</span><br><span class="line">                                 : <span class="built_in">CreateNullTaskRunner</span>()),</span><br><span class="line">      <span class="built_in">name_</span>(impl_ ? impl_-&gt;<span class="built_in">GetName</span>() : <span class="string">&quot;&quot;</span>) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueue 的构造函数还创建了 <code>default_task_runner_</code>，<code>default_task_runner_</code> 是其他线程和 main thread 之间通信的桥梁，其他线程通过 <code>default_task_runner_</code> 往 main thread 中 post task。<code>default_task_runner_</code> 是对 TaskQueueImpl 中的 <code>task_poster_</code> 的包装</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">scoped_refptr&lt;SingleThreadTaskRunner&gt; <span class="title">TaskQueueImpl::CreateTaskRunner</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    TaskType task_type)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">MakeRefCounted</span>&lt;TaskRunner&gt;(task_poster_, associated_thread_,</span><br><span class="line">                                    task_type);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueue 的 task_runner()方法返回的就是上面创建的 <code>default_task_runner_</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Default task runner which doesn&#x27;t annotate tasks with a task type.</span></span><br><span class="line"><span class="function"><span class="type">const</span> scoped_refptr&lt;SingleThreadTaskRunner&gt;&amp; <span class="title">TaskQueue::task_runner</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> default_task_runner_;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="对-SequenceManager-进行初始化"><a href="#对-SequenceManager-进行初始化" class="headerlink" title="对 SequenceManager 进行初始化"></a>对 SequenceManager 进行初始化</h3><h4 id="SetDefaultTaskRunner"><a href="#SetDefaultTaskRunner" class="headerlink" title="SetDefaultTaskRunner"></a>SetDefaultTaskRunner</h4><p>SetDefaultTaskRunner 就是设置 main thread 的 TaskRunner，这个函数应该在 main thread 中调用，因为会使用 thread local storage</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::SetDefaultTaskRunner</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    scoped_refptr&lt;SingleThreadTaskRunner&gt; task_runner)</span> </span>&#123;</span><br><span class="line">  controller_-&gt;<span class="built_in">SetDefaultTaskRunner</span>(task_runner);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>其实就是把 task_runner 设给 ThreadControllerWithMessagePumpImpl，InitializeThreadTaskRunnerHandle()函数这里不会调用，因为此时 <code>associated_thread_</code> 还没有进行 bind，InitializeThreadTaskRunnerHandle 会在后面执行</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ThreadControllerWithMessagePumpImpl::SetDefaultTaskRunner</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    scoped_refptr&lt;SingleThreadTaskRunner&gt; task_runner)</span> </span>&#123;</span><br><span class="line">  base::<span class="function">internal::CheckedAutoLock <span class="title">lock</span><span class="params">(task_runner_lock_)</span></span>;</span><br><span class="line">  task_runner_ = task_runner;</span><br><span class="line">  <span class="keyword">if</span> (associated_thread_-&gt;<span class="built_in">IsBound</span>()) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(associated_thread_-&gt;<span class="built_in">IsBoundToCurrentThread</span>());</span><br><span class="line">    <span class="comment">// Thread task runner handle will be created in BindToCurrentThread().</span></span><br><span class="line">    <span class="built_in">InitializeThreadTaskRunnerHandle</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="BindToMessagePump"><a href="#BindToMessagePump" class="headerlink" title="BindToMessagePump"></a>BindToMessagePump</h4><p>这里是将 MessagePump 绑定到 SequenceManager。</p>
+<p>这里同样要求在 main thread 中执行。</p>
+<p>之前说过，RunLoop 在调用中间通过 MessagePump 从 SequenceManager 中取任务，MessagePump 后面介绍 RunLoop 时再说</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::BindToMessagePump</span><span class="params">(std::unique_ptr&lt;MessagePump&gt; pump)</span> </span>&#123;</span><br><span class="line">  controller_-&gt;<span class="built_in">BindToCurrentThread</span>(std::<span class="built_in">move</span>(pump));</span><br><span class="line">  <span class="built_in">CompleteInitializationOnBoundThread</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面函数会将 <code>associated_thread_</code> 进行绑定，然后将 message_pump 移动到 ThreadController 中，此后 ThreadController 持有 message_pump，RunLoop 会先调用到 ThreadController，ThreadController 再调用到 message_pump，message_pump 又调用 ThreadController，ThreadController 再调用 SequenceManager。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ThreadControllerWithMessagePumpImpl::BindToCurrentThread</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;MessagePump&gt; message_pump)</span> </span>&#123;</span><br><span class="line">  associated_thread_-&gt;<span class="built_in">BindToCurrentThread</span>();</span><br><span class="line">  pump_ = std::<span class="built_in">move</span>(message_pump);</span><br><span class="line">  work_id_provider_ = WorkIdProvider::<span class="built_in">GetForCurrentThread</span>();</span><br><span class="line">  RunLoop::<span class="built_in">RegisterDelegateForCurrentThread</span>(<span class="keyword">this</span>);</span><br><span class="line">  scoped_set_sequence_local_storage_map_for_current_thread_ = std::<span class="built_in">make_unique</span>&lt;</span><br><span class="line">      base::internal::ScopedSetSequenceLocalStorageMapForCurrentThread&gt;(</span><br><span class="line">      &amp;sequence_local_storage_map_);</span><br><span class="line">  &#123;</span><br><span class="line">    base::<span class="function">internal::CheckedAutoLock <span class="title">task_runner_lock</span><span class="params">(task_runner_lock_)</span></span>;</span><br><span class="line">    <span class="keyword">if</span> (task_runner_)</span><br><span class="line">      <span class="built_in">InitializeThreadTaskRunnerHandle</span>();</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (work_deduplicator_.<span class="built_in">BindToCurrentThread</span>() ==</span><br><span class="line">      ShouldScheduleWork::kScheduleImmediate) &#123;</span><br><span class="line">    pump_-&gt;<span class="built_in">ScheduleWork</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">AssociatedThreadId::BindToCurrentThread</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// TODO(altimin): Remove this after MessageLoopImpl is gone and</span></span><br><span class="line">  <span class="comment">// initialisation is simplified.</span></span><br><span class="line">  <span class="keyword">auto</span> current_thread_id = PlatformThread::<span class="built_in">CurrentId</span>();</span><br><span class="line">  [[maybe_unused]] <span class="keyword">auto</span> prev_thread_id =</span><br><span class="line">      thread_id_.<span class="built_in">exchange</span>(current_thread_id, std::memory_order_release);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意上面还通过 RunLoop::RegisterDelegateForCurrentThread 将当前 ThreadControllerWithMessagePumpImpl 传到一个 thread_local 的指针中。</p>
+<p>后面创建 RunLoop 实例时会获得这个指针。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">RunLoop::RegisterDelegateForCurrentThread</span><span class="params">(Delegate* delegate)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Bind |delegate| to this thread.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(!delegate-&gt;bound_);</span><br><span class="line">  <span class="built_in">DCHECK_CALLED_ON_VALID_THREAD</span>(delegate-&gt;bound_thread_checker_);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// There can only be one RunLoop::Delegate per thread.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(!<span class="built_in">GetTlsDelegate</span>().<span class="built_in">Get</span>())</span><br><span class="line">      &lt;&lt; <span class="string">&quot;Error: Multiple RunLoop::Delegates registered on the same thread.\n\n&quot;</span></span><br><span class="line">         <span class="string">&quot;Hint: You perhaps instantiated a second &quot;</span></span><br><span class="line">         <span class="string">&quot;MessageLoop/TaskEnvironment on a thread that already had one?&quot;</span>;</span><br><span class="line">  <span class="built_in">GetTlsDelegate</span>().<span class="built_in">Set</span>(delegate);</span><br><span class="line">  delegate-&gt;bound_ = <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 BindToMessagePump 的最后，由于 <code>task_runner_</code> 之前在 ThreadControllerWithMessagePumpImpl::SetDefaultTaskRunner 中已经被设置了，所以会执行 InitializeThreadTaskRunnerHandle()。</p>
+<p>InitializeThreadTaskRunnerHandle()中会创建 ThreadTaskRunnerHandle，而 ThreadTaskRunnerHandle 的构造函数中会将自己保存在一个 thread_local 的变量中，将来可以在 main thread 中通过 ThreadTaskRunnerHandle::Get()获得该 ThreadTaskRunnerHandle</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ThreadControllerWithMessagePumpImpl::InitializeThreadTaskRunnerHandle</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Only one ThreadTaskRunnerHandle can exist at any time,</span></span><br><span class="line">  <span class="comment">// so reset the old one.</span></span><br><span class="line">  <span class="built_in">main_thread_only</span>().thread_task_runner_handle.<span class="built_in">reset</span>();</span><br><span class="line">  <span class="built_in">main_thread_only</span>().thread_task_runner_handle =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;ThreadTaskRunnerHandle&gt;(task_runner_);</span><br><span class="line">  <span class="comment">// When the task runner is known, bind the power manager. Power notifications</span></span><br><span class="line">  <span class="comment">// are received through that sequence.</span></span><br><span class="line">  power_monitor_.<span class="built_in">BindToCurrentThread</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="CompleteInitializationOnBoundThread"><a href="#CompleteInitializationOnBoundThread" class="headerlink" title="CompleteInitializationOnBoundThread"></a>CompleteInitializationOnBoundThread</h5><p>这里将 SequenceManagerImpl 设在一个 thread local storage 中。所以 ThreadControllerWithMessagePumpImpl 和 SequenceManagerImpl 都被保存在 thread local storage 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::CompleteInitializationOnBoundThread</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  controller_-&gt;<span class="built_in">AddNestingObserver</span>(<span class="keyword">this</span>);</span><br><span class="line">  <span class="built_in">main_thread_only</span>().nesting_observer_registered_ = <span class="literal">true</span>;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">GetMessagePump</span>()) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(!<span class="built_in">GetTLSSequenceManagerImpl</span>()-&gt;<span class="built_in">Get</span>())</span><br><span class="line">        &lt;&lt; <span class="string">&quot;Can&#x27;t register a second SequenceManagerImpl on the same thread.&quot;</span>;</span><br><span class="line">    <span class="built_in">GetTLSSequenceManagerImpl</span>()-&gt;<span class="built_in">Set</span>(<span class="keyword">this</span>);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">MessagePump* <span class="title">SequenceManagerImpl::GetMessagePump</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> controller_-&gt;<span class="built_in">GetBoundMessagePump</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">base::ThreadLocalPointer&lt;internal::SequenceManagerImpl&gt;*</span></span><br><span class="line"><span class="function"><span class="title">GetTLSSequenceManagerImpl</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="type">static</span> NoDestructor&lt;ThreadLocalPointer&lt;internal::SequenceManagerImpl&gt;&gt;</span><br><span class="line">      lazy_tls_ptr;</span><br><span class="line">  <span class="keyword">return</span> lazy_tls_ptr.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这篇文章重点介绍了 SequenceManagerImpl、ThreadControllerWithMessagePumpImpl、TaskQueueImpl 的创建以及相互之间的持有关系，下篇文章分析往 TaskQueueImpl 中 post task 的过程。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/05/%E8%AE%B0libc-std-bind%E7%9A%84%E4%B8%80%E4%B8%AAbug/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-08 22:50:06
+            </span>
+            
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-text">示例代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#SingleThreadTaskExecutor"><span class="toc-text">SingleThreadTaskExecutor</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-SequenceManager"><span class="toc-text">创建 SequenceManager</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-ThreadControllerWithMessagePumpImpl"><span class="toc-text">创建 ThreadControllerWithMessagePumpImpl</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%BB%A7%E7%BB%AD%E5%88%9B%E5%BB%BA-SequenceManager"><span class="toc-text">继续创建 SequenceManager</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%BB%8E-SequenceManager-%E5%88%9B%E5%BB%BA-TaskQueue"><span class="toc-text">从 SequenceManager 创建 TaskQueue</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-TaskQueueImpl"><span class="toc-text">创建 TaskQueueImpl</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-TaskQueue"><span class="toc-text">创建 TaskQueue</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AF%B9-SequenceManager-%E8%BF%9B%E8%A1%8C%E5%88%9D%E5%A7%8B%E5%8C%96"><span class="toc-text">对 SequenceManager 进行初始化</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#SetDefaultTaskRunner"><span class="toc-text">SetDefaultTaskRunner</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#BindToMessagePump"><span class="toc-text">BindToMessagePump</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#CompleteInitializationOnBoundThread"><span class="toc-text">CompleteInitializationOnBoundThread</span></a></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
