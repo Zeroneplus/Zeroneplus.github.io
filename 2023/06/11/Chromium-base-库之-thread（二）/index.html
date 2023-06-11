@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium base 库之 thread（二） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium base 库之 thread（二）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-11 16:24:13
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                    <b>#</b> Chromium base库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章接着上一篇继续分析往 taskqueue 里面 post task 的过程，以及 post task 后如何唤醒 thread。</p>
+<p>假设使用了 ThreadTaskRunnerHandle 来 post task，那么</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 构造函数，会设置thread local指针指向自身</span></span><br><span class="line">ThreadTaskRunnerHandle::<span class="built_in">ThreadTaskRunnerHandle</span>(</span><br><span class="line">    scoped_refptr&lt;SingleThreadTaskRunner&gt; task_runner)</span><br><span class="line">    : <span class="built_in">task_runner_</span>(std::<span class="built_in">move</span>(task_runner)),</span><br><span class="line">      <span class="built_in">sequenced_task_runner_handle_</span>(task_runner_) &#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(!thread_task_runner_tls.<span class="built_in">Pointer</span>()-&gt;<span class="built_in">Get</span>());</span><br><span class="line">  thread_task_runner_tls.<span class="built_in">Pointer</span>()-&gt;<span class="built_in">Set</span>(<span class="keyword">this</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而上面 task_runner 参数就是 TaskQueueImpl::CreateTaskRunner 创建的 SingleThreadTaskRunner 的子类 TaskQueueImpl::TaskRunner，TaskQueueImpl::TaskRunner 是 TaskQueueImpl 内部的类，他继承 SingleThreadTaskRunner</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">scoped_refptr&lt;SingleThreadTaskRunner&gt; <span class="title">TaskQueueImpl::CreateTaskRunner</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    TaskType task_type)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">MakeRefCounted</span>&lt;TaskRunner&gt;(task_poster_, associated_thread_,</span><br><span class="line">                                    task_type);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里要注意，在 base namespace 里面也有一个 TaskRunner 类，SingleThreadTaskRunner 是 base::TaskRunner 的子类，在 base::TaskRunner 中定义了 PostTask 和 PostDelayedTask 方法，其中前者是非虚函数，后者是虚函数，前者会调用后者，而后者交给子类实现，也就是这里的 base::TaskQueueImpl::TaskRunner。</p>
+<h3 id="base-TaskRunner-PostTask"><a href="#base-TaskRunner-PostTask" class="headerlink" title="base::TaskRunner::PostTask"></a>base::TaskRunner::PostTask</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/task/task_runner.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">TaskRunner::PostTask</span><span class="params">(<span class="type">const</span> Location&amp; from_here, OnceClosure task)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">PostDelayedTask</span>(from_here, std::<span class="built_in">move</span>(task), base::<span class="built_in">TimeDelta</span>());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>调用子类实现的 PostDelayedTask</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">bool</span> TaskQueueImpl::TaskRunner::<span class="built_in">PostDelayedTask</span>(<span class="type">const</span> Location&amp; location,</span><br><span class="line">                                                OnceClosure callback,</span><br><span class="line">                                                TimeDelta delay) &#123;</span><br><span class="line">  <span class="keyword">return</span> task_poster_-&gt;<span class="built_in">PostTask</span>(<span class="built_in">PostedTask</span>(<span class="keyword">this</span>, std::<span class="built_in">move</span>(callback), location,</span><br><span class="line">                                           delay, Nestable::kNestable,</span><br><span class="line">                                           task_type_));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>PostedTask 类是</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/task/sequence_manager/tasks.h</span></span><br><span class="line"><span class="keyword">struct</span> <span class="title class_">BASE_EXPORT</span> PostedTask &#123;</span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">PostedTask</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    scoped_refptr&lt;SequencedTaskRunner&gt; task_runner,</span></span></span><br><span class="line"><span class="params"><span class="function">    OnceClosure callback,</span></span></span><br><span class="line"><span class="params"><span class="function">    Location location,</span></span></span><br><span class="line"><span class="params"><span class="function">    TimeDelta delay,</span></span></span><br><span class="line"><span class="params"><span class="function">    Nestable nestable,</span></span></span><br><span class="line"><span class="params"><span class="function">    TaskType task_type,</span></span></span><br><span class="line"><span class="params"><span class="function">    WeakPtr&lt;DelayedTaskHandleDelegate&gt; delayed_task_handle_delegate)</span></span></span><br><span class="line"><span class="function">    : callback(std::move(callback)),</span></span><br><span class="line"><span class="function">      location(location),</span></span><br><span class="line"><span class="function">      nestable(nestable),</span></span><br><span class="line"><span class="function">      task_type(task_type),</span></span><br><span class="line"><span class="function">      delay_or_delayed_run_time(delay),</span></span><br><span class="line"><span class="function">      task_runner(std::move(task_runner)),</span></span><br><span class="line"><span class="function">      delayed_task_handle_delegate(std::move(delayed_task_handle_delegate)) &#123;</span>&#125;</span><br><span class="line"></span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">is_delayed</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> absl::<span class="built_in">holds_alternative</span>&lt;TimeTicks&gt;(delay_or_delayed_run_time)</span><br><span class="line">               ? !absl::<span class="built_in">get</span>&lt;TimeTicks&gt;(delay_or_delayed_run_time).<span class="built_in">is_null</span>()</span><br><span class="line">               : !absl::<span class="built_in">get</span>&lt;TimeDelta&gt;(delay_or_delayed_run_time).<span class="built_in">is_zero</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>TaskQueueImpl::TaskRunner::PostDelayedTask 会调用 TaskQueueImpl::GuardedTaskPoster::PostTask</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">bool</span> TaskQueueImpl::GuardedTaskPoster::<span class="built_in">PostTask</span>(PostedTask task) &#123;</span><br><span class="line">  <span class="comment">// Do not process new PostTasks while we are handling a PostTask (tracing</span></span><br><span class="line">  <span class="comment">// has to do this) as it can lead to a deadlock and defer it instead.</span></span><br><span class="line">  ScopedDeferTaskPosting disallow_task_posting;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> token = operations_controller_.<span class="built_in">TryBeginOperation</span>();</span><br><span class="line">  <span class="keyword">if</span> (!token)</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">  outer_-&gt;<span class="built_in">PostTask</span>(std::<span class="built_in">move</span>(task));</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>outer_</code> 是 <code>const raw_ptr&lt;TaskQueueImpl&gt;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::PostTask</span><span class="params">(PostedTask task)</span> </span>&#123;</span><br><span class="line">  CurrentThread current_thread =</span><br><span class="line">      associated_thread_-&gt;<span class="built_in">IsBoundToCurrentThread</span>()</span><br><span class="line">          ? TaskQueueImpl::CurrentThread::kMainThread</span><br><span class="line">          : TaskQueueImpl::CurrentThread::kNotMainThread;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">if</span> (!task.<span class="built_in">is_delayed</span>()) &#123;</span><br><span class="line">    <span class="built_in">PostImmediateTaskImpl</span>(std::<span class="built_in">move</span>(task), current_thread);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="built_in">PostDelayedTaskImpl</span>(std::<span class="built_in">move</span>(task), current_thread);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里根据是否是 delay，分别调用不同的函数</p>
+<h4 id="PostImmediateTaskImpl"><a href="#PostImmediateTaskImpl" class="headerlink" title="PostImmediateTaskImpl"></a>PostImmediateTaskImpl</h4><p>先将 task 送到 <code>any_thread_.immediate_incoming_queue</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::PostImmediateTaskImpl</span><span class="params">(PostedTask task,</span></span></span><br><span class="line"><span class="params"><span class="function">                                          CurrentThread current_thread)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="type">bool</span> should_schedule_work = <span class="literal">false</span>;</span><br><span class="line">  &#123;</span><br><span class="line">    base::<span class="function">internal::CheckedAutoLock <span class="title">lock</span><span class="params">(any_thread_lock_)</span></span>;</span><br><span class="line">...</span><br><span class="line">    EnqueueOrder sequence_number = sequence_manager_-&gt;<span class="built_in">GetNextSequenceNumber</span>();</span><br><span class="line">    <span class="type">bool</span> was_immediate_incoming_queue_empty =</span><br><span class="line">        any_thread_.immediate_incoming_queue.<span class="built_in">empty</span>();</span><br><span class="line">    <span class="comment">// 将task送到immediate_incoming_queue</span></span><br><span class="line">    any_thread_.immediate_incoming_queue.<span class="built_in">push_back</span>(</span><br><span class="line">        <span class="built_in">Task</span>(std::<span class="built_in">move</span>(task), sequence_number, sequence_number, queue_time));</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (was_immediate_incoming_queue_empty &amp;&amp;</span><br><span class="line">        any_thread_.immediate_work_queue_empty) &#123;</span><br><span class="line">      empty_queues_to_reload_handle_.<span class="built_in">SetActive</span>(<span class="literal">true</span>);</span><br><span class="line">      should_schedule_work =</span><br><span class="line">          any_thread_.post_immediate_task_should_schedule_work;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (should_schedule_work)</span><br><span class="line">    sequence_manager_-&gt;<span class="built_in">ScheduleWork</span>();</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里简要介绍一下 <code>empty_queues_to_reload_handle_.SetActive(true);</code> 的作用，执行这一步后，SequenceManagerImpl 将来可能会执行 TaskQueueImpl::ReloadEmptyImmediateWorkQueue</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">AtomicFlagSet::AtomicFlag</span></span><br><span class="line"><span class="function"><span class="title">SequenceManagerImpl::GetFlagToRequestReloadForEmptyQueue</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    TaskQueueImpl* task_queue)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> empty_queues_to_reload_.<span class="built_in">AddFlag</span>(<span class="built_in">BindRepeating</span>(</span><br><span class="line">      &amp;TaskQueueImpl::ReloadEmptyImmediateWorkQueue, <span class="built_in">Unretained</span>(task_queue)));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::ReloadEmptyWorkQueues</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="comment">// There are two cases where a queue needs reloading.  First, it might be</span></span><br><span class="line">  <span class="comment">// completely empty and we&#x27;ve just posted a task (this method handles that</span></span><br><span class="line">  <span class="comment">// case). Secondly if the work queue becomes empty when calling</span></span><br><span class="line">  <span class="comment">// WorkQueue::TakeTaskFromWorkQueue (handled there).</span></span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="comment">// Invokes callbacks created by GetFlagToRequestReloadForEmptyQueue above.</span></span><br><span class="line">  empty_queues_to_reload_.<span class="built_in">RunActiveCallbacks</span>();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::ReloadEmptyImmediateWorkQueue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(<span class="built_in">main_thread_only</span>().immediate_work_queue-&gt;<span class="built_in">Empty</span>());</span><br><span class="line">  <span class="built_in">main_thread_only</span>().immediate_work_queue-&gt;<span class="built_in">TakeImmediateIncomingQueueTasks</span>();</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">WorkQueue::TakeImmediateIncomingQueueTasks</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(tasks_.<span class="built_in">empty</span>());</span><br><span class="line"></span><br><span class="line">  task_queue_-&gt;<span class="built_in">TakeImmediateIncomingQueueTasks</span>(&amp;tasks_);</span><br><span class="line">  <span class="keyword">if</span> (tasks_.<span class="built_in">empty</span>())</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::TakeImmediateIncomingQueueTasks</span><span class="params">(TaskDeque* queue)</span> </span>&#123;</span><br><span class="line">  base::<span class="function">internal::CheckedAutoLock <span class="title">lock</span><span class="params">(any_thread_lock_)</span></span>;</span><br><span class="line">  <span class="built_in">DCHECK</span>(queue-&gt;<span class="built_in">empty</span>());</span><br><span class="line">  queue-&gt;<span class="built_in">swap</span>(any_thread_.immediate_incoming_queue);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Since |immediate_incoming_queue| is empty, now is a good time to consider</span></span><br><span class="line">  <span class="comment">// reducing it&#x27;s capacity if we&#x27;re wasting memory.</span></span><br><span class="line">  any_thread_.immediate_incoming_queue.<span class="built_in">MaybeShrinkQueue</span>();</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="built_in">UpdateCrossThreadQueueStateLocked</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>UpdateCrossThreadQueueStateLocked 在 TaskQueueImpl 构造时就会执行</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::UpdateCrossThreadQueueStateLocked</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  any_thread_.immediate_work_queue_empty =</span><br><span class="line">      <span class="built_in">main_thread_only</span>().immediate_work_queue-&gt;<span class="built_in">Empty</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">main_thread_only</span>().throttler) &#123;</span><br><span class="line">    <span class="comment">// If there&#x27;s a Throttler, always ScheduleWork() when immediate work is</span></span><br><span class="line">    <span class="comment">// posted and the queue is enabled, to ensure that</span></span><br><span class="line">    <span class="comment">// Throttler::OnHasImmediateTask() is invoked.</span></span><br><span class="line">    any_thread_.post_immediate_task_should_schedule_work = <span class="built_in">IsQueueEnabled</span>();</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// Otherwise, ScheduleWork() only if the queue is enabled and there isn&#x27;t a</span></span><br><span class="line">    <span class="comment">// fence to prevent the task from being executed.</span></span><br><span class="line">    any_thread_.post_immediate_task_should_schedule_work =</span><br><span class="line">        <span class="built_in">IsQueueEnabled</span>() &amp;&amp; !<span class="built_in">main_thread_only</span>().current_fence;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面还有一点值得注意，为什么是下面两个条件都满足时才会激活 <code>empty_queues_to_reload_handle_</code>？</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">was_immediate_incoming_queue_empty &amp;&amp; any_thread_.immediate_work_queue_empty</span><br></pre></td></tr></table></figure>
+
+<p>是因为下面在取任务时，如果 immediate_work_queue 为空，会尝试从 immediate_incoming_queue 取任务。这就保证了只有 immediate_work_queue 和 immediate_incoming_queue 都为空时才需要 reload task queue。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Task <span class="title">WorkQueue::TakeTaskFromWorkQueue</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(work_queue_sets_);</span><br><span class="line">  <span class="built_in">DCHECK</span>(!tasks_.<span class="built_in">empty</span>());</span><br><span class="line"></span><br><span class="line">  Task pending_task = std::<span class="built_in">move</span>(tasks_.<span class="built_in">front</span>());</span><br><span class="line">  tasks_.<span class="built_in">pop_front</span>();</span><br><span class="line">  <span class="comment">// NB immediate tasks have a different pipeline to delayed ones.</span></span><br><span class="line">  <span class="keyword">if</span> (tasks_.<span class="built_in">empty</span>()) &#123;</span><br><span class="line">    <span class="comment">// NB delayed tasks are inserted via Push, no don&#x27;t need to reload those.</span></span><br><span class="line">    <span class="keyword">if</span> (queue_type_ == QueueType::kImmediate) &#123;</span><br><span class="line">      <span class="comment">// Short-circuit the queue reload so that OnPopMinQueueInSet does the</span></span><br><span class="line">      <span class="comment">// right thing.</span></span><br><span class="line">      task_queue_-&gt;<span class="built_in">TakeImmediateIncomingQueueTasks</span>(&amp;tasks_);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// Since the queue is empty, now is a good time to consider reducing it&#x27;s</span></span><br><span class="line">    <span class="comment">// capacity if we&#x27;re wasting memory.</span></span><br><span class="line">    tasks_.<span class="built_in">MaybeShrinkQueue</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DCHECK</span>(work_queue_sets_);</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> DCHECK_IS_ON()</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  <span class="comment">// OnPopMinQueueInSet calls GetFrontTaskOrder which checks</span></span><br><span class="line">  <span class="comment">// BlockedByFence() so we don&#x27;t need to here.</span></span><br><span class="line">  work_queue_sets_-&gt;<span class="built_in">OnPopMinQueueInSet</span>(<span class="keyword">this</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  task_queue_-&gt;<span class="built_in">TraceQueueSize</span>();</span><br><span class="line">  <span class="keyword">return</span> pending_task;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="SequenceManagerImpl-ScheduleWork"><a href="#SequenceManagerImpl-ScheduleWork" class="headerlink" title="SequenceManagerImpl::ScheduleWork"></a>SequenceManagerImpl::ScheduleWork</h5><p>ScheduleWork 最终会给 MessagePumpDefault 中的 <code>event_</code> 发信号，将 MessagePumpDefault 从等待中唤醒</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::ScheduleWork</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  controller_-&gt;<span class="built_in">ScheduleWork</span>();</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">ThreadControllerWithMessagePumpImpl::ScheduleWork</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  base::internal::CheckedLock::<span class="built_in">AssertNoLockHeldOnCurrentThread</span>();</span><br><span class="line">  <span class="keyword">if</span> (work_deduplicator_.<span class="built_in">OnWorkRequested</span>() ==</span><br><span class="line">      ShouldScheduleWork::kScheduleImmediate) &#123;</span><br><span class="line">    pump_-&gt;<span class="built_in">ScheduleWork</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">MessagePumpDefault::ScheduleWork</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Since this can be called on any thread, we need to ensure that our Run</span></span><br><span class="line">  <span class="comment">// loop wakes up.</span></span><br><span class="line">  event_.<span class="built_in">Signal</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="PostDelayedTaskImpl"><a href="#PostDelayedTaskImpl" class="headerlink" title="PostDelayedTaskImpl"></a>PostDelayedTaskImpl</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::PostDelayedTaskImpl</span><span class="params">(PostedTask posted_task,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        CurrentThread current_thread)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Use CHECK instead of DCHECK to crash earlier. See http://crbug.com/711167</span></span><br><span class="line">  <span class="comment">// for details.</span></span><br><span class="line">  <span class="built_in">CHECK</span>(posted_task.callback);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (current_thread == CurrentThread::kMainThread) &#123;</span><br><span class="line">    <span class="function">LazyNow <span class="title">lazy_now</span><span class="params">(sequence_manager_-&gt;main_thread_clock())</span></span>;</span><br><span class="line">    Task pending_task = <span class="built_in">MakeDelayedTask</span>(std::<span class="built_in">move</span>(posted_task), &amp;lazy_now);</span><br><span class="line">    sequence_manager_-&gt;<span class="built_in">MaybeAddLeewayToTask</span>(pending_task);</span><br><span class="line">    <span class="built_in">PushOntoDelayedIncomingQueueFromMainThread</span>(</span><br><span class="line">        std::<span class="built_in">move</span>(pending_task), &amp;lazy_now,</span><br><span class="line">        <span class="comment">/* notify_task_annotator */</span> <span class="literal">true</span>);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    LazyNow <span class="built_in">lazy_now</span>(sequence_manager_-&gt;<span class="built_in">any_thread_clock</span>());</span><br><span class="line">    <span class="built_in">PushOntoDelayedIncomingQueue</span>(</span><br><span class="line">        <span class="built_in">MakeDelayedTask</span>(std::<span class="built_in">move</span>(posted_task), &amp;lazy_now));</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="TaskQueueImpl-MakeDelayedTask"><a href="#TaskQueueImpl-MakeDelayedTask" class="headerlink" title="TaskQueueImpl::MakeDelayedTask"></a>TaskQueueImpl::MakeDelayedTask</h5><p>lazy_now 就是当前时间，会把当前时间加上 time delta 得到绝对时间</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">Task <span class="title">TaskQueueImpl::MakeDelayedTask</span><span class="params">(PostedTask delayed_task,</span></span></span><br><span class="line"><span class="params"><span class="function">                                    LazyNow* lazy_now)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  EnqueueOrder sequence_number = sequence_manager_-&gt;<span class="built_in">GetNextSequenceNumber</span>();</span><br><span class="line">  base::TimeDelta delay;</span><br><span class="line">  WakeUpResolution resolution = WakeUpResolution::kLow;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(IS_WIN)</span></span></span><br><span class="line">  <span class="keyword">if</span> (absl::<span class="built_in">holds_alternative</span>&lt;base::TimeDelta&gt;(</span><br><span class="line">          delayed_task.delay_or_delayed_run_time)) &#123;</span><br><span class="line">    delay = absl::<span class="built_in">get</span>&lt;base::TimeDelta&gt;(delayed_task.delay_or_delayed_run_time);</span><br><span class="line">    delayed_task.delay_or_delayed_run_time = lazy_now-&gt;<span class="built_in">Now</span>() + delay;</span><br><span class="line">  &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(IS_WIN)</span></span></span><br><span class="line">  <span class="comment">// leeway isn&#x27;t specified yet since this may be called from any thread.</span></span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">Task</span>(std::<span class="built_in">move</span>(delayed_task), sequence_number, <span class="built_in">EnqueueOrder</span>(),</span><br><span class="line">              lazy_now-&gt;<span class="built_in">Now</span>(), resolution);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="TaskQueueImpl-PushOntoDelayedIncomingQueue"><a href="#TaskQueueImpl-PushOntoDelayedIncomingQueue" class="headerlink" title="TaskQueueImpl::PushOntoDelayedIncomingQueue"></a>TaskQueueImpl::PushOntoDelayedIncomingQueue</h5><p>可以看到，如果不是从 main thread 发送任务，需要包装一下，变成 main thread 发送任务，也就是说，发送一个 ImmediateTask，在该 ImmediateTask 内部将这个 pending_task 放在相应的 queue 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::PushOntoDelayedIncomingQueue</span><span class="params">(Task pending_task)</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">  <span class="keyword">auto</span> task_runner = pending_task.task_runner;</span><br><span class="line">  <span class="type">const</span> <span class="keyword">auto</span> task_type = pending_task.task_type;</span><br><span class="line">  <span class="built_in">PostImmediateTaskImpl</span>(</span><br><span class="line">      <span class="built_in">PostedTask</span>(std::<span class="built_in">move</span>(task_runner),</span><br><span class="line">                 <span class="built_in">BindOnce</span>(&amp;TaskQueueImpl::ScheduleDelayedWorkTask,</span><br><span class="line">                          <span class="built_in">Unretained</span>(<span class="keyword">this</span>), std::<span class="built_in">move</span>(pending_task)),</span><br><span class="line">                 FROM_HERE, <span class="built_in">TimeDelta</span>(), Nestable::kNonNestable, task_type),</span><br><span class="line">      CurrentThread::kNotMainThread);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="TaskQueueImpl-ScheduleDelayedWorkTask"><a href="#TaskQueueImpl-ScheduleDelayedWorkTask" class="headerlink" title="TaskQueueImpl::ScheduleDelayedWorkTask"></a>TaskQueueImpl::ScheduleDelayedWorkTask</h6><p>如果任务延迟时间已经超时，就把他移到 delayed_incoming_queue，并立即通过 MoveReadyDelayedTasksToWorkQueue 将超时任务移到 delayed_work_queue，否则将任务移到 delayed_incoming_queue 并使用正常超时调度</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::ScheduleDelayedWorkTask</span><span class="params">(Task pending_task)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK_CALLED_ON_VALID_THREAD</span>(associated_thread_-&gt;thread_checker);</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">MaybeAddLeewayToTask</span>(pending_task);</span><br><span class="line">  TimeTicks now = sequence_manager_-&gt;<span class="built_in">main_thread_clock</span>()-&gt;<span class="built_in">NowTicks</span>();</span><br><span class="line">  <span class="function">LazyNow <span class="title">lazy_now</span><span class="params">(now)</span></span>;</span><br><span class="line">  <span class="comment">// A delayed task is ready to run as soon as earliest_delayed_run_time() is</span></span><br><span class="line">  <span class="comment">// reached.</span></span><br><span class="line">  <span class="keyword">if</span> (pending_task.<span class="built_in">earliest_delayed_run_time</span>() &lt;= now) &#123;</span><br><span class="line">    <span class="comment">// If |delayed_run_time| is in the past then push it onto the work queue</span></span><br><span class="line">    <span class="comment">// immediately. To ensure the right task ordering we need to temporarily</span></span><br><span class="line">    <span class="comment">// push it onto the |delayed_incoming_queue|.</span></span><br><span class="line">    pending_task.delayed_run_time = now;</span><br><span class="line">    <span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">push</span>(std::<span class="built_in">move</span>(pending_task));</span><br><span class="line">    <span class="built_in">MoveReadyDelayedTasksToWorkQueue</span>(</span><br><span class="line">        &amp;lazy_now, sequence_manager_-&gt;<span class="built_in">GetNextSequenceNumber</span>());</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// If |delayed_run_time| is in the future we can queue it as normal.</span></span><br><span class="line">    <span class="built_in">PushOntoDelayedIncomingQueueFromMainThread</span>(std::<span class="built_in">move</span>(pending_task),</span><br><span class="line">                                               &amp;lazy_now, <span class="literal">false</span>);</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="built_in">TraceQueueSize</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>####### TaskQueueImpl::MoveReadyDelayedTasksToWorkQueue</p>
+<p>将任务从 delayed_incoming_queue 移到 delayed_work_queue</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::MoveReadyDelayedTasksToWorkQueue</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">    EnqueueOrder enqueue_order)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Enqueue all delayed tasks that should be running now, skipping any that</span></span><br><span class="line">  <span class="comment">// have been canceled.</span></span><br><span class="line">  <span class="function">WorkQueue::TaskPusher <span class="title">delayed_work_queue_task_pusher</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      main_thread_only().delayed_work_queue-&gt;CreateTaskPusher())</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Because task destructors could have a side-effect of posting new tasks, we</span></span><br><span class="line">  <span class="comment">// move all the cancelled tasks into a temporary container before deleting</span></span><br><span class="line">  <span class="comment">// them. This is to avoid the queue from changing while iterating over it.</span></span><br><span class="line">  StackVector&lt;Task, <span class="number">8</span>&gt; tasks_to_delete;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">while</span> (!<span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">empty</span>()) &#123;</span><br><span class="line">    <span class="type">const</span> Task&amp; task = <span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">top</span>();</span><br><span class="line">    <span class="built_in">CHECK</span>(task.task);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Leave the top task alone if it hasn&#x27;t been canceled and it is not ready.</span></span><br><span class="line">    <span class="type">const</span> <span class="type">bool</span> is_cancelled = task.task.<span class="built_in">IsCancelled</span>();</span><br><span class="line">    <span class="keyword">if</span> (!is_cancelled &amp;&amp; task.<span class="built_in">earliest_delayed_run_time</span>() &gt; lazy_now-&gt;<span class="built_in">Now</span>())</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    Task ready_task = <span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">take_top</span>();</span><br><span class="line">    <span class="keyword">if</span> (is_cancelled) &#123;</span><br><span class="line">      tasks_to_delete-&gt;<span class="built_in">push_back</span>(std::<span class="built_in">move</span>(ready_task));</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">DCHECK</span>(!ready_task.delayed_run_time.<span class="built_in">is_null</span>());</span><br><span class="line">    <span class="built_in">DCHECK</span>(!ready_task.<span class="built_in">enqueue_order_set</span>());</span><br><span class="line">    ready_task.<span class="built_in">set_enqueue_order</span>(enqueue_order);</span><br><span class="line">    <span class="built_in">ActivateDelayedFenceIfNeeded</span>(ready_task);</span><br><span class="line"></span><br><span class="line">    delayed_work_queue_task_pusher.<span class="built_in">Push</span>(std::<span class="built_in">move</span>(ready_task));</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Explicitly delete tasks last.</span></span><br><span class="line">  tasks_to_delete-&gt;<span class="built_in">clear</span>();</span><br><span class="line"></span><br><span class="line">  <span class="built_in">UpdateWakeUp</span>(lazy_now);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>######## TaskQueueImpl::UpdateWakeUp</p>
+<p>这一步更新唤醒时间，因为之前改变了 delayed_incoming_queue</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::UpdateWakeUp</span><span class="params">(LazyNow* lazy_now)</span> </span>&#123;</span><br><span class="line">  absl::optional&lt;WakeUp&gt; wake_up = <span class="built_in">GetNextDesiredWakeUp</span>();</span><br><span class="line">...</span><br><span class="line">  <span class="built_in">SetNextWakeUp</span>(lazy_now, wake_up);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>######### TaskQueueImpl::GetNextDesiredWakeUp</p>
+<p>这里就是从 delayed_incoming_queue.top()取时间</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">absl::optional&lt;WakeUp&gt; <span class="title">TaskQueueImpl::GetNextDesiredWakeUp</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Note we don&#x27;t scheduled a wake-up for disabled queues.</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">empty</span>() || !<span class="built_in">IsQueueEnabled</span>())</span><br><span class="line">    <span class="keyword">return</span> absl::<span class="literal">nullopt</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// High resolution is needed if the queue contains high resolution tasks and</span></span><br><span class="line">  <span class="comment">// has a priority index &lt;= kNormalPriority (precise execution time is</span></span><br><span class="line">  <span class="comment">// unnecessary for a low priority queue).</span></span><br><span class="line">  WakeUpResolution resolution =</span><br><span class="line">      <span class="built_in">has_pending_high_resolution_tasks</span>() &amp;&amp;</span><br><span class="line">              <span class="built_in">GetQueuePriority</span>() &lt;= TaskQueue::QueuePriority::kNormalPriority</span><br><span class="line">          ? WakeUpResolution::kHigh</span><br><span class="line">          : WakeUpResolution::kLow;</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> <span class="keyword">auto</span>&amp; top_task = <span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">top</span>();</span><br><span class="line">  <span class="keyword">return</span> WakeUp&#123;top_task.delayed_run_time, top_task.leeway, resolution,</span><br><span class="line">                top_task.delay_policy&#125;;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>######### TaskQueueImpl::SetNextWakeUp</p>
+<p>将时间设置到 wake_up_queue</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::SetNextWakeUp</span><span class="params">(LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  absl::optional&lt;WakeUp&gt; wake_up)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">main_thread_only</span>().scheduled_wake_up == wake_up)</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  <span class="built_in">main_thread_only</span>().scheduled_wake_up = wake_up;</span><br><span class="line">  <span class="built_in">main_thread_only</span>().wake_up_queue-&gt;<span class="built_in">SetNextWakeUpForQueue</span>(<span class="keyword">this</span>, lazy_now,</span><br><span class="line">                                                          wake_up);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>WakeUpQueue 会把时间更新到 SequenceManager</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WakeUpQueue::SetNextWakeUpForQueue</span><span class="params">(internal::TaskQueueImpl* queue,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        absl::optional&lt;WakeUp&gt; wake_up)</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  absl::optional&lt;WakeUp&gt; previous_wake_up = <span class="built_in">GetNextDelayedWakeUp</span>();</span><br><span class="line">  absl::optional&lt;WakeUpResolution&gt; previous_queue_resolution;</span><br><span class="line">  <span class="keyword">if</span> (queue-&gt;<span class="built_in">heap_handle</span>().<span class="built_in">IsValid</span>()) &#123;</span><br><span class="line">    previous_queue_resolution =</span><br><span class="line">        wake_up_queue_.<span class="built_in">at</span>(queue-&gt;<span class="built_in">heap_handle</span>()).wake_up.resolution;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 先插入wake_up</span></span><br><span class="line">  <span class="keyword">if</span> (wake_up) &#123;</span><br><span class="line">    <span class="comment">// Insert a new wake-up into the heap.</span></span><br><span class="line">    <span class="keyword">if</span> (queue-&gt;<span class="built_in">heap_handle</span>().<span class="built_in">IsValid</span>()) &#123;</span><br><span class="line">      <span class="comment">// O(log n)</span></span><br><span class="line">      wake_up_queue_.<span class="built_in">Replace</span>(queue-&gt;<span class="built_in">heap_handle</span>(), &#123;wake_up.<span class="built_in">value</span>(), queue&#125;);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="comment">// O(log n)</span></span><br><span class="line">      wake_up_queue_.<span class="built_in">insert</span>(&#123;wake_up.<span class="built_in">value</span>(), queue&#125;);</span><br><span class="line">    &#125;</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="comment">// Remove a wake-up from heap if present.</span></span><br><span class="line">    <span class="keyword">if</span> (queue-&gt;<span class="built_in">heap_handle</span>().<span class="built_in">IsValid</span>())</span><br><span class="line">      wake_up_queue_.<span class="built_in">erase</span>(queue-&gt;<span class="built_in">heap_handle</span>());</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 然后获得最近的wake_up</span></span><br><span class="line">  absl::optional&lt;WakeUp&gt; new_wake_up = <span class="built_in">GetNextDelayedWakeUp</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (previous_queue_resolution &amp;&amp;</span><br><span class="line">      *previous_queue_resolution == WakeUpResolution::kHigh) &#123;</span><br><span class="line">    pending_high_res_wake_up_count_--;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">if</span> (wake_up &amp;&amp; wake_up-&gt;resolution == WakeUpResolution::kHigh)</span><br><span class="line">    pending_high_res_wake_up_count_++;</span><br><span class="line">  <span class="built_in">DCHECK_GE</span>(pending_high_res_wake_up_count_, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (new_wake_up != previous_wake_up)</span><br><span class="line">    <span class="built_in">OnNextWakeUpChanged</span>(lazy_now, <span class="built_in">GetNextDelayedWakeUp</span>());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里获得最近的 WakeUp</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">absl::optional&lt;WakeUp&gt; <span class="title">WakeUpQueue::GetNextDelayedWakeUp</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK_CALLED_ON_VALID_THREAD</span>(associated_thread_-&gt;thread_checker);</span><br><span class="line">  <span class="keyword">if</span> (wake_up_queue_.<span class="built_in">empty</span>())</span><br><span class="line">    <span class="keyword">return</span> absl::<span class="literal">nullopt</span>;</span><br><span class="line">  WakeUp wake_up = wake_up_queue_.<span class="built_in">top</span>().wake_up;</span><br><span class="line">  <span class="comment">// `wake_up.resolution` is not meaningful since it may be different from</span></span><br><span class="line">  <span class="comment">// has_pending_high_resolution_tasks(). Return WakeUpResolution::kLow here to</span></span><br><span class="line">  <span class="comment">// simplify comparison between wake ups.</span></span><br><span class="line">  <span class="comment">// TODO(1153139): Drive resolution by DelayPolicy and return</span></span><br><span class="line">  <span class="comment">// has_pending_high_resolution_tasks() here.</span></span><br><span class="line">  wake_up.resolution = WakeUpResolution::kLow;</span><br><span class="line">  <span class="keyword">return</span> wake_up;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>将 wakeup 更新到 SequenceManager</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">DefaultWakeUpQueue::OnNextWakeUpChanged</span><span class="params">(LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">                                             absl::optional&lt;WakeUp&gt; wake_up)</span> </span>&#123;</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">SetNextWakeUp</span>(lazy_now, wake_up);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SequenceManagerImpl::SetNextWakeUp</span><span class="params">(LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        absl::optional&lt;WakeUp&gt; wake_up)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">auto</span> next_wake_up = <span class="built_in">AdjustWakeUp</span>(wake_up, lazy_now);</span><br><span class="line">  <span class="keyword">if</span> (next_wake_up &amp;&amp; next_wake_up-&gt;<span class="built_in">is_immediate</span>()) &#123;</span><br><span class="line">    <span class="built_in">ScheduleWork</span>();</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    controller_-&gt;<span class="built_in">SetNextDelayedDoWork</span>(lazy_now, next_wake_up);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">absl::optional&lt;WakeUp&gt; <span class="title">SequenceManagerImpl::AdjustWakeUp</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    absl::optional&lt;WakeUp&gt; wake_up,</span></span></span><br><span class="line"><span class="params"><span class="function">    LazyNow* lazy_now)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK_CALLED_ON_VALID_THREAD</span>(associated_thread_-&gt;thread_checker);</span><br><span class="line">  <span class="keyword">if</span> (!wake_up)</span><br><span class="line">    <span class="keyword">return</span> absl::<span class="literal">nullopt</span>;</span><br><span class="line">  <span class="comment">// Overdue work needs to be run immediately.</span></span><br><span class="line">  <span class="keyword">if</span> (lazy_now-&gt;<span class="built_in">Now</span>() &gt;= wake_up-&gt;<span class="built_in">earliest_time</span>())</span><br><span class="line">    <span class="keyword">return</span> WakeUp&#123;&#125;;</span><br><span class="line">  <span class="comment">// If |time_domain| is present, we don&#x27;t want an actual OS level delayed wake</span></span><br><span class="line">  <span class="comment">// up scheduled, so pretend we have no more work. This will result in</span></span><br><span class="line">  <span class="comment">// appearing idle and |time_domain| will decide what to do in</span></span><br><span class="line">  <span class="comment">// MaybeFastForwardToWakeUp().</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">main_thread_only</span>().time_domain)</span><br><span class="line">    <span class="keyword">return</span> absl::<span class="literal">nullopt</span>;</span><br><span class="line">  <span class="keyword">return</span> *wake_up;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>设置 next_delayed_do_work，后面的 MessagePump 会根据这个值决定 timewait 的时间</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">ThreadControllerWithMessagePumpImpl::SetNextDelayedDoWork</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">    absl::optional&lt;WakeUp&gt; wake_up)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(!wake_up || !wake_up-&gt;<span class="built_in">is_immediate</span>());</span><br><span class="line">  TimeTicks run_time =</span><br><span class="line">      wake_up.<span class="built_in">has_value</span>() ? <span class="built_in">WakeUpRunTime</span>(*wake_up) : TimeTicks::<span class="built_in">Max</span>();</span><br><span class="line">  <span class="built_in">DCHECK_LT</span>(lazy_now-&gt;<span class="built_in">Now</span>(), run_time);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">main_thread_only</span>().next_delayed_do_work == run_time)</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  <span class="built_in">main_thread_only</span>().next_delayed_do_work = run_time;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="PushOntoDelayedIncomingQueueFromMainThread"><a href="#PushOntoDelayedIncomingQueueFromMainThread" class="headerlink" title="PushOntoDelayedIncomingQueueFromMainThread"></a>PushOntoDelayedIncomingQueueFromMainThread</h6><p>最后再看看这个函数，这个函数在 <code>current_thread == CurrentThread::kMainThread</code> 时执行，内部其实就是把 task 放到 delayed_incoming_queue，然后更新 wake up 时间，和上面流程一样</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">TaskQueueImpl::PushOntoDelayedIncomingQueueFromMainThread</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    Task pending_task,</span></span></span><br><span class="line"><span class="params"><span class="function">    LazyNow* lazy_now,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">bool</span> notify_task_annotator)</span> </span>&#123;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">  <span class="built_in">main_thread_only</span>().delayed_incoming_queue.<span class="built_in">push</span>(std::<span class="built_in">move</span>(pending_task));</span><br><span class="line">  <span class="built_in">UpdateWakeUp</span>(lazy_now);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这篇文章从 post task 出发，分析了 post immediate task 和 delayed task 的具体流程，从该流程可以看到，post delayed task 会创建一个 immediate task 然后把 post 动作放在这个 immediate task 里面，这也是为什么四个 queue 中只有 <code>immediate_incoming_queue</code> 是在 any thread 中。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/08/Chromium-base-%E5%BA%93%E4%B9%8B-thread%EF%BC%88%E4%B8%80%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-11 16:24:13
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                        <b>#</b> Chromium base库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/06/11/Chromium-base-%E5%BA%93%E4%B9%8B-thread%EF%BC%88%E4%B8%89%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-3"><a class="toc-link" href="#base-TaskRunner-PostTask"><span class="toc-text">base::TaskRunner::PostTask</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#PostImmediateTaskImpl"><span class="toc-text">PostImmediateTaskImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#SequenceManagerImpl-ScheduleWork"><span class="toc-text">SequenceManagerImpl::ScheduleWork</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#PostDelayedTaskImpl"><span class="toc-text">PostDelayedTaskImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#TaskQueueImpl-MakeDelayedTask"><span class="toc-text">TaskQueueImpl::MakeDelayedTask</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#TaskQueueImpl-PushOntoDelayedIncomingQueue"><span class="toc-text">TaskQueueImpl::PushOntoDelayedIncomingQueue</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#TaskQueueImpl-ScheduleDelayedWorkTask"><span class="toc-text">TaskQueueImpl::ScheduleDelayedWorkTask</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#PushOntoDelayedIncomingQueueFromMainThread"><span class="toc-text">PushOntoDelayedIncomingQueueFromMainThread</span></a></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
