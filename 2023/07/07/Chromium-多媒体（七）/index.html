@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium 多媒体（七） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium 多媒体（七）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-07-07 21:34:22
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                    <b>#</b> Chromium 多媒体
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>前面几篇文章介绍了 MSE 和 EME 的流程，接下来介绍 WebMediaPlayer 的内容，重点关注：数据如何被解码&#x2F;解密。</p>
+<p>在本系列的第一篇文章里，介绍了 WebMediaPlayerImpl::StartPipeline 的一部分过程，接下来就接着第一篇里的流程继续。</p>
+<p>ChunkDemuxer 初始化结束后会接着初始化 Pipeline，也就是执行 RendererWrapper::ReportMetadata</p>
+<h1 id="RendererWrapper-ReportMetadata"><a href="#RendererWrapper-ReportMetadata" class="headerlink" title="RendererWrapper::ReportMetadata"></a>RendererWrapper::ReportMetadata</h1><p>如果不是 Suspend Start，会继续后面的初始化，否则会执行 <code>pending_callbacks_.reset();</code> 来结束初始化任务</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> PipelineImpl::RendererWrapper::<span class="built_in">ReportMetadata</span>(StartType start_type) &#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(media_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line"></span><br><span class="line">  PipelineMetadata metadata;</span><br><span class="line">  std::vector&lt;DemuxerStream*&gt; streams;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">switch</span> (demuxer_-&gt;<span class="built_in">GetType</span>()) &#123;</span><br><span class="line">    <span class="keyword">case</span> MediaResource::Type::STREAM:</span><br><span class="line">      metadata.timeline_offset = demuxer_-&gt;<span class="built_in">GetTimelineOffset</span>();</span><br><span class="line">      <span class="comment">// TODO(servolk): What should we do about metadata for multiple streams?</span></span><br><span class="line">      streams = demuxer_-&gt;<span class="built_in">GetAllStreams</span>();</span><br><span class="line">      <span class="keyword">for</span> (<span class="keyword">auto</span>* stream : streams) &#123;</span><br><span class="line">        <span class="keyword">if</span> (stream-&gt;<span class="built_in">type</span>() == DemuxerStream::VIDEO &amp;&amp; !metadata.has_video) &#123;</span><br><span class="line">          metadata.has_video = <span class="literal">true</span>;</span><br><span class="line">          metadata.natural_size = <span class="built_in">GetRotatedVideoSize</span>(</span><br><span class="line">              stream-&gt;<span class="built_in">video_decoder_config</span>().<span class="built_in">video_transformation</span>().rotation,</span><br><span class="line">              stream-&gt;<span class="built_in">video_decoder_config</span>().<span class="built_in">natural_size</span>());</span><br><span class="line">          metadata.video_decoder_config = stream-&gt;<span class="built_in">video_decoder_config</span>();</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (stream-&gt;<span class="built_in">type</span>() == DemuxerStream::AUDIO &amp;&amp; !metadata.has_audio) &#123;</span><br><span class="line">          metadata.has_audio = <span class="literal">true</span>;</span><br><span class="line">          metadata.audio_decoder_config = stream-&gt;<span class="built_in">audio_decoder_config</span>();</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">case</span> MediaResource::Type::URL:</span><br><span class="line">      <span class="comment">// We don&#x27;t know if the MediaPlayerRender has Audio/Video until we start</span></span><br><span class="line">      <span class="comment">// playing. Conservatively assume that they do.</span></span><br><span class="line">      metadata.has_video = <span class="literal">true</span>;</span><br><span class="line">      metadata.has_audio = <span class="literal">true</span>;</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  main_task_runner_-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">      FROM_HERE,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;PipelineImpl::OnMetadata, weak_pipeline_, metadata));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If suspended start has not been requested, or is not allowed given the</span></span><br><span class="line">  <span class="comment">// metadata, continue the normal renderer initialization path.</span></span><br><span class="line">  <span class="keyword">if</span> (start_type == StartType::kNormal ||</span><br><span class="line">      (start_type == StartType::kSuspendAfterMetadataForAudioOnly &amp;&amp;</span><br><span class="line">       metadata.has_video)) &#123;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Abort pending render initialization tasks and suspend the pipeline.</span></span><br><span class="line">  pending_callbacks_.<span class="built_in">reset</span>();</span><br><span class="line">  <span class="built_in">DestroyRenderer</span>();</span><br><span class="line">  shared_state_.suspend_timestamp =</span><br><span class="line">      std::<span class="built_in">max</span>(base::<span class="built_in">TimeDelta</span>(), demuxer_-&gt;<span class="built_in">GetStartTime</span>());</span><br><span class="line">  <span class="built_in">SetState</span>(kSuspended);</span><br><span class="line">  main_task_runner_-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">      FROM_HERE,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;PipelineImpl::OnSeekDone, weak_pipeline_, <span class="literal">true</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="RendererWrapper-CreateRenderer"><a href="#RendererWrapper-CreateRenderer" class="headerlink" title="RendererWrapper::CreateRenderer"></a>RendererWrapper::CreateRenderer</h1><p>如果不是 Suspend Start，执行 RendererWrapper::CreateRenderer</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> PipelineImpl::RendererWrapper::<span class="built_in">CreateRenderer</span>(</span><br><span class="line">    PipelineStatusCallback done_cb) &#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__;</span><br><span class="line">  <span class="built_in">DCHECK</span>(media_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(state_ == kStarting || state_ == kResuming);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">HasEncryptedStream</span>() &amp;&amp; !cdm_context_) &#123;</span><br><span class="line">    <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: Has encrypted stream but CDM is not set.&quot;</span>;</span><br><span class="line">    create_renderer_done_cb_ = std::<span class="built_in">move</span>(done_cb);</span><br><span class="line">    <span class="built_in">OnWaiting</span>(WaitingReason::kNoCdm);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">CreateRendererInternal</span>(std::<span class="built_in">move</span>(done_cb));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>RendererWrapper::CreateRenderer 中对于加密流会检查是否有 cdm，该 cdm 在创建 webmediaplayer 的时候会尝试通过下面的函数获取，如果没有设置 <code>media_keys_</code>，那么返回空，从而上面的初始化流程要暂时停止，需要等上层给 video 组件设置 <code>media_keys_</code> 继续初始化</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">WebContentDecryptionModule*</span></span><br><span class="line"><span class="function"><span class="title">HTMLMediaElementEncryptedMedia::ContentDecryptionModule</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media_keys_ ? media_keys_-&gt;<span class="built_in">ContentDecryptionModule</span>() : <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>当上层给 video 组件设置 media_keys 时会调用下面的函数来继续完成 RendererWrapper::CreateRenderer 中的 CreateRendererInternal 部分</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SetMediaKeysHandler::SetNewMediaKeys</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(EME_LOG_LEVEL) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 5.3 If mediaKeys is not null, run the following steps:</span></span><br><span class="line">  <span class="keyword">if</span> (new_media_keys_) &#123;</span><br><span class="line">    <span class="comment">// 5.3.1 Associate the CDM instance represented by mediaKeys with the</span></span><br><span class="line">    <span class="comment">//       media element for decrypting media data.</span></span><br><span class="line">    <span class="comment">// 5.3.2 If the preceding step failed, run the following steps:</span></span><br><span class="line">    <span class="comment">//       (done in setFailed()).</span></span><br><span class="line">    <span class="comment">// 5.3.3 Queue a task to run the Attempt to Resume Playback If Necessary</span></span><br><span class="line">    <span class="comment">//       algorithm on the media element.</span></span><br><span class="line">    <span class="comment">//       (Handled in Chromium).</span></span><br><span class="line">    <span class="keyword">if</span> (element_-&gt;<span class="built_in">GetWebMediaPlayer</span>()) &#123;</span><br><span class="line">      SuccessCallback success_callback =</span><br><span class="line">          WTF::<span class="built_in">Bind</span>(&amp;SetMediaKeysHandler::Finish, <span class="built_in">WrapPersistent</span>(<span class="keyword">this</span>));</span><br><span class="line">      FailureCallback failure_callback =</span><br><span class="line">          WTF::<span class="built_in">Bind</span>(&amp;SetMediaKeysHandler::SetFailed, <span class="built_in">WrapPersistent</span>(<span class="keyword">this</span>));</span><br><span class="line">      ContentDecryptionModuleResult* result =</span><br><span class="line">          <span class="built_in">MakeGarbageCollected</span>&lt;SetContentDecryptionModuleResult&gt;(</span><br><span class="line">              std::<span class="built_in">move</span>(success_callback), std::<span class="built_in">move</span>(failure_callback));</span><br><span class="line">      element_-&gt;<span class="built_in">GetWebMediaPlayer</span>()-&gt;<span class="built_in">SetContentDecryptionModule</span>(</span><br><span class="line">          new_media_keys_-&gt;<span class="built_in">ContentDecryptionModule</span>(), result-&gt;<span class="built_in">Result</span>());</span><br><span class="line"></span><br><span class="line">      <span class="comment">// Don&#x27;t do anything more until |result| is resolved (or rejected).</span></span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// MediaKeys doesn&#x27;t need to be set on the player, so continue on.</span></span><br><span class="line">  <span class="built_in">Finish</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面调用了 WebMediaPlayer 的 SetContentDecryptionModule，把 media_keys 里的 WebContentDecryptionModule 设置给 WebMediaPlayerImpl</p>
+<h2 id="WebMediaPlayerImpl-SetContentDecryptionModule"><a href="#WebMediaPlayerImpl-SetContentDecryptionModule" class="headerlink" title="WebMediaPlayerImpl::SetContentDecryptionModule"></a>WebMediaPlayerImpl::SetContentDecryptionModule</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebMediaPlayerImpl::SetContentDecryptionModule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebContentDecryptionModule* cdm,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebContentDecryptionModuleResult result)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: cdm = &quot;</span> &lt;&lt; cdm;</span><br><span class="line">  <span class="built_in">DCHECK</span>(main_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Once the CDM is set it can&#x27;t be cleared as there may be frames being</span></span><br><span class="line">  <span class="comment">// decrypted on other threads. So fail this request.</span></span><br><span class="line">  <span class="comment">// http://crbug.com/462365#c7.</span></span><br><span class="line">  <span class="keyword">if</span> (!cdm) &#123;</span><br><span class="line">    result.<span class="built_in">CompleteWithError</span>(</span><br><span class="line">        kWebContentDecryptionModuleExceptionInvalidStateError, <span class="number">0</span>,</span><br><span class="line">        <span class="string">&quot;The existing ContentDecryptionModule object cannot be removed at this &quot;</span></span><br><span class="line">        <span class="string">&quot;time.&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create a local copy of `result` to avoid problems with the callback</span></span><br><span class="line">  <span class="comment">// getting passed to the media thread and causing `result` to be destructed</span></span><br><span class="line">  <span class="comment">// on the wrong thread in some failure conditions. Blink should prevent</span></span><br><span class="line">  <span class="comment">// multiple simultaneous calls.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(!set_cdm_result_);</span><br><span class="line">  set_cdm_result_ = std::<span class="built_in">make_unique</span>&lt;WebContentDecryptionModuleResult&gt;(result);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">SetCdmInternal</span>(cdm);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>继续调用 SetCdmInternal</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebMediaPlayerImpl::SetCdmInternal</span><span class="params">(WebContentDecryptionModule* cdm)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(main_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm);</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> <span class="type">bool</span> was_encrypted = is_encrypted_;</span><br><span class="line">  is_encrypted_ = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Recreate the watch time reporter if necessary.</span></span><br><span class="line">  <span class="keyword">if</span> (!was_encrypted) &#123;</span><br><span class="line">    media_metrics_provider_-&gt;<span class="built_in">SetIsEME</span>();</span><br><span class="line">    <span class="keyword">if</span> (watch_time_reporter_)</span><br><span class="line">      <span class="built_in">CreateWatchTimeReporter</span>();</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  WebContentDecryptionModuleImpl* web_cdm =</span><br><span class="line">      <span class="built_in">ToWebContentDecryptionModuleImpl</span>(cdm);</span><br><span class="line">  <span class="keyword">auto</span> cdm_context_ref = web_cdm-&gt;<span class="built_in">GetCdmContextRef</span>();</span><br><span class="line">  <span class="keyword">if</span> (!cdm_context_ref) &#123;</span><br><span class="line">    <span class="built_in">NOTREACHED</span>();</span><br><span class="line">    <span class="built_in">OnCdmAttached</span>(<span class="literal">false</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Arrival of `cdm_config_` unblocks recording of encrypted stats. Attempt to</span></span><br><span class="line">  <span class="comment">// create the stats reporter. Note, we do NOT guard this within !was_encypted</span></span><br><span class="line">  <span class="comment">// above because often the CDM arrives after the call to</span></span><br><span class="line">  <span class="comment">// OnEncryptedMediaInitData().</span></span><br><span class="line">  cdm_config_ = web_cdm-&gt;<span class="built_in">GetCdmConfig</span>();</span><br><span class="line">  <span class="built_in">DCHECK</span>(!cdm_config_-&gt;key_system.<span class="built_in">empty</span>());</span><br><span class="line"></span><br><span class="line">  media_metrics_provider_-&gt;<span class="built_in">SetKeySystem</span>(cdm_config_-&gt;key_system);</span><br><span class="line">  <span class="keyword">if</span> (cdm_config_-&gt;use_hw_secure_codecs)</span><br><span class="line">    media_metrics_provider_-&gt;<span class="built_in">SetIsHardwareSecure</span>();</span><br><span class="line">  <span class="built_in">CreateVideoDecodeStatsReporter</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span>* cdm_context = cdm_context_ref-&gt;<span class="built_in">GetCdmContext</span>();</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_context);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Keep the reference to the CDM, as it shouldn&#x27;t be destroyed until</span></span><br><span class="line">  <span class="comment">// after the pipeline is done with the `cdm_context`.</span></span><br><span class="line">  pending_cdm_context_ref_ = std::<span class="built_in">move</span>(cdm_context_ref);</span><br><span class="line">  pipeline_controller_-&gt;<span class="built_in">SetCdm</span>(</span><br><span class="line">      cdm_context,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;WebMediaPlayerImpl::OnCdmAttached, weak_this_));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="PipelineController-SetCdm"><a href="#PipelineController-SetCdm" class="headerlink" title="PipelineController::SetCdm"></a>PipelineController::SetCdm</h3><p>继续调用 PipelineController::SetCdm</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">PipelineController::SetCdm</span><span class="params">(CdmContext* cdm_context,</span></span></span><br><span class="line"><span class="params"><span class="function">                                CdmAttachedCB cdm_attached_cb)</span> </span>&#123;</span><br><span class="line">  pipeline_-&gt;<span class="built_in">SetCdm</span>(cdm_context, std::<span class="built_in">move</span>(cdm_attached_cb));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">PipelineImpl::SetCdm</span><span class="params">(CdmContext* cdm_context,</span></span></span><br><span class="line"><span class="params"><span class="function">                          CdmAttachedCB cdm_attached_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__;</span><br><span class="line">  <span class="built_in">DCHECK</span>(thread_checker_.<span class="built_in">CalledOnValidThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_context);</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_attached_cb);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Not checking IsRunning() so we can set the CDM before Start().</span></span><br><span class="line"></span><br><span class="line">  media_task_runner_-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">      FROM_HERE,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;RendererWrapper::SetCdm,</span><br><span class="line">                     base::<span class="built_in">Unretained</span>(renderer_wrapper_.<span class="built_in">get</span>()), cdm_context,</span><br><span class="line">                     <span class="built_in">BindToCurrentLoop</span>(std::<span class="built_in">move</span>(cdm_attached_cb))));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="PipelineImpl-RendererWrapper-SetCdm"><a href="#PipelineImpl-RendererWrapper-SetCdm" class="headerlink" title="PipelineImpl::RendererWrapper::SetCdm"></a>PipelineImpl::RendererWrapper::SetCdm</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> PipelineImpl::RendererWrapper::<span class="built_in">SetCdm</span>(CdmContext* cdm_context,</span><br><span class="line">                                           CdmAttachedCB cdm_attached_cb) &#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(media_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_context);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If there&#x27;s already a renderer, set the CDM on the renderer directly.</span></span><br><span class="line">  <span class="keyword">if</span> (shared_state_.renderer) &#123;</span><br><span class="line">    shared_state_.renderer-&gt;<span class="built_in">SetCdm</span>(</span><br><span class="line">        cdm_context, base::<span class="built_in">BindOnce</span>(&amp;RendererWrapper::OnCdmAttached,</span><br><span class="line">                                    weak_factory_.<span class="built_in">GetWeakPtr</span>(),</span><br><span class="line">                                    std::<span class="built_in">move</span>(cdm_attached_cb), cdm_context));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Otherwise, wait for the Renderer to be created and the CDM will be set</span></span><br><span class="line">  <span class="comment">// in InitializeRenderer().</span></span><br><span class="line">  cdm_context_ = cdm_context;</span><br><span class="line">  std::<span class="built_in">move</span>(cdm_attached_cb).<span class="built_in">Run</span>(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Continue Renderer creation if it&#x27;s waiting for the CDM to be set.</span></span><br><span class="line">  <span class="keyword">if</span> (create_renderer_done_cb_)</span><br><span class="line">    <span class="built_in">CreateRendererInternal</span>(std::<span class="built_in">move</span>(create_renderer_done_cb_));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="WebMediaPlayerImpl-OnCdmAttached"><a href="#WebMediaPlayerImpl-OnCdmAttached" class="headerlink" title="WebMediaPlayerImpl::OnCdmAttached"></a>WebMediaPlayerImpl::OnCdmAttached</h5><p>RendererWrapper::SetCdm 中设置 cdm_context 然后调用 cdm_attached_cb</p>
+<p>而 cdm_attached_cb 就是 WebMediaPlayerImpl::OnCdmAttached</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebMediaPlayerImpl::OnCdmAttached</span><span class="params">(<span class="type">bool</span> success)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: success = &quot;</span> &lt;&lt; success;</span><br><span class="line">  <span class="built_in">DCHECK</span>(main_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(pending_cdm_context_ref_);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If the CDM is set from the constructor there is no promise</span></span><br><span class="line">  <span class="comment">// (`set_cdm_result_`) to fulfill.</span></span><br><span class="line">  <span class="keyword">if</span> (success) &#123;</span><br><span class="line">    media_log_-&gt;<span class="built_in">SetProperty</span>&lt;MediaLogProperty::kIsVideoEncrypted&gt;(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// This will release the previously attached CDM (if any).</span></span><br><span class="line">    cdm_context_ref_ = std::<span class="built_in">move</span>(pending_cdm_context_ref_);</span><br><span class="line">    <span class="keyword">if</span> (set_cdm_result_) &#123;</span><br><span class="line">      set_cdm_result_-&gt;<span class="built_in">Complete</span>();</span><br><span class="line">      set_cdm_result_.<span class="built_in">reset</span>();</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  pending_cdm_context_ref_.<span class="built_in">reset</span>();</span><br><span class="line">  <span class="keyword">if</span> (set_cdm_result_) &#123;</span><br><span class="line">    set_cdm_result_-&gt;<span class="built_in">CompleteWithError</span>(</span><br><span class="line">        kWebContentDecryptionModuleExceptionNotSupportedError, <span class="number">0</span>,</span><br><span class="line">        <span class="string">&quot;Unable to set ContentDecryptionModule object&quot;</span>);</span><br><span class="line">    set_cdm_result_.<span class="built_in">reset</span>();</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="PipelineImpl-RendererWrapper-CreateRendererInternal"><a href="#PipelineImpl-RendererWrapper-CreateRendererInternal" class="headerlink" title="PipelineImpl::RendererWrapper::CreateRendererInternal"></a>PipelineImpl::RendererWrapper::CreateRendererInternal</h5><p>PipelineImpl::RendererWrapper::SetCdm 的最后继续完成 CreateRendererInternal</p>
+<p>下面的 <code>default_renderer_</code> 在 PipelineImpl::Start 中通过 <code>create_renderer_cb_</code> 创建，<code>create_renderer_cb_</code> 其实是 WebMediaPlayerImpl::CreateRenderer，WebMediaPlayerImpl::CreateRenderer 里面会调用 <code>renderer_factory_selector_</code> 来选择 renderer_factory，然后由 renderer_factory 创建 renderer</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> PipelineImpl::RendererWrapper::<span class="built_in">CreateRendererInternal</span>(</span><br><span class="line">    PipelineStatusCallback done_cb) &#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DCHECK</span>(state_ == kStarting || state_ == kResuming);</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_context_ || !<span class="built_in">HasEncryptedStream</span>())</span><br><span class="line">      &lt;&lt; <span class="string">&quot;CDM should be available now if has encrypted stream&quot;</span>;</span><br><span class="line"></span><br><span class="line">  absl::optional&lt;RendererType&gt; renderer_type;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(IS_WIN)</span></span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(xhwang): During Resume(), the |default_renderer_| might already match</span></span><br><span class="line">  <span class="comment">// the |renderer_type|, in which case we shouldn&#x27;t need to create a new one.</span></span><br><span class="line">  <span class="keyword">if</span> (!default_renderer_ || renderer_type) &#123;</span><br><span class="line">    <span class="comment">// Create the Renderer asynchronously on the main task runner. Use</span></span><br><span class="line">    <span class="comment">// BindToCurrentLoop to call OnRendererCreated() on the media task runner.</span></span><br><span class="line">    <span class="keyword">auto</span> renderer_created_cb = <span class="built_in">BindToCurrentLoop</span>(</span><br><span class="line">        base::<span class="built_in">BindOnce</span>(&amp;RendererWrapper::OnRendererCreated,</span><br><span class="line">                       weak_factory_.<span class="built_in">GetWeakPtr</span>(), std::<span class="built_in">move</span>(done_cb)));</span><br><span class="line">    main_task_runner_-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">        FROM_HERE,</span><br><span class="line">        base::<span class="built_in">BindOnce</span>(&amp;PipelineImpl::AsyncCreateRenderer, weak_pipeline_,</span><br><span class="line">                       renderer_type, std::<span class="built_in">move</span>(renderer_created_cb)));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Just use the default one.</span></span><br><span class="line">  <span class="built_in">OnRendererCreated</span>(std::<span class="built_in">move</span>(done_cb), std::<span class="built_in">move</span>(default_renderer_));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="WebMediaPlayerImpl-CreateRenderer"><a href="#WebMediaPlayerImpl-CreateRenderer" class="headerlink" title="WebMediaPlayerImpl::CreateRenderer"></a>WebMediaPlayerImpl::CreateRenderer</h6><p><code>renderer_factory_selector_</code> 是在创建 webmediaplayer 时传给 webmediaplayer 的参数，<code>renderer_factory_selector_</code> 具体是在 MediaFactory::CreateRendererFactorySelector 函数中创建的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;media::Renderer&gt; <span class="title">WebMediaPlayerImpl::CreateRenderer</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    absl::optional&lt;media::RendererType&gt; renderer_type)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(main_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Make sure that overlays are enabled if they&#x27;re always allowed.</span></span><br><span class="line">  <span class="keyword">if</span> (always_enable_overlays_)</span><br><span class="line">    <span class="built_in">EnableOverlay</span>();</span><br><span class="line"></span><br><span class="line">  media::RequestOverlayInfoCB request_overlay_info_cb;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_ANDROID)</span></span><br><span class="line">  request_overlay_info_cb = media::<span class="built_in">BindToCurrentLoop</span>(base::<span class="built_in">BindRepeating</span>(</span><br><span class="line">      &amp;WebMediaPlayerImpl::OnOverlayInfoRequested, weak_this_));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (renderer_type) &#123;</span><br><span class="line">    <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__</span><br><span class="line">             &lt;&lt; <span class="string">&quot;: renderer_type=&quot;</span> &lt;&lt; <span class="built_in">static_cast</span>&lt;<span class="type">int</span>&gt;(renderer_type.<span class="built_in">value</span>());</span><br><span class="line">    renderer_factory_selector_-&gt;<span class="built_in">SetBaseRendererType</span>(renderer_type.<span class="built_in">value</span>());</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">bool</span> old_uses_audio_service = <span class="built_in">UsesAudioService</span>(renderer_type_);</span><br><span class="line">  renderer_type_ = renderer_factory_selector_-&gt;<span class="built_in">GetCurrentRendererType</span>();</span><br><span class="line"></span><br><span class="line">  <span class="type">bool</span> new_uses_audio_service = <span class="built_in">UsesAudioService</span>(renderer_type_);</span><br><span class="line">  <span class="keyword">if</span> (new_uses_audio_service != old_uses_audio_service)</span><br><span class="line">    client_-&gt;<span class="built_in">DidUseAudioServiceChange</span>(new_uses_audio_service);</span><br><span class="line"></span><br><span class="line">  media_metrics_provider_-&gt;<span class="built_in">SetRendererType</span>(renderer_type_);</span><br><span class="line">  media_log_-&gt;<span class="built_in">SetProperty</span>&lt;MediaLogProperty::kRendererName&gt;(renderer_type_);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> renderer_factory_selector_-&gt;<span class="built_in">GetCurrentFactory</span>()-&gt;<span class="built_in">CreateRenderer</span>(</span><br><span class="line">      media_task_runner_, worker_task_runner_, audio_source_provider_.<span class="built_in">get</span>(),</span><br><span class="line">      compositor_.<span class="built_in">get</span>(), std::<span class="built_in">move</span>(request_overlay_info_cb),</span><br><span class="line">      client_-&gt;<span class="built_in">TargetColorSpace</span>());</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再看 RendererFactory 的 CreateRenderer 函数，注意下面把 CreateXXXDecoders 作为 XXXRenderer 的回调函数，后面创建 Decoder 会通过 CreateXXXDecoders，而 CreateXXXDecoders 里面调用创建 RendererFactory 时传给他的 decoder_factory，该 decoder_factory 来自 MediaFactory::GetDecoderFactory</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;Renderer&gt; <span class="title">DefaultRendererFactory::CreateRenderer</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> scoped_refptr&lt;base::SingleThreadTaskRunner&gt;&amp; media_task_runner,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> scoped_refptr&lt;base::TaskRunner&gt;&amp; worker_task_runner,</span></span></span><br><span class="line"><span class="params"><span class="function">    AudioRendererSink* audio_renderer_sink,</span></span></span><br><span class="line"><span class="params"><span class="function">    VideoRendererSink* video_renderer_sink,</span></span></span><br><span class="line"><span class="params"><span class="function">    RequestOverlayInfoCB request_overlay_info_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> gfx::ColorSpace&amp; target_color_space)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(audio_renderer_sink);</span><br><span class="line"></span><br><span class="line">  <span class="function">std::unique_ptr&lt;AudioRenderer&gt; <span class="title">audio_renderer</span><span class="params">(<span class="keyword">new</span> AudioRendererImpl(</span></span></span><br><span class="line"><span class="params"><span class="function">      media_task_runner, audio_renderer_sink,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// Unretained is safe here, because the RendererFactory is guaranteed to</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// outlive the RendererImpl. The RendererImpl is destroyed when WMPI</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// destructor calls pipeline_controller_.Stop() -&gt; PipelineImpl::Stop() -&gt;</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// RendererWrapper::Stop -&gt; RendererWrapper::DestroyRenderer(). And the</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// RendererFactory is owned by WMPI and gets called after WMPI destructor</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// finishes.</span></span></span></span><br><span class="line"><span class="params"><span class="function">      base::BindRepeating(&amp;DefaultRendererFactory::CreateAudioDecoders,</span></span></span><br><span class="line"><span class="params"><span class="function">                          base::Unretained(<span class="keyword">this</span>), media_task_runner),</span></span></span><br><span class="line"><span class="params"><span class="function">#<span class="keyword">if</span> BUILDFLAG(IS_ANDROID)</span></span></span><br><span class="line"><span class="params"><span class="function">      media_log_))</span></span>;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">      media_log_, speech_recognition_client_.<span class="built_in">get</span>()));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">  GpuVideoAcceleratorFactories* gpu_factories = <span class="literal">nullptr</span>;</span><br><span class="line">  <span class="keyword">if</span> (get_gpu_factories_cb_)</span><br><span class="line">    gpu_factories = get_gpu_factories_cb_.<span class="built_in">Run</span>();</span><br><span class="line"></span><br><span class="line">  std::unique_ptr&lt;GpuMemoryBufferVideoFramePool&gt; gmb_pool;</span><br><span class="line">  <span class="keyword">if</span> (gpu_factories &amp;&amp; gpu_factories-&gt;<span class="built_in">ShouldUseGpuMemoryBuffersForVideoFrames</span>(</span><br><span class="line">                           <span class="literal">false</span> <span class="comment">/* for_media_stream */</span>)) &#123;</span><br><span class="line">    gmb_pool = std::<span class="built_in">make_unique</span>&lt;GpuMemoryBufferVideoFramePool&gt;(</span><br><span class="line">        media_task_runner, std::<span class="built_in">move</span>(worker_task_runner), gpu_factories);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="function">std::unique_ptr&lt;VideoRenderer&gt; <span class="title">video_renderer</span><span class="params">(<span class="keyword">new</span> VideoRendererImpl(</span></span></span><br><span class="line"><span class="params"><span class="function">      media_task_runner, video_renderer_sink,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// Unretained is safe here, because the RendererFactory is guaranteed to</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// outlive the RendererImpl. The RendererImpl is destroyed when WMPI</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// destructor calls pipeline_controller_.Stop() -&gt; PipelineImpl::Stop() -&gt;</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// RendererWrapper::Stop -&gt; RendererWrapper::DestroyRenderer(). And the</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// RendererFactory is owned by WMPI and gets called after WMPI destructor</span></span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="comment">// finishes.</span></span></span></span><br><span class="line"><span class="params"><span class="function">      base::BindRepeating(&amp;DefaultRendererFactory::CreateVideoDecoders,</span></span></span><br><span class="line"><span class="params"><span class="function">                          base::Unretained(<span class="keyword">this</span>), media_task_runner,</span></span></span><br><span class="line"><span class="params"><span class="function">                          std::move(request_overlay_info_cb),</span></span></span><br><span class="line"><span class="params"><span class="function">                          target_color_space, gpu_factories),</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="literal">true</span>, media_log_, std::move(gmb_pool)))</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;RendererImpl&gt;(</span><br><span class="line">      media_task_runner, std::<span class="built_in">move</span>(audio_renderer), std::<span class="built_in">move</span>(video_renderer));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="PipelineImpl-RendererWrapper-OnRendererCreated"><a href="#PipelineImpl-RendererWrapper-OnRendererCreated" class="headerlink" title="PipelineImpl::RendererWrapper::OnRendererCreated"></a>PipelineImpl::RendererWrapper::OnRendererCreated</h6><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">void</span> PipelineImpl::RendererWrapper::<span class="built_in">OnRendererCreated</span>(</span><br><span class="line">    PipelineStatusCallback done_cb,</span><br><span class="line">    std::unique_ptr&lt;Renderer&gt; renderer) &#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: renderer=&quot;</span> &lt;&lt; renderer.<span class="built_in">get</span>();</span><br><span class="line">  <span class="built_in">DCHECK</span>(media_task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!renderer) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(done_cb).<span class="built_in">Run</span>(PIPELINE_ERROR_INITIALIZATION_FAILED);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">base::AutoLock <span class="title">auto_lock</span><span class="params">(shared_state_lock_)</span></span>;</span><br><span class="line">    <span class="built_in">DCHECK</span>(!shared_state_.renderer);</span><br><span class="line">    shared_state_.renderer = std::<span class="built_in">move</span>(renderer);</span><br><span class="line">  &#125;</span><br><span class="line">  std::<span class="built_in">move</span>(done_cb).<span class="built_in">Run</span>(PIPELINE_OK);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这一篇文章就先到这里，主要介绍了 RendererWrapper::CreateRenderer 的流程，下篇文章分析 RendererWrapper::InitializeRenderer</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/07/07/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E5%85%AD%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-07-07 21:34:22
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                        <b>#</b> Chromium 多媒体
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#RendererWrapper-ReportMetadata"><span class="toc-text">RendererWrapper::ReportMetadata</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#RendererWrapper-CreateRenderer"><span class="toc-text">RendererWrapper::CreateRenderer</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#WebMediaPlayerImpl-SetContentDecryptionModule"><span class="toc-text">WebMediaPlayerImpl::SetContentDecryptionModule</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#PipelineController-SetCdm"><span class="toc-text">PipelineController::SetCdm</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#PipelineImpl-RendererWrapper-SetCdm"><span class="toc-text">PipelineImpl::RendererWrapper::SetCdm</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#WebMediaPlayerImpl-OnCdmAttached"><span class="toc-text">WebMediaPlayerImpl::OnCdmAttached</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#PipelineImpl-RendererWrapper-CreateRendererInternal"><span class="toc-text">PipelineImpl::RendererWrapper::CreateRendererInternal</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#WebMediaPlayerImpl-CreateRenderer"><span class="toc-text">WebMediaPlayerImpl::CreateRenderer</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#PipelineImpl-RendererWrapper-OnRendererCreated"><span class="toc-text">PipelineImpl::RendererWrapper::OnRendererCreated</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

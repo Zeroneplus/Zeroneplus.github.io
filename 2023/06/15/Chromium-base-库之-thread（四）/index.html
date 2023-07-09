@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium base 库之 thread（四） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium base 库之 thread（四）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-15 21:37:14
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                    <b>#</b> Chromium base库
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>之前的文章都是以 SingleThreadTaskExecutor 为研究对象，这篇文章则介绍 Thread 类。</p>
+<h2 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h2><p>还是以一个例子为研究对象。下面的例子创建了一个 thread，然后把这个 thread 的 task_runner 设给了 mojo，让这个线程作为 mojo 的 io 线程。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">base::Thread <span class="title">ipc_thread</span><span class="params">(<span class="string">&quot;ipc!&quot;</span>)</span></span>;</span><br><span class="line">ipc_thread.<span class="built_in">StartWithOptions</span>(</span><br><span class="line">  base::Thread::<span class="built_in">Options</span>(base::MessagePumpType::IO, <span class="number">0</span>));</span><br><span class="line">mojo::<span class="function">core::ScopedIPCSupport <span class="title">ipc_support</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">  ipc_thread.task_runner(),</span></span></span><br><span class="line"><span class="params"><span class="function">  mojo::core::ScopedIPCSupport::ShutdownPolicy::CLEAN)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<h2 id="Thread"><a href="#Thread" class="headerlink" title="Thread"></a>Thread</h2><p>Thread 类如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">Thread</span>&#123;</span><br><span class="line">  <span class="comment">// The thread&#x27;s handle.</span></span><br><span class="line">  PlatformThreadHandle thread_; <span class="comment">// pthread_t</span></span><br><span class="line">  <span class="keyword">mutable</span> base::Lock thread_lock_;  <span class="comment">// Protects |thread_|.</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// The thread&#x27;s id once it has started.</span></span><br><span class="line">  PlatformThreadId id_ = kInvalidThreadId;</span><br><span class="line">  <span class="comment">// Protects |id_| which must only be read while it&#x27;s signaled.</span></span><br><span class="line">  <span class="keyword">mutable</span> WaitableEvent id_event_;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Stores Options::timer_slack_ until the sequence manager has been bound to</span></span><br><span class="line">  <span class="comment">// a thread.</span></span><br><span class="line">  TimerSlack timer_slack_ = TIMER_SLACK_NONE;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// The name of the thread.  Used for debugging purposes.</span></span><br><span class="line">  <span class="type">const</span> std::string name_;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// The thread&#x27;s Delegate and RunLoop are valid only while the thread is</span></span><br><span class="line">  <span class="comment">// alive. Set by the created thread.</span></span><br><span class="line">  std::unique_ptr&lt;Delegate&gt; delegate_;</span><br><span class="line">  RunLoop* run_loop_ = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Signaled when the created thread gets ready to use the message loop.</span></span><br><span class="line">  <span class="keyword">mutable</span> WaitableEvent start_event_;</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>thread_</code> 就是 <code>pthread_t</code></p>
+<p><code>id_</code> 是线程 id</p>
+<p><code>id_event_</code> 和 <code>start_event_</code> 是条件变量，用于当前线程等待 thread 线程，比如当前线程想访问 <code>id_</code> 时需要等 <code>id_event_</code> 被通知</p>
+<h3 id="构造函数"><a href="#构造函数" class="headerlink" title="构造函数"></a>构造函数</h3><p>构造函数比较简单，就是创建了内部的成员数据。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/thread.cc</span></span><br><span class="line">Thread::<span class="built_in">Thread</span>(<span class="type">const</span> std::string&amp; name)</span><br><span class="line">    : <span class="built_in">id_event_</span>(WaitableEvent::ResetPolicy::MANUAL,</span><br><span class="line">                WaitableEvent::InitialState::NOT_SIGNALED),</span><br><span class="line">      <span class="built_in">name_</span>(name),</span><br><span class="line">      <span class="built_in">start_event_</span>(WaitableEvent::ResetPolicy::MANUAL,</span><br><span class="line">                   WaitableEvent::InitialState::NOT_SIGNALED) &#123;</span><br><span class="line">  <span class="comment">// Only bind the sequence on Start(): the state is constant between</span></span><br><span class="line">  <span class="comment">// construction and Start() and it&#x27;s thus valid for Start() to be called on</span></span><br><span class="line">  <span class="comment">// another sequence as long as every other operation is then performed on that</span></span><br><span class="line">  <span class="comment">// sequence.</span></span><br><span class="line">  owning_sequence_checker_.<span class="built_in">DetachFromSequence</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="启动-Thread"><a href="#启动-Thread" class="headerlink" title="启动 Thread"></a>启动 Thread</h3><p>在 Thread 内部，有一个 <code>delegate_</code>，它的作用和前面的 SingleThreadTaskExecutor 类似，这里的 <code>delegate_</code> 是 SequenceManagerThreadDelegate 类</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Thread::StartWithOptions</span><span class="params">(Options options)</span> </span>&#123;</span><br><span class="line">  id_event_.<span class="built_in">Reset</span>();</span><br><span class="line">  id_ = kInvalidThreadId;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">SetThreadWasQuitProperly</span>(<span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">  timer_slack_ = options.timer_slack;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (options.delegate) &#123;</span><br><span class="line">    delegate_ = std::<span class="built_in">move</span>(options.delegate);</span><br><span class="line">  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (options.message_pump_factory) &#123;</span><br><span class="line">    delegate_ = std::<span class="built_in">make_unique</span>&lt;SequenceManagerThreadDelegate&gt;(</span><br><span class="line">        MessagePumpType::CUSTOM, options.message_pump_factory);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    delegate_ = std::<span class="built_in">make_unique</span>&lt;SequenceManagerThreadDelegate&gt;(</span><br><span class="line">        options.message_pump_type,</span><br><span class="line">        <span class="built_in">BindOnce</span>([](MessagePumpType type) &#123; <span class="keyword">return</span> MessagePump::<span class="built_in">Create</span>(type); &#125;,</span><br><span class="line">                 options.message_pump_type));</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  start_event_.<span class="built_in">Reset</span>();</span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">AutoLock <span class="title">lock</span><span class="params">(thread_lock_)</span></span>;</span><br><span class="line">    <span class="type">bool</span> success =</span><br><span class="line">        options.joinable</span><br><span class="line">            ? PlatformThread::<span class="built_in">CreateWithPriority</span>(options.stack_size, <span class="keyword">this</span>,</span><br><span class="line">                                                 &amp;thread_, options.priority)</span><br><span class="line">            : PlatformThread::<span class="built_in">CreateNonJoinableWithPriority</span>(</span><br><span class="line">                  options.stack_size, <span class="keyword">this</span>, options.priority);</span><br><span class="line">...</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  joinable_ = options.joinable;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Thread::Options 类如下，比较简单，不做过多介绍</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">struct</span> <span class="title class_">Thread</span>::Options &#123;</span><br><span class="line">...</span><br><span class="line">    MessagePumpType message_pump_type = MessagePumpType::DEFAULT;</span><br><span class="line">    std::unique_ptr&lt;Delegate&gt; delegate = <span class="literal">nullptr</span>;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br><span class="line">Thread::Options::<span class="built_in">Options</span>(MessagePumpType type, <span class="type">size_t</span> size)</span><br><span class="line">    : <span class="built_in">message_pump_type</span>(type), <span class="built_in">stack_size</span>(size) &#123;&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="PlatformThread-CreateWithPriority"><a href="#PlatformThread-CreateWithPriority" class="headerlink" title="PlatformThread::CreateWithPriority"></a>PlatformThread::CreateWithPriority</h4><p>这一步创建平台相关的线程，比如在 linux 下创建 pthread 线程，在 windows 下创建 windows 线程，这里只看 pthread 线程的情况</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/platform_thread.h</span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_FUCHSIA)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_APPLE)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_POSIX)</span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;pthread.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_FUCHSIA)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_APPLE)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_POSIX)</span></span><br><span class="line"><span class="keyword">typedef</span> <span class="type">pid_t</span> PlatformThreadId;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">PlatformThreadHandle</span> &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_POSIX) || BUILDFLAG(IS_FUCHSIA)</span></span><br><span class="line">  <span class="keyword">typedef</span> <span class="type">pthread_t</span> Handle;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">...</span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  Handle handle_;</span><br><span class="line">&#125;;</span><br><span class="line"><span class="function"><span class="type">const</span> PlatformThreadId <span class="title">kInvalidThreadId</span><span class="params">(<span class="number">0</span>)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>PlatformThread::CreateWithPriority 调用 CreateThread 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/platform_thread_posix.cc</span></span><br><span class="line"><span class="comment">// static</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">PlatformThread::CreateWithPriority</span><span class="params">(<span class="type">size_t</span> stack_size, Delegate* delegate,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        PlatformThreadHandle* thread_handle,</span></span></span><br><span class="line"><span class="params"><span class="function">                                        ThreadPriority priority)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">CreateThread</span>(stack_size, <span class="literal">true</span> <span class="comment">/* joinable thread */</span>, delegate,</span><br><span class="line">                      thread_handle, priority);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>CreateThread 函数内部就是调用了 pthread 的 api 来创建线程</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/platform_thread_posix.cc</span></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">CreateThread</span><span class="params">(<span class="type">size_t</span> stack_size,</span></span></span><br><span class="line"><span class="params"><span class="function">                  <span class="type">bool</span> joinable,</span></span></span><br><span class="line"><span class="params"><span class="function">                  PlatformThread::Delegate* delegate,</span></span></span><br><span class="line"><span class="params"><span class="function">                  PlatformThreadHandle* thread_handle,</span></span></span><br><span class="line"><span class="params"><span class="function">                  ThreadPriority priority)</span> </span>&#123;</span><br><span class="line">  base::<span class="built_in">InitThreading</span>();</span><br><span class="line">  <span class="type">pthread_attr_t</span> attributes;</span><br><span class="line">  <span class="built_in">pthread_attr_init</span>(&amp;attributes);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Pthreads are joinable by default, so only specify the detached</span></span><br><span class="line">  <span class="comment">// attribute if the thread should be non-joinable.</span></span><br><span class="line">  <span class="keyword">if</span> (!joinable)</span><br><span class="line">    <span class="built_in">pthread_attr_setdetachstate</span>(&amp;attributes, PTHREAD_CREATE_DETACHED);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Get a better default if available.</span></span><br><span class="line">  <span class="keyword">if</span> (stack_size == <span class="number">0</span>)</span><br><span class="line">    stack_size = base::<span class="built_in">GetDefaultThreadStackSize</span>(attributes);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (stack_size &gt; <span class="number">0</span>)</span><br><span class="line">    <span class="built_in">pthread_attr_setstacksize</span>(&amp;attributes, stack_size);</span><br><span class="line"></span><br><span class="line">  <span class="function">std::unique_ptr&lt;ThreadParams&gt; <span class="title">params</span><span class="params">(<span class="keyword">new</span> ThreadParams)</span></span>;</span><br><span class="line">  params-&gt;delegate = delegate;</span><br><span class="line">  params-&gt;joinable = joinable;</span><br><span class="line">  params-&gt;priority = priority;</span><br><span class="line"></span><br><span class="line">  <span class="type">pthread_t</span> handle;</span><br><span class="line">  <span class="type">int</span> err = <span class="built_in">pthread_create</span>(&amp;handle, &amp;attributes, ThreadFunc, params.<span class="built_in">get</span>());</span><br><span class="line">  <span class="type">bool</span> success = !err;</span><br><span class="line">  <span class="keyword">if</span> (success) &#123;</span><br><span class="line">    <span class="comment">// ThreadParams should be deleted on the created thread after used.</span></span><br><span class="line">    std::ignore = params.<span class="built_in">release</span>();</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">...</span><br><span class="line">  &#125;</span><br><span class="line">  *thread_handle = <span class="built_in">PlatformThreadHandle</span>(handle);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">pthread_attr_destroy</span>(&amp;attributes);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> success;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>pthread_create 里的主函数是 ThreadFunc。此外注意 params.release()不是释放指针指向的内存，而是释放指针的所有权。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/platform_thread_posix.cc</span></span><br><span class="line"><span class="function"><span class="type">void</span>* <span class="title">ThreadFunc</span><span class="params">(<span class="type">void</span>* params)</span> </span>&#123;</span><br><span class="line">  PlatformThread::Delegate* delegate = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="comment">// 重新用unique_ptr包装输入的指针</span></span><br><span class="line">    <span class="function">std::unique_ptr&lt;ThreadParams&gt; <span class="title">thread_params</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">static_cast</span>&lt;ThreadParams*&gt;(params))</span></span>;</span><br><span class="line"></span><br><span class="line">    delegate = thread_params-&gt;delegate;</span><br><span class="line">    <span class="keyword">if</span> (!thread_params-&gt;joinable)</span><br><span class="line">      base::<span class="built_in">DisallowSingleton</span>();</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> !BUILDFLAG(IS_NACL)</span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)</span></span><br><span class="line">    internal::PCScan::<span class="built_in">NotifyThreadCreated</span>(internal::<span class="built_in">GetStackPointer</span>());</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_APPLE)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">    <span class="comment">// Threads on linux/android may inherit their priority from the thread</span></span><br><span class="line">    <span class="comment">// where they were created. This explicitly sets the priority of all new</span></span><br><span class="line">    <span class="comment">// threads.</span></span><br><span class="line">    PlatformThread::<span class="built_in">SetCurrentThreadPriority</span>(thread_params-&gt;priority);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  ThreadIdNameManager::<span class="built_in">GetInstance</span>()-&gt;<span class="built_in">RegisterThread</span>(</span><br><span class="line">      PlatformThread::<span class="built_in">CurrentHandle</span>().<span class="built_in">platform_handle</span>(),</span><br><span class="line">      PlatformThread::<span class="built_in">CurrentId</span>());</span><br><span class="line"></span><br><span class="line">  delegate-&gt;<span class="built_in">ThreadMain</span>();</span><br><span class="line"></span><br><span class="line">  ThreadIdNameManager::<span class="built_in">GetInstance</span>()-&gt;<span class="built_in">RemoveName</span>(</span><br><span class="line">      PlatformThread::<span class="built_in">CurrentHandle</span>().<span class="built_in">platform_handle</span>(),</span><br><span class="line">      PlatformThread::<span class="built_in">CurrentId</span>());</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> !BUILDFLAG(IS_NACL) &amp;&amp; BUILDFLAG(USE_PARTITION_ALLOC_AS_MALLOC)</span></span><br><span class="line">  internal::PCScan::<span class="built_in">NotifyThreadDestroyed</span>();</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"></span><br><span class="line">  base::<span class="built_in">TerminateOnThread</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的 delegate 指针就是指向 Thread 的指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">PlatformThread</span>::Delegate &#123;</span><br><span class="line">...</span><br><span class="line">    <span class="function"><span class="keyword">virtual</span> <span class="type">void</span> <span class="title">ThreadMain</span><span class="params">()</span> </span>= <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Thread</span> : ...</span><br><span class="line">               PlatformThread::Delegate</span><br><span class="line">               ... &#123;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>Thread::ThreadMain 如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Thread::ThreadMain</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// First, make GetThreadId() available to avoid deadlocks. It could be called</span></span><br><span class="line">  <span class="comment">// any place in the following thread initialization code.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(!id_event_.<span class="built_in">IsSignaled</span>());</span><br><span class="line">  id_ = PlatformThread::<span class="built_in">CurrentId</span>();</span><br><span class="line">  id_event_.<span class="built_in">Signal</span>(); <span class="comment">// 直到此时id_才是可用的</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Complete the initialization of our Thread object.</span></span><br><span class="line">  PlatformThread::<span class="built_in">SetName</span>(name_.<span class="built_in">c_str</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// This binds CurrentThread and ThreadTaskRunnerHandle.</span></span><br><span class="line">  delegate_-&gt;<span class="built_in">BindToCurrentThread</span>(timer_slack_);</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">  <span class="comment">// Let the thread do extra initialization.</span></span><br><span class="line">  <span class="built_in">Init</span>();</span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">AutoLock <span class="title">lock</span><span class="params">(running_lock_)</span></span>;</span><br><span class="line">    running_ = <span class="literal">true</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  start_event_.<span class="built_in">Signal</span>(); <span class="comment">// 直到此时，线程才开始</span></span><br><span class="line"></span><br><span class="line">  RunLoop run_loop;</span><br><span class="line">  run_loop_ = &amp;run_loop;</span><br><span class="line">  <span class="built_in">Run</span>(run_loop_);</span><br><span class="line"></span><br><span class="line">  &#123;</span><br><span class="line">    <span class="function">AutoLock <span class="title">lock</span><span class="params">(running_lock_)</span></span>;</span><br><span class="line">    running_ = <span class="literal">false</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Let the thread do extra cleanup.</span></span><br><span class="line">  <span class="built_in">CleanUp</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// We can&#x27;t receive messages anymore.</span></span><br><span class="line">  <span class="comment">// (The message loop is destructed at the end of this block)</span></span><br><span class="line">  delegate_.<span class="built_in">reset</span>();</span><br><span class="line">  run_loop_ = <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面的 <code>delegate_</code> 就是指向 SequenceManagerThreadDelegate 类的指针，接下来就看看这个类。</p>
+<h5 id="SequenceManagerThreadDelegate"><a href="#SequenceManagerThreadDelegate" class="headerlink" title="SequenceManagerThreadDelegate"></a>SequenceManagerThreadDelegate</h5><p>上面流程在 Thread::StartWithOptions 中构造了 SequenceManagerThreadDelegate 类型的对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">bool</span> <span class="title">Thread::StartWithOptions</span><span class="params">(Options options)</span> </span>&#123;</span><br><span class="line">  id_event_.<span class="built_in">Reset</span>();</span><br><span class="line">  id_ = kInvalidThreadId;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (options.delegate) &#123;</span><br><span class="line">...</span><br><span class="line">  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (options.message_pump_factory) &#123;</span><br><span class="line">...</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    delegate_ = std::<span class="built_in">make_unique</span>&lt;SequenceManagerThreadDelegate&gt;(</span><br><span class="line">        options.message_pump_type,</span><br><span class="line">        <span class="built_in">BindOnce</span>([](MessagePumpType type) &#123; <span class="keyword">return</span> MessagePump::<span class="built_in">Create</span>(type); &#125;,</span><br><span class="line">                 options.message_pump_type));</span><br><span class="line">  &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="构造函数-1"><a href="#构造函数-1" class="headerlink" title="构造函数"></a>构造函数</h6><p>SequenceManagerThreadDelegate 类如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// base/threading/thread.cc</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SequenceManagerThreadDelegate</span> : <span class="keyword">public</span> Thread::Delegate &#123;</span><br><span class="line">...</span><br><span class="line">  <span class="function"><span class="keyword">explicit</span> <span class="title">SequenceManagerThreadDelegate</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      MessagePumpType message_pump_type,</span></span></span><br><span class="line"><span class="params"><span class="function">      OnceCallback&lt;std::unique_ptr&lt;MessagePump&gt;()&gt; message_pump_factory)</span></span></span><br><span class="line"><span class="function">      : sequence_manager_(</span></span><br><span class="line"><span class="function">            sequence_manager::internal::SequenceManagerImpl::CreateUnbound(</span></span><br><span class="line"><span class="function">                sequence_manager::SequenceManager::Settings::Builder()</span></span><br><span class="line"><span class="function">                    .SetMessagePumpType(message_pump_type)</span></span><br><span class="line"><span class="function">                    .Build())),</span></span><br><span class="line"><span class="function">        default_task_queue_(sequence_manager_-&gt;CreateTaskQueue(</span></span><br><span class="line"><span class="function">            sequence_manager::TaskQueue::Spec(<span class="string">&quot;default_tq&quot;</span>))),</span></span><br><span class="line"><span class="function">        message_pump_factory_(std::move(message_pump_factory)) &#123;</span></span><br><span class="line">    sequence_manager_-&gt;<span class="built_in">SetDefaultTaskRunner</span>(default_task_queue_-&gt;<span class="built_in">task_runner</span>());</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">BindToCurrentThread</span><span class="params">(TimerSlack timer_slack)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    sequence_manager_-&gt;<span class="built_in">BindToMessagePump</span>(</span><br><span class="line">        std::<span class="built_in">move</span>(message_pump_factory_).<span class="built_in">Run</span>());</span><br><span class="line">    sequence_manager_-&gt;<span class="built_in">SetTimerSlack</span>(timer_slack);</span><br><span class="line">    simple_task_executor_.<span class="built_in">emplace</span>(<span class="built_in">GetDefaultTaskRunner</span>());</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line"> <span class="keyword">private</span>:</span><br><span class="line">  std::unique_ptr&lt;sequence_manager::internal::SequenceManagerImpl&gt;</span><br><span class="line">      sequence_manager_;</span><br><span class="line">  scoped_refptr&lt;sequence_manager::TaskQueue&gt; default_task_queue_;</span><br><span class="line">  OnceCallback&lt;std::<span class="built_in">unique_ptr</span>&lt;MessagePump&gt;()&gt; message_pump_factory_;</span><br><span class="line">  absl::optional&lt;SimpleTaskExecutor&gt; simple_task_executor_;</span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>它里面也有一个 SequenceManager 类型的对象，这和 SingleThreadTaskExecutor 一样，而且构造函数里的动作也基本和 SingleThreadTaskExecutor 一致，SingleThreadTaskExecutor 的构造函数如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">SingleThreadTaskExecutor::<span class="built_in">SingleThreadTaskExecutor</span>(</span><br><span class="line">    MessagePumpType type,</span><br><span class="line">    std::unique_ptr&lt;MessagePump&gt; pump)</span><br><span class="line">    : <span class="built_in">sequence_manager_</span>(sequence_manager::<span class="built_in">CreateUnboundSequenceManager</span>(</span><br><span class="line">          sequence_manager::SequenceManager::Settings::<span class="built_in">Builder</span>()</span><br><span class="line">              .<span class="built_in">SetMessagePumpType</span>(type)</span><br><span class="line">              .<span class="built_in">Build</span>())),</span><br><span class="line">      <span class="built_in">default_task_queue_</span>(sequence_manager_-&gt;<span class="built_in">CreateTaskQueue</span>(</span><br><span class="line">          sequence_manager::TaskQueue::<span class="built_in">Spec</span>(<span class="string">&quot;default_tq&quot;</span>))),</span><br><span class="line">      <span class="built_in">type_</span>(type),</span><br><span class="line">      <span class="built_in">simple_task_executor_</span>(<span class="built_in">task_runner</span>()) &#123;</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">SetDefaultTaskRunner</span>(default_task_queue_-&gt;<span class="built_in">task_runner</span>());</span><br><span class="line">  sequence_manager_-&gt;<span class="built_in">BindToMessagePump</span>(std::<span class="built_in">move</span>(pump));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>SequenceManagerThreadDelegate 和 SingleThreadTaskExecutor 有一点不同：SequenceManagerThreadDelegate 把 <code>sequence_manager_-&gt;BindToMessagePump</code> 这个动作从构造函数中分离了出来。</p>
+<p>这是因为 <code>BindToMessagePump</code> 需要在 Thread 的线程中执行，之前使用 SingleThreadTaskExecutor 的场景是直接在当前线程创建 SingleThreadTaskExecutor 的对象，将当前线程包装成一个 TaskExecutor，所以不需要考虑 <code>BindToMessagePump</code> 在哪个线程执行的问题，而 Thread 类创建了一个新的线程，此时 SequenceManagerThreadDelegate 的创建应该在当前线程，而 <code>BindToMessagePump</code> 要放在新线程中，从上面 Thread::ThreadMain 函数可知，<code>BindToMessagePump</code> 是在新线程中执行的。</p>
+<p>SequenceManagerThreadDelegate 和 SingleThreadTaskExecutor 差不多，所以之前分析的内容对 SequenceManagerThreadDelegate 也有效，这里就不再赘述。</p>
+<h6 id="BindToCurrentThread"><a href="#BindToCurrentThread" class="headerlink" title="BindToCurrentThread"></a>BindToCurrentThread</h6><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Thread::ThreadMain</span><span class="params">()</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">  delegate_-&gt;<span class="built_in">BindToCurrentThread</span>(timer_slack_);</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>delegate_-&gt;BindToCurrentThread</code> 就是 SequenceManagerThreadDelegate::BindToCurrentThread，函数的具体实现上面介绍。</p>
+<h5 id="RunLoop"><a href="#RunLoop" class="headerlink" title="RunLoop"></a>RunLoop</h5><p>Thread::ThreadMain 中也创建了一个 RunLoop，然后执行 Thread::Run</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Thread::ThreadMain</span><span class="params">()</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">  RunLoop run_loop;</span><br><span class="line">  run_loop_ = &amp;run_loop;</span><br><span class="line">  <span class="built_in">Run</span>(run_loop_);</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Thread::Run 如下，就是调用 RunLoop::Run()</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">Thread::Run</span><span class="params">(RunLoop* run_loop)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Overridable protected method to be called from our |thread_| only.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(id_event_.<span class="built_in">IsSignaled</span>());</span><br><span class="line">  <span class="built_in">DCHECK_EQ</span>(id_, PlatformThread::<span class="built_in">CurrentId</span>());</span><br><span class="line"></span><br><span class="line">  run_loop-&gt;<span class="built_in">Run</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以发现，Thread 内部实现和之前介绍的 SingleThreadTaskExecutor 基本一致，只是 Thread 内部创建了一个新线程，然后将该新线程用 SequenceManagerThreadDelegate 进行了包装。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/11/Chromium-base-%E5%BA%93%E4%B9%8B-thread%EF%BC%88%E4%B8%89%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-15 21:37:14
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-base%E5%BA%93/" title="Chromium base库">
+                        <b>#</b> Chromium base库
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/06/23/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%B8%80%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-text">示例代码</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#Thread"><span class="toc-text">Thread</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0"><span class="toc-text">构造函数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%90%AF%E5%8A%A8-Thread"><span class="toc-text">启动 Thread</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#PlatformThread-CreateWithPriority"><span class="toc-text">PlatformThread::CreateWithPriority</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#SequenceManagerThreadDelegate"><span class="toc-text">SequenceManagerThreadDelegate</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#%E6%9E%84%E9%80%A0%E5%87%BD%E6%95%B0-1"><span class="toc-text">构造函数</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#BindToCurrentThread"><span class="toc-text">BindToCurrentThread</span></a></li></ol></li><li class="toc-item toc-level-5"><a class="toc-link" href="#RunLoop"><span class="toc-text">RunLoop</span></a></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

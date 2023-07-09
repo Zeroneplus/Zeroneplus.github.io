@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium 多媒体（五） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium 多媒体（五）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-30 22:19:05
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                    <b>#</b> Chromium 多媒体
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章继续介绍 EME 相关的内容</p>
+<p>在上一篇文章的最后创建了 WebContentDecryptionModuleAccessImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::OnConfigSelected</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebEncryptedMediaRequest request,</span></span></span><br><span class="line"><span class="params"><span class="function">    KeySystemConfigSelector::Status status,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebMediaKeySystemConfiguration* accumulated_configuration,</span></span></span><br><span class="line"><span class="params"><span class="function">    media::CdmConfig* cdm_config)</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">  request.<span class="built_in">RequestSucceeded</span>(WebContentDecryptionModuleAccessImpl::<span class="built_in">Create</span>(</span><br><span class="line">      origin, *accumulated_configuration, *cdm_config,</span><br><span class="line">      weak_factory_.<span class="built_in">GetWeakPtr</span>()));</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;WebContentDecryptionModuleAccessImpl&gt;</span></span><br><span class="line"><span class="function"><span class="title">WebContentDecryptionModuleAccessImpl::Create</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebSecurityOrigin&amp; security_origin,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebMediaKeySystemConfiguration&amp; configuration,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> base::WeakPtr&lt;WebEncryptedMediaClientImpl&gt;&amp; client)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;WebContentDecryptionModuleAccessImpl&gt;(</span><br><span class="line">      security_origin, configuration, cdm_config, client);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 MediaKeySystemAccessInitializer::RequestSucceeded 中用 WebContentDecryptionModuleAccess 创建了 MediaKeySystemAccess</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MediaKeySystemAccessInitializer::RequestSucceeded</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;WebContentDecryptionModuleAccess&gt; access)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">3</span>) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">IsExecutionContextValid</span>())</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">  resolver_-&gt;<span class="built_in">Resolve</span>(</span><br><span class="line">      <span class="built_in">MakeGarbageCollected</span>&lt;MediaKeySystemAccess&gt;(std::<span class="built_in">move</span>(access)));</span><br><span class="line">  resolver_.<span class="built_in">Clear</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="MediaKeySystemAccess-createMediaKeys"><a href="#MediaKeySystemAccess-createMediaKeys" class="headerlink" title="MediaKeySystemAccess::createMediaKeys"></a>MediaKeySystemAccess::createMediaKeys</h1><p>接下来就是使用 MediaKeySystemAccess::createMediaKeys 来创建 MediaKeys</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">ScriptPromise <span class="title">MediaKeySystemAccess::createMediaKeys</span><span class="params">(ScriptState* script_state)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// From http://w3c.github.io/encrypted-media/#createMediaKeys</span></span><br><span class="line">  <span class="comment">// (Reordered to be able to pass values into the promise constructor.)</span></span><br><span class="line">  <span class="comment">// 2.4 Let configuration be the value of this object&#x27;s configuration value.</span></span><br><span class="line">  <span class="comment">// 2.5-2.8. [Set use distinctive identifier and persistent state allowed</span></span><br><span class="line">  <span class="comment">//          based on configuration.]</span></span><br><span class="line">  WebMediaKeySystemConfiguration configuration = access_-&gt;<span class="built_in">GetConfiguration</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 1. Let promise be a new promise.</span></span><br><span class="line">  MediaKeysConfig config = &#123;<span class="built_in">keySystem</span>(), <span class="built_in">UseHardwareSecureCodecs</span>()&#125;;</span><br><span class="line">  NewCdmResultPromise* helper = <span class="built_in">MakeGarbageCollected</span>&lt;NewCdmResultPromise&gt;(</span><br><span class="line">      script_state, config, configuration.session_types);</span><br><span class="line">  ScriptPromise promise = helper-&gt;<span class="built_in">Promise</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 2. Asynchronously create and initialize the MediaKeys object.</span></span><br><span class="line">  <span class="comment">// 2.1 Let cdm be the CDM corresponding to this object.</span></span><br><span class="line">  <span class="comment">// 2.2 Load and initialize the cdm if necessary.</span></span><br><span class="line">  <span class="comment">// 2.3 If cdm fails to load or initialize, reject promise with a new</span></span><br><span class="line">  <span class="comment">//     DOMException whose name is the appropriate error name.</span></span><br><span class="line">  <span class="comment">//     (Done if completeWithException() called).</span></span><br><span class="line">  <span class="keyword">auto</span>* execution_context = ExecutionContext::<span class="built_in">From</span>(script_state);</span><br><span class="line">  access_-&gt;<span class="built_in">CreateContentDecryptionModule</span>(</span><br><span class="line">      helper-&gt;<span class="built_in">Result</span>(),</span><br><span class="line">      execution_context-&gt;<span class="built_in">GetTaskRunner</span>(TaskType::kInternalMedia));</span><br><span class="line"></span><br><span class="line">  <span class="built_in">ReportMetrics</span>(execution_context, <span class="built_in">keySystem</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 3. Return promise.</span></span><br><span class="line">  <span class="keyword">return</span> promise;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>MediaKeySystemAccess::createMediaKeys 内部调用 WebContentDecryptionModuleAccessImpl::CreateContentDecryptionModule</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebContentDecryptionModuleAccessImpl::CreateContentDecryptionModule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebContentDecryptionModuleResult result,</span></span></span><br><span class="line"><span class="params"><span class="function">    scoped_refptr&lt;base::SingleThreadTaskRunner&gt; task_runner)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// This method needs to run asynchronously, as it may need to load the CDM.</span></span><br><span class="line">  <span class="comment">// As this object&#x27;s lifetime is controlled by MediaKeySystemAccess on the</span></span><br><span class="line">  <span class="comment">// blink side, copy all values needed by CreateCdm() in case the blink object</span></span><br><span class="line">  <span class="comment">// gets garbage-collected.</span></span><br><span class="line">  <span class="function">std::unique_ptr&lt;WebContentDecryptionModuleResult&gt; <span class="title">result_copy</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="keyword">new</span> WebContentDecryptionModuleResult(result))</span></span>;</span><br><span class="line">  task_runner-&gt;<span class="built_in">PostTask</span>(FROM_HERE,</span><br><span class="line">                        base::<span class="built_in">BindOnce</span>(&amp;CreateCdm, client_, security_origin_,</span><br><span class="line">                                       cdm_config_, std::<span class="built_in">move</span>(result_copy)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而 WebContentDecryptionModuleAccessImpl::CreateContentDecryptionModule 内部又调用了 CreateCdm 函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// The caller owns the created cdm (passed back using |result|).</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">CreateCdm</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> base::WeakPtr&lt;WebEncryptedMediaClientImpl&gt;&amp; client,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebSecurityOrigin&amp; security_origin,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;WebContentDecryptionModuleResult&gt; result)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// If |client| is gone (due to the frame getting destroyed), it is</span></span><br><span class="line">  <span class="comment">// impossible to create the CDM, so fail.</span></span><br><span class="line">  <span class="keyword">if</span> (!client) &#123;</span><br><span class="line">    result-&gt;<span class="built_in">CompleteWithError</span>(</span><br><span class="line">        kWebContentDecryptionModuleExceptionInvalidStateError, <span class="number">0</span>,</span><br><span class="line">        <span class="string">&quot;Failed to create CDM.&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  client-&gt;<span class="built_in">CreateCdm</span>(security_origin, cdm_config, std::<span class="built_in">move</span>(result));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>CreateCdm 函数内部调用<strong>WebEncryptedMediaClientImpl::CreateCdm</strong>，注意 WebContentDecryptionModuleAccessImpl 中有 WebEncryptedMediaClientImpl 的 WeakPtr</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::CreateCdm</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebSecurityOrigin&amp; security_origin,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;WebContentDecryptionModuleResult&gt; result)</span> </span>&#123;</span><br><span class="line">  WebContentDecryptionModuleImpl::<span class="built_in">Create</span>(</span><br><span class="line">      cdm_factory_, security_origin, cdm_config,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;CompleteWebContentDecryptionModuleResult,</span><br><span class="line">                     std::<span class="built_in">move</span>(result)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="WebContentDecryptionModuleImpl-Create"><a href="#WebContentDecryptionModuleImpl-Create" class="headerlink" title="WebContentDecryptionModuleImpl::Create"></a>WebContentDecryptionModuleImpl::Create</h2><p>WebContentDecryptionModuleImpl::Create 内部通过 CdmSessionAdapter 去创建 CDM</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebContentDecryptionModuleImpl::Create</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    media::CdmFactory* cdm_factory,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebSecurityOrigin&amp; security_origin,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebCdmCreatedCB web_cdm_created_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(!security_origin.<span class="built_in">IsNull</span>());</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> <span class="keyword">auto</span> key_system = cdm_config.key_system;</span><br><span class="line">  <span class="built_in">DCHECK</span>(!key_system.<span class="built_in">empty</span>());</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(ddorwin): This should be a DCHECK.</span></span><br><span class="line">  <span class="keyword">if</span> (!media::KeySystems::<span class="built_in">GetInstance</span>()-&gt;<span class="built_in">IsSupportedKeySystem</span>(key_system)) &#123;</span><br><span class="line">    std::string message = <span class="string">&quot;Keysystem &#x27;&quot;</span> + key_system + <span class="string">&quot;&#x27; is not supported.&quot;</span>;</span><br><span class="line">    std::<span class="built_in">move</span>(web_cdm_created_cb).<span class="built_in">Run</span>(<span class="literal">nullptr</span>, message);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If opaque security origin, don&#x27;t try to create the CDM.</span></span><br><span class="line">  <span class="keyword">if</span> (security_origin.<span class="built_in">IsOpaque</span>() || security_origin.<span class="built_in">ToString</span>() == <span class="string">&quot;null&quot;</span>) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(web_cdm_created_cb)</span><br><span class="line">        .<span class="built_in">Run</span>(<span class="literal">nullptr</span>, <span class="string">&quot;EME use is not allowed on unique origins.&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// CdmSessionAdapter::CreateCdm() will keep a reference to |adapter|. Then</span></span><br><span class="line">  <span class="comment">// if WebContentDecryptionModuleImpl is successfully created (returned in</span></span><br><span class="line">  <span class="comment">// |web_cdm_created_cb|), it will keep a reference to |adapter|. Otherwise,</span></span><br><span class="line">  <span class="comment">// |adapter| will be destructed.</span></span><br><span class="line">  <span class="function">scoped_refptr&lt;CdmSessionAdapter&gt; <span class="title">adapter</span><span class="params">(<span class="keyword">new</span> CdmSessionAdapter())</span></span>;</span><br><span class="line">  adapter-&gt;<span class="built_in">CreateCdm</span>(cdm_factory, cdm_config, std::<span class="built_in">move</span>(web_cdm_created_cb));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>CdmSessionAdapter 内部使用 cdm_factory 创建 CDM</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">CdmSessionAdapter::CreateCdm</span><span class="params">(media::CdmFactory* cdm_factory,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">                                  WebCdmCreatedCB web_cdm_created_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">TRACE_EVENT_NESTABLE_ASYNC_BEGIN0</span>(<span class="string">&quot;media&quot;</span>, <span class="string">&quot;CdmSessionAdapter::CreateCdm&quot;</span>,</span><br><span class="line">                                    ++trace_id_);</span><br><span class="line"></span><br><span class="line">  base::TimeTicks start_time = base::TimeTicks::<span class="built_in">Now</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Note: WebContentDecryptionModuleImpl::Create() calls this method without</span></span><br><span class="line">  <span class="comment">// holding a reference to the CdmSessionAdapter. Bind OnCdmCreated() with</span></span><br><span class="line">  <span class="comment">// |this| instead of |weak_this| to prevent |this| from being destructed.</span></span><br><span class="line">  base::WeakPtr&lt;CdmSessionAdapter&gt; weak_this = weak_ptr_factory_.<span class="built_in">GetWeakPtr</span>();</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DCHECK</span>(!web_cdm_created_cb_);</span><br><span class="line">  web_cdm_created_cb_ = std::<span class="built_in">move</span>(web_cdm_created_cb);</span><br><span class="line"></span><br><span class="line">  cdm_factory-&gt;<span class="built_in">Create</span>(</span><br><span class="line">      cdm_config,</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CdmSessionAdapter::OnSessionMessage, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CdmSessionAdapter::OnSessionClosed, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CdmSessionAdapter::OnSessionKeysChange, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CdmSessionAdapter::OnSessionExpirationUpdate,</span><br><span class="line">                          weak_this),</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;CdmSessionAdapter::OnCdmCreated, &lt;strong&gt;<span class="keyword">this</span>&lt;/strong&gt;, cdm_config,</span><br><span class="line">                     start_time));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>CdmFactory 是在 MediaFactory::GetCdmFactory 中创建的，在该函数中可以配置使用哪个 CdmFactory</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">media::CdmFactory* <span class="title">MediaFactory::GetCdmFactory</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (cdm_factory_)</span><br><span class="line">    <span class="keyword">return</span> cdm_factory_.<span class="built_in">get</span>();</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_FUCHSIA)</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(interface_broker_);</span><br><span class="line">  cdm_factory_ = media::<span class="built_in">CreateFuchsiaCdmFactory</span>(interface_broker_);</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(ENABLE_MOJO_CDM)</span></span><br><span class="line">  cdm_factory_ =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;media::MojoCdmFactory&gt;(<span class="built_in">GetMediaInterfaceFactory</span>());</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  cdm_factory_ = std::<span class="built_in">make_unique</span>&lt;media::DefaultCdmFactory&gt;();</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_MOJO_CDM)</span></span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> cdm_factory_.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>比如可以使用 MojoCdmFactory</p>
+<p>MojoCdmFactory 中持有 media::mojom::InterfaceFactory 指针，也就是 MediaInterfaceFactory 的指针：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">media::<span class="function">mojom::InterfaceFactory* <span class="title">MediaFactory::GetMediaInterfaceFactory</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(interface_broker_);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!media_interface_factory_) &#123;</span><br><span class="line">    media_interface_factory_ =</span><br><span class="line">        std::<span class="built_in">make_unique</span>&lt;MediaInterfaceFactory&gt;(interface_broker_);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> media_interface_factory_.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>MojoCdmFactory::Create 函数内部则是通过内部 <code>interface_factory_</code>，也就是 MediaInterfaceFactory 的 CreateCdm 方法</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MojoCdmFactory::Create</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionMessageCB&amp; session_message_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionClosedCB&amp; session_closed_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionKeysChangeCB&amp; session_keys_change_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionExpirationUpdateCB&amp; session_expiration_update_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    CdmCreatedCB cdm_created_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: cdm_config=&quot;</span> &lt;&lt; cdm_config;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If AesDecryptor can be used, always use it here in the local process.</span></span><br><span class="line">  <span class="comment">// Note: We should not run AesDecryptor in the browser process except for</span></span><br><span class="line">  <span class="comment">// testing. See http://crbug.com/441957.</span></span><br><span class="line">  <span class="comment">// Note: Previously MojoRenderer doesn&#x27;t work with local CDMs, this has</span></span><br><span class="line">  <span class="comment">// been solved by using DecryptingRenderer. See http://crbug.com/913775.</span></span><br><span class="line">  <span class="keyword">if</span> (<span class="built_in">CanUseAesDecryptor</span>(cdm_config.key_system)) &#123;</span><br><span class="line">    <span class="function">scoped_refptr&lt;ContentDecryptionModule&gt; <span class="title">cdm</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">new</span> AesDecryptor(session_message_cb, session_closed_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">                         session_keys_change_cb, session_expiration_update_cb))</span></span>;</span><br><span class="line">    base::ThreadTaskRunnerHandle::<span class="built_in">Get</span>()-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">        FROM_HERE, base::<span class="built_in">BindOnce</span>(std::<span class="built_in">move</span>(cdm_created_cb), cdm, <span class="string">&quot;&quot;</span>));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Use `mojo::WrapCallbackWithDefaultInvokeIfNotRun()` in case the CDM process</span></span><br><span class="line">  <span class="comment">// crashes.</span></span><br><span class="line">  interface_factory_-&gt;<span class="built_in">CreateCdm</span>(</span><br><span class="line">      cdm_config,</span><br><span class="line">      mojo::<span class="built_in">WrapCallbackWithDefaultInvokeIfNotRun</span>(</span><br><span class="line">          base::<span class="built_in">BindOnce</span>(&amp;OnCdmCreated, session_message_cb, session_closed_cb,</span><br><span class="line">                         session_keys_change_cb, session_expiration_update_cb,</span><br><span class="line">                         std::<span class="built_in">move</span>(cdm_created_cb)),</span><br><span class="line">          mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>, <span class="string">&quot;disconnection error&quot;</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>MediaInterfaceFactory::CreateCdm 函数使用自己内部对象 <code>media_interface_factory_</code> 的 CreateCdm 方法，而 <code>media_interface_factory_</code> 是 <code>mojo::Remote&lt;media::mojom::InterfaceFactory&gt;</code>，它的另一端是 MediaInterfaceProxy，而 MediaInterfaceProxy 中有 MediaInterfaceFactoryHolder 类的对象，MediaInterfaceFactoryHolder 中有 <code>mojo::Remote&lt;media::mojom::InterfaceFactory&gt;</code> 对象，该对象的另一端是 InterfaceFactoryImpl，所以 MediaInterfaceFactory::CreateCdm 会调用 MediaInterfaceProxy::CreateCdm，然后调用 InterfaceFactoryImpl::CreateCdm</p>
+<h3 id="MediaInterfaceFactory-CreateCdm"><a href="#MediaInterfaceFactory-CreateCdm" class="headerlink" title="MediaInterfaceFactory::CreateCdm"></a>MediaInterfaceFactory::CreateCdm</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MediaInterfaceFactory::CreateCdm</span><span class="params">(<span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">                                      CreateCdmCallback callback)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>()) &#123;</span><br><span class="line">    task_runner_-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">        FROM_HERE, base::<span class="built_in">BindOnce</span>(&amp;MediaInterfaceFactory::CreateCdm, weak_this_,</span><br><span class="line">                                  cdm_config, std::<span class="built_in">move</span>(callback)));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: cdm_config=&quot;</span> &lt;&lt; cdm_config;</span><br><span class="line">  <span class="built_in">GetMediaInterfaceFactory</span>()-&gt;<span class="built_in">CreateCdm</span>(cdm_config, std::<span class="built_in">move</span>(callback));</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line">media::<span class="function">mojom::InterfaceFactory*</span></span><br><span class="line"><span class="function"><span class="title">MediaInterfaceFactory::GetMediaInterfaceFactory</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__;</span><br><span class="line">  <span class="built_in">DCHECK</span>(task_runner_-&gt;<span class="built_in">BelongsToCurrentThread</span>());</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!media_interface_factory_) &#123;</span><br><span class="line">    interface_broker_-&gt;<span class="built_in">GetInterface</span>(</span><br><span class="line">        media_interface_factory_.<span class="built_in">BindNewPipeAndPassReceiver</span>());</span><br><span class="line">    media_interface_factory_.<span class="built_in">set_disconnect_handler</span>(base::<span class="built_in">BindOnce</span>(</span><br><span class="line">        &amp;MediaInterfaceFactory::OnConnectionError, base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)));</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> media_interface_factory_.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>MediaInterfaceProxy::CreateCdm 内部使用 <code>media_interface_factory_ptr_</code> 的 CreateCdm 方法，<code>media_interface_factory_ptr_</code> 是 <code>std::unique_ptr&lt;MediaInterfaceFactoryHolder&gt;</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MediaInterfaceProxy::CreateCdm</span><span class="params">(<span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">                                    CreateCdmCallback create_cdm_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(thread_checker_.<span class="built_in">CalledOnValidThread</span>());</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: cdm_config=&quot;</span> &lt;&lt; cdm_config;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// The remote process may drop the callback (e.g. in case of crash, or CDM</span></span><br><span class="line">  <span class="comment">// loading/initialization failure). Doing it here instead of in the renderer</span></span><br><span class="line">  <span class="comment">// process because the browser is trusted.</span></span><br><span class="line">  <span class="keyword">auto</span> callback = mojo::<span class="built_in">WrapCallbackWithDefaultInvokeIfNotRun</span>(</span><br><span class="line">      std::<span class="built_in">move</span>(create_cdm_cb), mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>,</span><br><span class="line">      <span class="string">&quot;CDM creation failed&quot;</span>);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Handle `use_hw_secure_codecs` cases first.</span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)</span></span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">...</span><br><span class="line">  <span class="comment">// Fallback to use library CDM below.</span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(USE_CHROMEOS_PROTECTED_MEDIA)</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_LIBRARY_CDMS)</span></span><br><span class="line">  <span class="comment">// Fallback to use CdmFactory even if `use_hw_secure_codecs` is true.</span></span><br><span class="line">  <span class="keyword">auto</span>* factory = <span class="built_in">GetCdmFactory</span>(cdm_config.key_system);</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(ENABLE_CAST_RENDERER)</span></span><br><span class="line">  <span class="comment">// CDM service lives together with renderer service if cast renderer is</span></span><br><span class="line">  <span class="comment">// enabled, because cast renderer creates its own audio/video decoder. Note</span></span><br><span class="line">  <span class="comment">// that in content_browsertests (and Content Shell in general) we don&#x27;t have</span></span><br><span class="line">  <span class="comment">// an a cast renderer and this interface will be unbound.</span></span><br><span class="line">  <span class="keyword">auto</span>* factory = secondary_interface_factory_-&gt;<span class="built_in">Get</span>();</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  <span class="comment">// CDM service lives together with audio/video decoder service.</span></span><br><span class="line">  <span class="keyword">auto</span>* factory = media_interface_factory_ptr_-&gt;<span class="built_in">Get</span>();</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_LIBRARY_CDMS)</span></span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!factory) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(callback).<span class="built_in">Run</span>(mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>,</span><br><span class="line">                            <span class="string">&quot;Unable to find a CDM factory&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  factory-&gt;<span class="built_in">CreateCdm</span>(cdm_config, std::<span class="built_in">move</span>(callback));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="InterfaceFactoryImpl-CreateCdm"><a href="#InterfaceFactoryImpl-CreateCdm" class="headerlink" title="InterfaceFactoryImpl::CreateCdm"></a>InterfaceFactoryImpl::CreateCdm</h4><p>最后会调用到 InterfaceFactoryImpl 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">InterfaceFactoryImpl::CreateCdm</span><span class="params">(<span class="type">const</span> CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     CreateCdmCallback callback)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_MOJO_CDM)</span></span><br><span class="line">  CdmFactory* cdm_factory = <span class="built_in">GetCdmFactory</span>();</span><br><span class="line">  <span class="keyword">if</span> (!cdm_factory) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(callback).<span class="built_in">Run</span>(mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>,</span><br><span class="line">                            <span class="string">&quot;CDM Factory creation failed&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> mojo_cdm_service =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;MojoCdmService&gt;(&amp;cdm_service_context_);</span><br><span class="line">  <span class="keyword">auto</span>* raw_mojo_cdm_service = mojo_cdm_service.<span class="built_in">get</span>();</span><br><span class="line">  <span class="built_in">DCHECK</span>(!pending_mojo_cdm_services_.<span class="built_in">count</span>(raw_mojo_cdm_service));</span><br><span class="line">  pending_mojo_cdm_services_[raw_mojo_cdm_service] =</span><br><span class="line">      std::<span class="built_in">move</span>(mojo_cdm_service);</span><br><span class="line">  raw_mojo_cdm_service-&gt;<span class="built_in">Initialize</span>(</span><br><span class="line">      cdm_factory, cdm_config,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;InterfaceFactoryImpl::OnCdmServiceInitialized,</span><br><span class="line">                     weak_ptr_factory_.<span class="built_in">GetWeakPtr</span>(), raw_mojo_cdm_service,</span><br><span class="line">                     std::<span class="built_in">move</span>(callback)));</span><br><span class="line"><span class="meta">#<span class="keyword">else</span>  <span class="comment">// BUILDFLAG(ENABLE_MOJO_CDM)</span></span></span><br><span class="line">  std::<span class="built_in">move</span>(callback).<span class="built_in">Run</span>(mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>,</span><br><span class="line">                          <span class="string">&quot;Mojo CDM not supported&quot;</span>);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="InterfaceFactoryImpl-GetCdmFactory"><a href="#InterfaceFactoryImpl-GetCdmFactory" class="headerlink" title="InterfaceFactoryImpl::GetCdmFactory"></a>InterfaceFactoryImpl::GetCdmFactory</h5><p>InterfaceFactoryImpl::CreateCdm 先 GetCdmFactory</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">CdmFactory* <span class="title">InterfaceFactoryImpl::GetCdmFactory</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!cdm_factory_) &#123;</span><br><span class="line">    cdm_factory_ =</span><br><span class="line">        mojo_media_client_-&gt;<span class="built_in">CreateCdmFactory</span>(frame_interfaces_.<span class="built_in">get</span>());</span><br><span class="line">    <span class="built_in">LOG_IF</span>(ERROR, !cdm_factory_) &lt;&lt; <span class="string">&quot;CdmFactory not available.&quot;</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> cdm_factory_.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>GetCdmFactory 通过 <code>mojo_media_client_</code>，而 <code>mojo_media_client_</code> 是在 MediaService 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MediaService::CreateInterfaceFactory</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingReceiver&lt;mojom::InterfaceFactory&gt; receiver,</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingRemote&lt;mojom::FrameInterfaceFactory&gt; frame_interfaces)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Ignore request if service has already stopped.</span></span><br><span class="line">  <span class="keyword">if</span> (!mojo_media_client_)</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">  interface_factory_receivers_.<span class="built_in">Add</span>(</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;InterfaceFactoryImpl&gt;(std::<span class="built_in">move</span>(frame_interfaces),</span><br><span class="line">                                             mojo_media_client_.<span class="built_in">get</span>()),</span><br><span class="line">      std::<span class="built_in">move</span>(receiver));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从下面的 GetMediaService 可以看到，如果允许在 GPU 中使用 mojo media，那么会使用 GpuProcessHost::RunService 来得到 MediaService 的 Remote，如果是在 Browser 中使用 mojo media，那么直接使用 media::CreateMediaService 函数创建 MediaService</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">media::<span class="function">mojom::MediaService&amp; <span class="title">GetMediaService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="comment">// <span class="doctag">NOTE:</span> We use sequence-local storage to limit the lifetime of this Remote to</span></span><br><span class="line">  <span class="comment">// that of the UI-thread sequence. This ensures that the Remote is destroyed</span></span><br><span class="line">  <span class="comment">// when the task environment is torn down and reinitialized, e.g. between unit</span></span><br><span class="line">  <span class="comment">// tests.</span></span><br><span class="line">  <span class="type">static</span> base::SequenceLocalStorageSlot&lt;</span><br><span class="line">      mojo::Remote&lt;media::mojom::MediaService&gt;&gt;</span><br><span class="line">      remote_slot;</span><br><span class="line">  <span class="keyword">auto</span>&amp; remote = remote_slot.<span class="built_in">GetOrCreateValue</span>();</span><br><span class="line">  <span class="keyword">if</span> (!remote) &#123;</span><br><span class="line">    <span class="keyword">auto</span> receiver = remote.<span class="built_in">BindNewPipeAndPassReceiver</span>();</span><br><span class="line">    remote.<span class="built_in">reset_on_disconnect</span>();</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_MOJO_MEDIA_IN_GPU_PROCESS)</span></span><br><span class="line">    <span class="keyword">auto</span>* process_host = GpuProcessHost::<span class="built_in">Get</span>();</span><br><span class="line">    <span class="keyword">if</span> (process_host) &#123;</span><br><span class="line">      process_host-&gt;<span class="built_in">RunService</span>(std::<span class="built_in">move</span>(receiver));</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">      <span class="built_in">DLOG</span>(ERROR) &lt;&lt; <span class="string">&quot;GPU process host not available&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(ENABLE_MOJO_MEDIA_IN_BROWSER_PROCESS)</span></span><br><span class="line">    <span class="built_in">static_assert</span>(media::mojom::MediaService::kServiceSandbox ==</span><br><span class="line">                      sandbox::mojom::Sandbox::kNoSandbox,</span><br><span class="line">                  <span class="string">&quot;MediaService requested in-browser but not with kNoSandbox&quot;</span>);</span><br><span class="line">    <span class="type">static</span> base::NoDestructor&lt;std::unique_ptr&lt;media::MediaService&gt;&gt; service;</span><br><span class="line">    *service = media::<span class="built_in">CreateMediaService</span>(std::<span class="built_in">move</span>(receiver));</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> *remote.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="Browser-mojo-media"><a href="#Browser-mojo-media" class="headerlink" title="Browser mojo media"></a>Browser mojo media</h6><p>先看 Browser mojo media 的情况，这种情况简单一些</p>
+<p>从下面的代码可知，MojoMediaClient 是 AndroidMojoMediaClient 或者 MediaFoundationMojoMediaClient</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;MediaService&gt; <span class="title">CreateMediaService</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingReceiver&lt;mojom::MediaService&gt; receiver)</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_ANDROID)</span></span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;MediaService&gt;(</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;AndroidMojoMediaClient&gt;(), std::<span class="built_in">move</span>(receiver));</span><br><span class="line"><span class="meta">#<span class="keyword">elif</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;MediaService&gt;(</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;MediaFoundationMojoMediaClient&gt;(), std::<span class="built_in">move</span>(receiver));</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  <span class="built_in">NOTREACHED</span>() &lt;&lt; <span class="string">&quot;No MediaService implementation available.&quot;</span>;</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="GPU-mojo-media"><a href="#GPU-mojo-media" class="headerlink" title="GPU mojo media"></a>GPU mojo media</h6><p>再看 GPU mojo media。</p>
+<p>我们知道，Chromium 有 Browser 进程、Render 进程、还有 GPU 进程，Browser 进程只有一个，而每个页面一般会对应一个 Render 进程，而 GPU 进程则是专门负责和 GPU 打交道</p>
+<p>在 GPU mojo media 的情况下，GetMediaService 使用 GpuProcessHost::RunServiceImpl 来连接 GPU 进程中的 MediaService</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">GpuProcessHost::RunServiceImpl</span><span class="params">(mojo::GenericPendingReceiver receiver)</span> </span>&#123;</span><br><span class="line">  process_-&gt;<span class="built_in">child_process</span>()-&gt;<span class="built_in">BindServiceInterface</span>(std::<span class="built_in">move</span>(receiver));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>而 GPU 进程中的 MediaService 是在 GpuServiceFactory::RunMediaService 中创建的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">GpuServiceFactory::RunMediaService</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingReceiver&lt;media::mojom::MediaService&gt; receiver)</span> </span>&#123;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_MOJO_MEDIA_IN_GPU_PROCESS)</span></span><br><span class="line">  <span class="comment">// This service will host audio/video decoders, and if these decoding</span></span><br><span class="line">  <span class="comment">// operations are blocked, user may hear audio glitch or see video freezing,</span></span><br><span class="line">  <span class="comment">// hence &quot;user blocking&quot;.</span></span><br><span class="line">  scoped_refptr&lt;base::SingleThreadTaskRunner&gt; task_runner;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">  <span class="comment">// Run everything on the gpu main thread, since it&#x27;s required for decode swap</span></span><br><span class="line">  <span class="comment">// chains. See SwapChainPresenter::TryPresentToDecodeSwapChain().</span></span><br><span class="line">  task_runner = task_runner_;</span><br><span class="line"><span class="meta">#<span class="keyword">else</span></span></span><br><span class="line">  <span class="comment">// TODO(crbug.com/786169): Check whether this needs to be single threaded.</span></span><br><span class="line">  task_runner = base::ThreadPool::<span class="built_in">CreateSingleThreadTaskRunner</span>(</span><br><span class="line">      &#123;base::TaskPriority::USER_BLOCKING&#125;);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(IS_WIN)</span></span></span><br><span class="line"></span><br><span class="line">  <span class="keyword">using</span> FactoryCallback =</span><br><span class="line">      base::OnceCallback&lt;std::<span class="built_in">unique_ptr</span>&lt;media::MediaService&gt;()&gt;;</span><br><span class="line">  FactoryCallback factory =</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;media::CreateGpuMediaService, std::<span class="built_in">move</span>(receiver),</span><br><span class="line">                     gpu_preferences_, gpu_workarounds_, gpu_feature_info_,</span><br><span class="line">                     gpu_info_, task_runner_, media_gpu_channel_manager_,</span><br><span class="line">                     gpu_memory_buffer_factory_, android_overlay_factory_cb_);</span><br><span class="line">  task_runner-&gt;<span class="built_in">PostTask</span>(</span><br><span class="line">      FROM_HERE,</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(</span><br><span class="line">          [](FactoryCallback factory) &#123;</span><br><span class="line">            <span class="type">static</span> base::NoDestructor&lt;std::unique_ptr&lt;media::MediaService&gt;&gt;</span><br><span class="line">                service&#123;std::<span class="built_in">move</span>(factory).<span class="built_in">Run</span>()&#125;;</span><br><span class="line">          &#125;,</span><br><span class="line">          std::<span class="built_in">move</span>(factory)));</span><br><span class="line">  <span class="keyword">return</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_MOJO_MEDIA_IN_GPU_PROCESS)</span></span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面函数调用了 CreateGpuMediaService 函数，CreateGpuMediaService 函数创建了一个 GpuMojoMediaClient 对象给 MediaService，GpuMojoMediaClient 的方法（如 CreateCdmFactory）会调用一些全局函数（如 CreatePlatformCdmFactory），而这些全局函数在不同平台下有不同的实现，一般会通过编译选项新建相关全局函数的实现，来提供自己平台的 CreateCdm 方法</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;MediaService&gt; <span class="title">CreateGpuMediaService</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingReceiver&lt;mojom::MediaService&gt; receiver,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> gpu::GpuPreferences&amp; gpu_preferences,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> gpu::GpuDriverBugWorkarounds&amp; gpu_workarounds,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> gpu::GpuFeatureInfo&amp; gpu_feature_info,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> gpu::GPUInfo&amp; gpu_info,</span></span></span><br><span class="line"><span class="params"><span class="function">    scoped_refptr&lt;base::SingleThreadTaskRunner&gt; task_runner,</span></span></span><br><span class="line"><span class="params"><span class="function">    base::WeakPtr&lt;MediaGpuChannelManager&gt; media_gpu_channel_manager,</span></span></span><br><span class="line"><span class="params"><span class="function">    gpu::GpuMemoryBufferFactory* gpu_memory_buffer_factory,</span></span></span><br><span class="line"><span class="params"><span class="function">    AndroidOverlayMojoFactoryCB android_overlay_factory_cb)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;MediaService&gt;(</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;GpuMojoMediaClient&gt;(</span><br><span class="line">          gpu_preferences, gpu_workarounds, gpu_feature_info, gpu_info,</span><br><span class="line">          task_runner, media_gpu_channel_manager, gpu_memory_buffer_factory,</span><br><span class="line">          std::<span class="built_in">move</span>(android_overlay_factory_cb)),</span><br><span class="line">      std::<span class="built_in">move</span>(receiver));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>以 Android 为例，他的 GpuMojoMediaClient 的 CreateCdmFactory 方法调用下面的 CreatePlatformCdmFactory</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;CdmFactory&gt; <span class="title">CreatePlatformCdmFactory</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    mojom::FrameInterfaceFactory* frame_interfaces)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;AndroidCdmFactory&gt;(</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CreateProvisionFetcher, frame_interfaces),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;CreateMediaDrmStorage, frame_interfaces));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="MojoCdmService-Initialize"><a href="#MojoCdmService-Initialize" class="headerlink" title="MojoCdmService::Initialize"></a>MojoCdmService::Initialize</h5><p>在得到 MojoMediaClient 后，会通过他来创建 CdmFactory，然后用该 CdmFactory 来初始化 MojoCdmService</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MojoCdmService::Initialize</span><span class="params">(CdmFactory* cdm_factory,</span></span></span><br><span class="line"><span class="params"><span class="function">                                <span class="type">const</span> CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">                                InitializeCB init_cb)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">auto</span> weak_this = weak_factory_.<span class="built_in">GetWeakPtr</span>();</span><br><span class="line">  cdm_factory-&gt;<span class="built_in">Create</span>(</span><br><span class="line">      cdm_config,</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;MojoCdmService::OnSessionMessage, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;MojoCdmService::OnSessionClosed, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;MojoCdmService::OnSessionKeysChange, weak_this),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;MojoCdmService::OnSessionExpirationUpdate,</span><br><span class="line">                          weak_this),</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;MojoCdmService::OnCdmCreated, weak_this,</span><br><span class="line">                     mojo::<span class="built_in">WrapCallbackWithDefaultInvokeIfNotRun</span>(</span><br><span class="line">                         std::<span class="built_in">move</span>(init_cb), <span class="literal">nullptr</span>,</span><br><span class="line">                         <span class="string">&quot;Mojo CDM Service creation aborted&quot;</span>)));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 Initialize 中通过 cdm_factory 的 Create 方法创建，以 AndroidCdmFactory::Create 为例，下面的函数最后调用了 MediaDrmBridgeFactory 来创建 Android 的 Cdm</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">AndroidCdmFactory::Create</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionMessageCB&amp; session_message_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionClosedCB&amp; session_closed_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionKeysChangeCB&amp; session_keys_change_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionExpirationUpdateCB&amp; session_expiration_update_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    CdmCreatedCB cdm_created_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Bound |cdm_created_cb| so we always fire it asynchronously.</span></span><br><span class="line">  CdmCreatedCB bound_cdm_created_cb =</span><br><span class="line">      <span class="built_in">BindToCurrentLoop</span>(std::<span class="built_in">move</span>(cdm_created_cb));</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Create AesDecryptor here to support External Clear Key key system.</span></span><br><span class="line">  <span class="comment">// This is used for testing.</span></span><br><span class="line">  <span class="keyword">if</span> (base::FeatureList::<span class="built_in">IsEnabled</span>(media::kExternalClearKeyForTesting) &amp;&amp;</span><br><span class="line">      <span class="built_in">IsExternalClearKey</span>(cdm_config.key_system)) &#123;</span><br><span class="line">    <span class="function">scoped_refptr&lt;ContentDecryptionModule&gt; <span class="title">cdm</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">        <span class="keyword">new</span> AesDecryptor(session_message_cb, session_closed_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">                         session_keys_change_cb, session_expiration_update_cb))</span></span>;</span><br><span class="line">    std::<span class="built_in">move</span>(bound_cdm_created_cb).<span class="built_in">Run</span>(cdm, <span class="string">&quot;&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  std::string error_message;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!MediaDrmBridge::<span class="built_in">IsKeySystemSupported</span>(cdm_config.key_system)) &#123;</span><br><span class="line">    <span class="built_in">ReportMediaDrmBridgeKeySystemSupport</span>(<span class="literal">false</span>);</span><br><span class="line">    std::<span class="built_in">move</span>(bound_cdm_created_cb)</span><br><span class="line">        .<span class="built_in">Run</span>(<span class="literal">nullptr</span>,</span><br><span class="line">             <span class="string">&quot;Key system not supported unexpectedly: &quot;</span> + cdm_config.key_system);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">ReportMediaDrmBridgeKeySystemSupport</span>(<span class="literal">true</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> factory = std::<span class="built_in">make_unique</span>&lt;MediaDrmBridgeFactory&gt;(create_fetcher_cb_,</span><br><span class="line">                                                         create_storage_cb_);</span><br><span class="line">  <span class="keyword">auto</span>* raw_factory = factory.<span class="built_in">get</span>();</span><br><span class="line"></span><br><span class="line">  creation_id_++;</span><br><span class="line">  <span class="keyword">auto</span> result = pending_creations_.<span class="built_in">emplace</span>(</span><br><span class="line">      creation_id_,</span><br><span class="line">      <span class="built_in">PendingCreation</span>(std::<span class="built_in">move</span>(factory), std::<span class="built_in">move</span>(bound_cdm_created_cb)));</span><br><span class="line">  <span class="built_in">CHECK</span>(result.second);</span><br><span class="line"></span><br><span class="line">  raw_factory-&gt;<span class="built_in">Create</span>(cdm_config, session_message_cb, session_closed_cb,</span><br><span class="line">                      session_keys_change_cb, session_expiration_update_cb,</span><br><span class="line">                      base::<span class="built_in">BindOnce</span>(&amp;AndroidCdmFactory::OnCdmCreated,</span><br><span class="line">                                     weak_factory_.<span class="built_in">GetWeakPtr</span>(), creation_id_));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="结果回传"><a href="#结果回传" class="headerlink" title="结果回传"></a>结果回传</h2><p>接下来再看结果回传过程。结果回传主要是通过 cdm_created_cb 回调回传的，把上面的代码从后往前看一遍基本上就清楚了。</p>
+<h3 id="MojoCdmService-OnCdmCreated"><a href="#MojoCdmService-OnCdmCreated" class="headerlink" title="MojoCdmService::OnCdmCreated"></a>MojoCdmService::OnCdmCreated</h3><p>我们从 MojoCdmService::OnCdmCreated 开始，MojoCdmService::OnCdmCreated 接受 ContentDecryptionModule 的 scoped_refptr 参数，该参数就是 AndroidCdmFactory::Create 中创建的对象</p>
+<p>MojoCdmService::OnCdmCreated 中还可能会创建 MojoDecryptorService</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MojoCdmService::OnCdmCreated</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    InitializeCB init_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> scoped_refptr&lt;::media::ContentDecryptionModule&gt;&amp; cdm,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; error_message)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// TODO(xhwang): This should not happen when KeySystemInfo is properly</span></span><br><span class="line">  <span class="comment">// populated. See http://crbug.com/469366</span></span><br><span class="line">  <span class="keyword">if</span> (!cdm) &#123;</span><br><span class="line">    <span class="comment">// Make sure the error string is non-empty on failure.</span></span><br><span class="line">    <span class="keyword">auto</span> non_empty_error_message =</span><br><span class="line">        error_message.<span class="built_in">empty</span>() ? <span class="string">&quot;CDM creation failed&quot;</span> : error_message;</span><br><span class="line">    <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: &quot;</span> &lt;&lt; non_empty_error_message;</span><br><span class="line">    std::<span class="built_in">move</span>(init_cb).<span class="built_in">Run</span>(<span class="literal">nullptr</span>, non_empty_error_message);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  cdm_ = cdm;</span><br><span class="line">  cdm_id_ = context_-&gt;<span class="built_in">RegisterCdm</span>(<span class="keyword">this</span>);</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: CDM successfully registered with ID &quot;</span></span><br><span class="line">           &lt;&lt; CdmContext::<span class="built_in">CdmIdToString</span>(base::<span class="built_in">OptionalOrNullptr</span>(cdm_id_));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> mojo_cdm_context = mojom::CdmContext::<span class="built_in">New</span>();</span><br><span class="line">  mojo_cdm_context-&gt;cdm_id = <span class="built_in">cdm_id</span>();</span><br><span class="line"></span><br><span class="line">  CdmContext* <span class="type">const</span> cdm_context = cdm_-&gt;<span class="built_in">GetCdmContext</span>();</span><br><span class="line">  <span class="keyword">if</span> (cdm_context) &#123;</span><br><span class="line">    <span class="comment">// If |cdm| has a decryptor, create the MojoDecryptorService</span></span><br><span class="line">    <span class="comment">// and pass the connection back to the client.</span></span><br><span class="line">    <span class="keyword">if</span> (cdm_context-&gt;<span class="built_in">GetDecryptor</span>()) &#123;</span><br><span class="line">      <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: CDM supports Decryptor.&quot;</span>;</span><br><span class="line">      mojo::PendingRemote&lt;mojom::Decryptor&gt; decryptor_remote;</span><br><span class="line">      <span class="comment">// Both |cdm_| and |decryptor_| are owned by |this|, so we don&#x27;t need to</span></span><br><span class="line">      <span class="comment">// pass in a CdmContextRef.</span></span><br><span class="line">      decryptor_ = std::<span class="built_in">make_unique</span>&lt;MojoDecryptorService&gt;(</span><br><span class="line">          cdm_context-&gt;<span class="built_in">GetDecryptor</span>(), <span class="comment">/*cdm_context_ref=*/</span><span class="literal">nullptr</span>);</span><br><span class="line">      decryptor_receiver_ = std::make_unique&lt;mojo::Receiver&lt;mojom::Decryptor&gt;&gt;(</span><br><span class="line">          decryptor_.<span class="built_in">get</span>(), decryptor_remote.<span class="built_in">InitWithNewPipeAndPassReceiver</span>());</span><br><span class="line">      <span class="comment">// base::Unretained is safe because |decryptor_receiver_| is owned by</span></span><br><span class="line">      <span class="comment">// |this|. If |this| is destructed, |decryptor_receiver_| will be</span></span><br><span class="line">      <span class="comment">// destructed as well and the error handler should never be called.</span></span><br><span class="line">      <span class="comment">// The disconnection can happen due to race conditions during render</span></span><br><span class="line">      <span class="comment">// process teardown or crash.</span></span><br><span class="line">      decryptor_receiver_-&gt;<span class="built_in">set_disconnect_handler</span>(base::<span class="built_in">BindOnce</span>(</span><br><span class="line">          &amp;MojoCdmService::OnDecryptorConnectionError, base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)));</span><br><span class="line">      mojo_cdm_context-&gt;decryptor = std::<span class="built_in">move</span>(decryptor_remote);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(IS_WIN)</span></span><br><span class="line">    mojo_cdm_context-&gt;requires_media_foundation_renderer =</span><br><span class="line">        cdm_context-&gt;<span class="built_in">RequiresMediaFoundationRenderer</span>();</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(IS_WIN)</span></span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  std::<span class="built_in">move</span>(init_cb).<span class="built_in">Run</span>(std::<span class="built_in">move</span>(mojo_cdm_context), <span class="string">&quot;&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="InterfaceFactoryImpl-OnCdmServiceInitialized"><a href="#InterfaceFactoryImpl-OnCdmServiceInitialized" class="headerlink" title="InterfaceFactoryImpl::OnCdmServiceInitialized"></a>InterfaceFactoryImpl::OnCdmServiceInitialized</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">InterfaceFactoryImpl::OnCdmServiceInitialized</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    MojoCdmService* raw_mojo_cdm_service,</span></span></span><br><span class="line"><span class="params"><span class="function">    CreateCdmCallback callback,</span></span></span><br><span class="line"><span class="params"><span class="function">    mojom::CdmContextPtr cdm_context,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; error_message)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(raw_mojo_cdm_service);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Remove pending MojoCdmService from the mapping in all cases.</span></span><br><span class="line">  <span class="built_in">DCHECK</span>(pending_mojo_cdm_services_.<span class="built_in">count</span>(raw_mojo_cdm_service));</span><br><span class="line">  <span class="keyword">auto</span> mojo_cdm_service =</span><br><span class="line">      std::<span class="built_in">move</span>(pending_mojo_cdm_services_[raw_mojo_cdm_service]);</span><br><span class="line">  pending_mojo_cdm_services_.<span class="built_in">erase</span>(raw_mojo_cdm_service);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!cdm_context) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(callback).<span class="built_in">Run</span>(mojo::<span class="built_in">NullRemote</span>(), <span class="literal">nullptr</span>, error_message);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  mojo::PendingRemote&lt;mojom::ContentDecryptionModule&gt; remote;</span><br><span class="line">  cdm_receivers_.<span class="built_in">Add</span>(std::<span class="built_in">move</span>(mojo_cdm_service),</span><br><span class="line">                     remote.<span class="built_in">InitWithNewPipeAndPassReceiver</span>());</span><br><span class="line">  std::<span class="built_in">move</span>(callback).<span class="built_in">Run</span>(std::<span class="built_in">move</span>(remote), std::<span class="built_in">move</span>(cdm_context), <span class="string">&quot;&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="OnCdmCreated"><a href="#OnCdmCreated" class="headerlink" title="OnCdmCreated"></a>OnCdmCreated</h5><p>一路往上，就到了 OnCdmCreated，这里创建了 MojoCdm</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">OnCdmCreated</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionMessageCB&amp; session_message_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionClosedCB&amp; session_closed_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionKeysChangeCB&amp; session_keys_change_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> SessionExpirationUpdateCB&amp; session_expiration_update_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    CdmCreatedCB cdm_created_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    mojo::PendingRemote&lt;mojom::ContentDecryptionModule&gt; cdm_remote,</span></span></span><br><span class="line"><span class="params"><span class="function">    media::mojom::CdmContextPtr cdm_context,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; error_message)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Convert from a PendingRemote to Remote so we can verify that it is</span></span><br><span class="line">  <span class="comment">// connected, this will also check if |cdm_remote| is null.</span></span><br><span class="line">  <span class="function">mojo::Remote&lt;mojom::ContentDecryptionModule&gt; <span class="title">remote</span><span class="params">(std::move(cdm_remote))</span></span>;</span><br><span class="line">  <span class="keyword">if</span> (!remote || !remote.<span class="built_in">is_connected</span>() || !cdm_context) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(cdm_created_cb).<span class="built_in">Run</span>(<span class="literal">nullptr</span>, error_message);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  std::<span class="built_in">move</span>(cdm_created_cb)</span><br><span class="line">      .<span class="built_in">Run</span>(base::<span class="built_in">MakeRefCounted</span>&lt;MojoCdm&gt;(</span><br><span class="line">               std::<span class="built_in">move</span>(remote), std::<span class="built_in">move</span>(cdm_context), session_message_cb,</span><br><span class="line">               session_closed_cb, session_keys_change_cb,</span><br><span class="line">               session_expiration_update_cb),</span><br><span class="line">           <span class="string">&quot;&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>再往上，就到了 CdmSessionAdapter::OnCdmCreated，在这里创建了 WebContentDecryptionModuleImpl，注意这里把 CdmSessionAdapter 传给了 WebContentDecryptionModuleImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">CdmSessionAdapter::OnCdmCreated</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> media::CdmConfig&amp; cdm_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    base::TimeTicks start_time,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> scoped_refptr&lt;media::ContentDecryptionModule&gt;&amp; cdm,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; error_message)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: &quot;</span></span><br><span class="line">           &lt;&lt; (cdm ? <span class="string">&quot;success&quot;</span> : <span class="string">&quot;failure (&quot;</span> + error_message + <span class="string">&quot;)&quot;</span>);</span><br><span class="line">  <span class="built_in">DCHECK</span>(!cdm_);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">TRACE_EVENT_NESTABLE_ASYNC_END2</span>(</span><br><span class="line">      <span class="string">&quot;media&quot;</span>, <span class="string">&quot;CdmSessionAdapter::CreateCdm&quot;</span>, trace_id_, <span class="string">&quot;success&quot;</span>,</span><br><span class="line">      (cdm ? <span class="string">&quot;true&quot;</span> : <span class="string">&quot;false&quot;</span>), <span class="string">&quot;error_message&quot;</span>, error_message);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span> key_system_name_for_uma = media::<span class="built_in">GetKeySystemNameForUMA</span>(</span><br><span class="line">      cdm_config.key_system, cdm_config.use_hw_secure_codecs);</span><br><span class="line">  <span class="keyword">auto</span> key_system_uma_prefix = kMediaEME + key_system_name_for_uma + kDot;</span><br><span class="line">  base::<span class="built_in">UmaHistogramBoolean</span>(key_system_uma_prefix + kCreateCdmUMAName,</span><br><span class="line">                            cdm ? <span class="literal">true</span> : <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!cdm) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(web_cdm_created_cb_).<span class="built_in">Run</span>(<span class="literal">nullptr</span>, error_message);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  key_system_uma_prefix_ = std::<span class="built_in">move</span>(key_system_uma_prefix);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Only report time for successful CDM creation.</span></span><br><span class="line">  base::<span class="built_in">UmaHistogramTimes</span>(key_system_uma_prefix_ + kTimeToCreateCdmUMAName,</span><br><span class="line">                          base::TimeTicks::<span class="built_in">Now</span>() - start_time);</span><br><span class="line"></span><br><span class="line">  cdm_config_ = cdm_config;</span><br><span class="line"></span><br><span class="line">  cdm_ = cdm;</span><br><span class="line"></span><br><span class="line">  std::<span class="built_in">move</span>(web_cdm_created_cb_)</span><br><span class="line">      .<span class="built_in">Run</span>(<span class="keyword">new</span> <span class="built_in">WebContentDecryptionModuleImpl</span>(<span class="keyword">this</span>), <span class="string">&quot;&quot;</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="CompleteWebContentDecryptionModuleResult"><a href="#CompleteWebContentDecryptionModuleResult" class="headerlink" title="CompleteWebContentDecryptionModuleResult"></a>CompleteWebContentDecryptionModuleResult</h6><p>再往上就是 CompleteWebContentDecryptionModuleResult</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">CompleteWebContentDecryptionModuleResult</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;WebContentDecryptionModuleResult&gt; result,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebContentDecryptionModule* cdm,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; error_message)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(result);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!cdm) &#123;</span><br><span class="line">    result-&gt;<span class="built_in">CompleteWithError</span>(</span><br><span class="line">        kWebContentDecryptionModuleExceptionNotSupportedError, <span class="number">0</span>,</span><br><span class="line">        WebString::<span class="built_in">FromUTF8</span>(error_message));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  result-&gt;<span class="built_in">CompleteWithContentDecryptionModule</span>(cdm);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>WebContentDecryptionModuleResult::CompleteWithContentDecryptionModule 调用内部 <code>impl_</code> 的 CompleteWithContentDecryptionModule</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebContentDecryptionModuleResult::CompleteWithContentDecryptionModule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebContentDecryptionModule* cdm)</span> </span>&#123;</span><br><span class="line">  impl_-&gt;<span class="built_in">CompleteWithContentDecryptionModule</span>(cdm);</span><br><span class="line">  <span class="built_in">Reset</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 CompleteWithContentDecryptionModule 中用 WebContentDecryptionModule 创建 MediaKeys 并 resolve promise</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">NewCdmResultPromise</span> : <span class="keyword">public</span> ContentDecryptionModuleResultPromise &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">...</span><br><span class="line">  <span class="function"><span class="type">void</span> <span class="title">CompleteWithContentDecryptionModule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      WebContentDecryptionModule* cdm)</span> <span class="keyword">override</span> </span>&#123;</span><br><span class="line">    <span class="comment">// <span class="doctag">NOTE:</span> Continued from step 2.8 of createMediaKeys().</span></span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">IsValidToFulfillPromise</span>())</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.9. Let media keys be a new MediaKeys object.</span></span><br><span class="line">    <span class="keyword">auto</span>* media_keys = <span class="built_in">MakeGarbageCollected</span>&lt;MediaKeys&gt;(</span><br><span class="line">        <span class="built_in">GetExecutionContext</span>(), supported_session_types_, base::<span class="built_in">WrapUnique</span>(cdm),</span><br><span class="line">        config_);</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 2.10. Resolve promise with media keys.</span></span><br><span class="line">    <span class="built_in">Resolve</span>(media_keys);</span><br><span class="line">  &#125;</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>这一篇文章就到这里，主要介绍了通过 MediaKeySystemAccess 创建 MediaKeys 的过程。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/30/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E5%9B%9B%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-30 22:19:05
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                        <b>#</b> Chromium 多媒体
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/07/07/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E5%85%AD%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#MediaKeySystemAccess-createMediaKeys"><span class="toc-text">MediaKeySystemAccess::createMediaKeys</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#WebContentDecryptionModuleImpl-Create"><span class="toc-text">WebContentDecryptionModuleImpl::Create</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#MediaInterfaceFactory-CreateCdm"><span class="toc-text">MediaInterfaceFactory::CreateCdm</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#InterfaceFactoryImpl-CreateCdm"><span class="toc-text">InterfaceFactoryImpl::CreateCdm</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#InterfaceFactoryImpl-GetCdmFactory"><span class="toc-text">InterfaceFactoryImpl::GetCdmFactory</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#Browser-mojo-media"><span class="toc-text">Browser mojo media</span></a></li><li class="toc-item toc-level-6"><a class="toc-link" href="#GPU-mojo-media"><span class="toc-text">GPU mojo media</span></a></li></ol></li><li class="toc-item toc-level-5"><a class="toc-link" href="#MojoCdmService-Initialize"><span class="toc-text">MojoCdmService::Initialize</span></a></li></ol></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E7%BB%93%E6%9E%9C%E5%9B%9E%E4%BC%A0"><span class="toc-text">结果回传</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#MojoCdmService-OnCdmCreated"><span class="toc-text">MojoCdmService::OnCdmCreated</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#InterfaceFactoryImpl-OnCdmServiceInitialized"><span class="toc-text">InterfaceFactoryImpl::OnCdmServiceInitialized</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#OnCdmCreated"><span class="toc-text">OnCdmCreated</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#CompleteWebContentDecryptionModuleResult"><span class="toc-text">CompleteWebContentDecryptionModuleResult</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium 多媒体（四） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium 多媒体（四）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-30 22:19:01
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                    <b>#</b> Chromium 多媒体
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>之前的几篇文章介绍了 MSE 的内容，接下来介绍 EME 部分，笔者之前做的项目就是和 EME 相关的。</p>
+<p>EME 全称 Encrypted Media Extensions，通过 EME，浏览器应用可以在 web 上播放加密视频。目前市面上主流的内容解密模块（Content Decryption Module）有微软的 PlayReady 和谷歌的 Widevine，苹果也有一套自己的解密标准 FairPlay。</p>
+<p>还是以一个例子为研究对象。</p>
+<h1 id="示例代码"><a href="#示例代码" class="headerlink" title="示例代码"></a>示例代码</h1><p>下面的代码主要做了以下事情</p>
+<ul>
+<li>调用 navigator.requestMediaKeySystemAccess 创建 MediaKeySystemAccess 对象</li>
+<li>通过 MediaKeySystemAccess 对象创建 MediaKeys</li>
+<li>然后将 MediaKeys 设置给 video 标签</li>
+<li>然后在 video 标签的 encrypted 事件中通过 MediaKeys 创建 MediaKeySession</li>
+<li>然后调用 MediaKeySession.generateRequest 方法向 CDM 申请 Request，后面会分析 encrypted 事件何时触发</li>
+<li>在收到 CDM 的 Request 之后通过网络送给 License 服务器</li>
+<li>从 License 服务器得到回应之后再把回应通过 MediaKeySession.update 送回 CDM</li>
+</ul>
+<figure class="highlight javascript"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Define a key: hardcoded in this example</span></span><br><span class="line"><span class="comment">// – this corresponds to the key used for encryption</span></span><br><span class="line"><span class="keyword">var</span> <span class="variable constant_">KEY</span> = <span class="keyword">new</span> <span class="title class_">Uint8Array</span>([</span><br><span class="line">  <span class="number">0xeb</span>, <span class="number">0xdd</span>, <span class="number">0x62</span>, <span class="number">0xf1</span>, <span class="number">0x68</span>, <span class="number">0x14</span>, <span class="number">0xd2</span>, <span class="number">0x7b</span>, <span class="number">0x68</span>, <span class="number">0xef</span>, <span class="number">0x12</span>, <span class="number">0x2a</span>, <span class="number">0xfc</span>,</span><br><span class="line">  <span class="number">0xe4</span>, <span class="number">0xae</span>, <span class="number">0x3c</span>,</span><br><span class="line">]);</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> config = [</span><br><span class="line">  &#123;</span><br><span class="line">    <span class="attr">initDataTypes</span>: [<span class="string">&#x27;webm&#x27;</span>],</span><br><span class="line">    <span class="attr">videoCapabilities</span>: [</span><br><span class="line">      &#123;</span><br><span class="line">        <span class="attr">contentType</span>: <span class="string">&#x27;video/webm; codecs=&quot;vp8&quot;&#x27;</span>,</span><br><span class="line">      &#125;,</span><br><span class="line">    ],</span><br><span class="line">  &#125;,</span><br><span class="line">];</span><br><span class="line"></span><br><span class="line"><span class="keyword">var</span> video = <span class="variable language_">document</span>.<span class="title function_">querySelector</span>(<span class="string">&#x27;video&#x27;</span>);</span><br><span class="line"><span class="comment">// 添加对video的encrypted的事件的监听</span></span><br><span class="line">video.<span class="title function_">addEventListener</span>(<span class="string">&#x27;encrypted&#x27;</span>, handleEncrypted, <span class="literal">false</span>);</span><br><span class="line"></span><br><span class="line">navigator</span><br><span class="line">  .<span class="title function_">requestMediaKeySystemAccess</span>(<span class="string">&#x27;org.w3.clearkey&#x27;</span>, config)</span><br><span class="line">  .<span class="title function_">then</span>(<span class="keyword">function</span> (<span class="params">keySystemAccess</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> keySystemAccess.<span class="title function_">createMediaKeys</span>();</span><br><span class="line">  &#125;)</span><br><span class="line">  .<span class="title function_">then</span>(<span class="keyword">function</span> (<span class="params">createdMediaKeys</span>) &#123;</span><br><span class="line">    <span class="keyword">return</span> video.<span class="title function_">setMediaKeys</span>(createdMediaKeys);</span><br><span class="line">  &#125;)</span><br><span class="line">  .<span class="title function_">catch</span>(<span class="keyword">function</span> (<span class="params">error</span>) &#123;</span><br><span class="line">    <span class="variable language_">console</span>.<span class="title function_">error</span>(<span class="string">&#x27;Failed to set up MediaKeys&#x27;</span>, error);</span><br><span class="line">  &#125;);</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">handleEncrypted</span>(<span class="params">event</span>) &#123;</span><br><span class="line">  <span class="keyword">var</span> session = video.<span class="property">mediaKeys</span>.<span class="title function_">createSession</span>();</span><br><span class="line">  session.<span class="title function_">addEventListener</span>(<span class="string">&#x27;message&#x27;</span>, handleMessage, <span class="literal">false</span>);</span><br><span class="line">  session</span><br><span class="line">    .<span class="title function_">generateRequest</span>(event.<span class="property">initDataType</span>, event.<span class="property">initData</span>)</span><br><span class="line">    .<span class="title function_">catch</span>(<span class="keyword">function</span> (<span class="params">error</span>) &#123;</span><br><span class="line">      <span class="variable language_">console</span>.<span class="title function_">error</span>(<span class="string">&#x27;Failed to generate a license request&#x27;</span>, error);</span><br><span class="line">    &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">handleMessage</span>(<span class="params">event</span>) &#123;</span><br><span class="line">  <span class="comment">// If you had a license server, you would make an asynchronous XMLHttpRequest</span></span><br><span class="line">  <span class="comment">// with event.message as the body.  The response from the server, as a</span></span><br><span class="line">  <span class="comment">// Uint8Array, would then be passed to session.update().</span></span><br><span class="line">  <span class="comment">// Instead, we will generate the license synchronously on the client, using</span></span><br><span class="line">  <span class="comment">// the hard-coded KEY at the top.</span></span><br><span class="line">  <span class="keyword">var</span> license = <span class="title function_">generateLicense</span>(event.<span class="property">message</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">var</span> session = event.<span class="property">target</span>;</span><br><span class="line">  session.<span class="title function_">update</span>(license).<span class="title function_">catch</span>(<span class="keyword">function</span> (<span class="params">error</span>) &#123;</span><br><span class="line">    <span class="variable language_">console</span>.<span class="title function_">error</span>(<span class="string">&#x27;Failed to update the session&#x27;</span>, error);</span><br><span class="line">  &#125;);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// Convert Uint8Array into base64 using base64url alphabet, without padding.</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">toBase64</span>(<span class="params">u8arr</span>) &#123;</span><br><span class="line">  <span class="keyword">return</span> <span class="title function_">btoa</span>(<span class="title class_">String</span>.<span class="property">fromCharCode</span>.<span class="title function_">apply</span>(<span class="literal">null</span>, u8arr))</span><br><span class="line">    .<span class="title function_">replace</span>(<span class="regexp">/\+/g</span>, <span class="string">&#x27;-&#x27;</span>)</span><br><span class="line">    .<span class="title function_">replace</span>(<span class="regexp">/\//g</span>, <span class="string">&#x27;_&#x27;</span>)</span><br><span class="line">    .<span class="title function_">replace</span>(<span class="regexp">/=*$/</span>, <span class="string">&#x27;&#x27;</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// This takes the place of a license server.</span></span><br><span class="line"><span class="comment">// kids is an array of base64-encoded key IDs</span></span><br><span class="line"><span class="comment">// keys is an array of base64-encoded keys</span></span><br><span class="line"><span class="keyword">function</span> <span class="title function_">generateLicense</span>(<span class="params">message</span>) &#123;</span><br><span class="line">  <span class="comment">// Parse the clearkey license request.</span></span><br><span class="line">  <span class="keyword">var</span> request = <span class="title class_">JSON</span>.<span class="title function_">parse</span>(<span class="keyword">new</span> <span class="title class_">TextDecoder</span>().<span class="title function_">decode</span>(message));</span><br><span class="line">  <span class="comment">// We only know one key, so there should only be one key ID.</span></span><br><span class="line">  <span class="comment">// A real license server could easily serve multiple keys.</span></span><br><span class="line">  <span class="variable language_">console</span>.<span class="title function_">assert</span>(request.<span class="property">kids</span>.<span class="property">length</span> === <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">var</span> keyObj = &#123;</span><br><span class="line">    <span class="attr">kty</span>: <span class="string">&#x27;oct&#x27;</span>,</span><br><span class="line">    <span class="attr">alg</span>: <span class="string">&#x27;A128KW&#x27;</span>,</span><br><span class="line">    <span class="attr">kid</span>: request.<span class="property">kids</span>[<span class="number">0</span>],</span><br><span class="line">    <span class="attr">k</span>: <span class="title function_">toBase64</span>(<span class="variable constant_">KEY</span>),</span><br><span class="line">  &#125;;</span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">TextEncoder</span>().<span class="title function_">encode</span>(</span><br><span class="line">    <span class="title class_">JSON</span>.<span class="title function_">stringify</span>(&#123;</span><br><span class="line">      <span class="attr">keys</span>: [keyObj],</span><br><span class="line">    &#125;),</span><br><span class="line">  );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="requestMediaKeySystemAccess"><a href="#requestMediaKeySystemAccess" class="headerlink" title="requestMediaKeySystemAccess"></a>requestMediaKeySystemAccess</h1><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">ScriptPromise <span class="title">NavigatorRequestMediaKeySystemAccess::requestMediaKeySystemAccess</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    ScriptState* script_state,</span></span></span><br><span class="line"><span class="params"><span class="function">    Navigator&amp; navigator,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> String&amp; key_system,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> HeapVector&lt;Member&lt;MediaKeySystemConfiguration&gt;&gt;&amp;</span></span></span><br><span class="line"><span class="params"><span class="function">        supported_configurations,</span></span></span><br><span class="line"><span class="params"><span class="function">    ExceptionState&amp; exception_state)</span> </span>&#123;</span><br><span class="line">...</span><br><span class="line">  MediaKeySystemAccessInitializer* initializer =</span><br><span class="line">      <span class="built_in">MakeGarbageCollected</span>&lt;MediaKeySystemAccessInitializer&gt;(</span><br><span class="line">          script_state, key_system, supported_configurations);</span><br><span class="line">  ScriptPromise promise = initializer-&gt;<span class="built_in">Promise</span>();</span><br><span class="line"></span><br><span class="line">  MediaKeysController* controller =</span><br><span class="line">      MediaKeysController::<span class="built_in">From</span>(window-&gt;<span class="built_in">GetFrame</span>()-&gt;<span class="built_in">GetPage</span>());</span><br><span class="line">  WebEncryptedMediaClient* media_client =</span><br><span class="line">      controller-&gt;<span class="built_in">EncryptedMediaClient</span>(window);</span><br><span class="line">  media_client-&gt;<span class="built_in">RequestMediaKeySystemAccess</span>(</span><br><span class="line">      <span class="built_in">WebEncryptedMediaRequest</span>(initializer));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> promise;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">WebEncryptedMediaClient* <span class="title">MediaKeysController::EncryptedMediaClient</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    ExecutionContext* context)</span> </span>&#123;</span><br><span class="line">  WebLocalFrameImpl* web_frame =</span><br><span class="line">      WebLocalFrameImpl::<span class="built_in">FromFrame</span>(<span class="built_in">To</span>&lt;LocalDOMWindow&gt;(context)-&gt;<span class="built_in">GetFrame</span>());</span><br><span class="line">  <span class="keyword">return</span> web_frame-&gt;<span class="built_in">Client</span>()-&gt;<span class="built_in">EncryptedMediaClient</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>web_frame-&gt;Client()</code> 返回的是 RenderFrameImpl，和之前是一样的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">blink::WebEncryptedMediaClient* <span class="title">RenderFrameImpl::EncryptedMediaClient</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media_factory_.<span class="built_in">EncryptedMediaClient</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>WebEncryptedMediaClientImpl 中有 CdmFactory</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">blink::WebEncryptedMediaClient* <span class="title">MediaFactory::EncryptedMediaClient</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (!web_encrypted_media_client_) &#123;</span><br><span class="line">    web_encrypted_media_client_ = std::<span class="built_in">make_unique</span>&lt;</span><br><span class="line">        blink::WebEncryptedMediaClientImpl&gt;(</span><br><span class="line">        <span class="built_in">GetCdmFactory</span>(), render_frame_-&gt;<span class="built_in">GetMediaPermission</span>(),</span><br><span class="line">        std::<span class="built_in">make_unique</span>&lt;blink::KeySystemConfigSelector::WebLocalFrameDelegate&gt;(</span><br><span class="line">            render_frame_-&gt;<span class="built_in">GetWebFrame</span>()));</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="keyword">return</span> web_encrypted_media_client_.<span class="built_in">get</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以 RenderFrameImpl 和 MediaFactory 是非常重要的两个类，Render、Decoder、CdmFactory 都在这里创建</p>
+<h2 id="WebEncryptedMediaClientImpl-WebEncryptedMediaClientImpl"><a href="#WebEncryptedMediaClientImpl-WebEncryptedMediaClientImpl" class="headerlink" title="WebEncryptedMediaClientImpl::WebEncryptedMediaClientImpl"></a>WebEncryptedMediaClientImpl::WebEncryptedMediaClientImpl</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">WebEncryptedMediaClientImpl::<span class="built_in">WebEncryptedMediaClientImpl</span>(</span><br><span class="line">    media::CdmFactory* cdm_factory,</span><br><span class="line">    media::MediaPermission* media_permission,</span><br><span class="line">    std::unique_ptr&lt;KeySystemConfigSelector::WebLocalFrameDelegate&gt;</span><br><span class="line">        web_frame_delegate)</span><br><span class="line">    : <span class="built_in">cdm_factory_</span>(cdm_factory),</span><br><span class="line">      <span class="built_in">key_systems_</span>(media::KeySystems::<span class="built_in">GetInstance</span>()),</span><br><span class="line">      <span class="built_in">key_system_config_selector_</span>(key_systems_,</span><br><span class="line">                                  media_permission,</span><br><span class="line">                                  std::<span class="built_in">move</span>(web_frame_delegate)) &#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(cdm_factory_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>key_systems_</code> 是全局唯一实例，<code>key_system_config_selector_</code> 持有 <code>key_systems_</code>，后面 <code>key_system_config_selector_</code> 会从 <code>key_systems_</code> 中选择合适的 KeySystem</p>
+<h2 id="WebEncryptedMediaClientImpl-RequestMediaKeySystemAccess"><a href="#WebEncryptedMediaClientImpl-RequestMediaKeySystemAccess" class="headerlink" title="WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess"></a>WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess</h2><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebEncryptedMediaRequest request)</span> </span>&#123;</span><br><span class="line">  pending_requests_.<span class="built_in">push_back</span>(std::<span class="built_in">move</span>(request));</span><br><span class="line">  key_systems_-&gt;<span class="built_in">UpdateIfNeeded</span>(</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;WebEncryptedMediaClientImpl::OnKeySystemsUpdated,</span><br><span class="line">                     weak_factory_.<span class="built_in">GetWeakPtr</span>()));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="KeySystemsImpl-UpdateIfNeeded"><a href="#KeySystemsImpl-UpdateIfNeeded" class="headerlink" title="KeySystemsImpl::UpdateIfNeeded"></a>KeySystemsImpl::UpdateIfNeeded</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemsImpl::UpdateIfNeeded</span><span class="params">(base::OnceClosure done_cb)</span> </span>&#123;</span><br><span class="line">  <span class="keyword">if</span> (is_updating_) &#123;</span><br><span class="line">    update_callbacks_.<span class="built_in">AddUnsafe</span>(std::<span class="built_in">move</span>(done_cb));</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  std::<span class="built_in">move</span>(done_cb).<span class="built_in">Run</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="KeySystemsImpl-KeySystemsImpl"><a href="#KeySystemsImpl-KeySystemsImpl" class="headerlink" title="KeySystemsImpl::KeySystemsImpl"></a>KeySystemsImpl::KeySystemsImpl</h3><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">KeySystemsImpl::<span class="built_in">KeySystemsImpl</span>() &#123;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; entry : kMimeTypeToCodecsMap)</span><br><span class="line">    <span class="built_in">RegisterMimeType</span>(entry.mime_type, entry.codecs);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">UpdateSupportedKeySystems</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="KeySystemsImpl-RegisterMimeType"><a href="#KeySystemsImpl-RegisterMimeType" class="headerlink" title="KeySystemsImpl::RegisterMimeType"></a>KeySystemsImpl::RegisterMimeType</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Mapping between containers and their codecs.</span></span><br><span class="line"><span class="comment">// Only audio codecs can belong to a &quot;audio/*&quot; mime_type, and only video codecs</span></span><br><span class="line"><span class="comment">// can belong to a &quot;video/*&quot; mime_type.</span></span><br><span class="line"><span class="type">static</span> <span class="type">const</span> MimeTypeToCodecs kMimeTypeToCodecsMap[] = &#123;</span><br><span class="line">    &#123;<span class="string">&quot;audio/webm&quot;</span>, EME_CODEC_WEBM_AUDIO_ALL&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;video/webm&quot;</span>, EME_CODEC_WEBM_VIDEO_ALL&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;audio/mp4&quot;</span>, EME_CODEC_MP4_AUDIO_ALL&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;video/mp4&quot;</span>, EME_CODEC_MP4_VIDEO_ALL&#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(USE_PROPRIETARY_CODECS)</span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_MSE_MPEG2TS_STREAM_PARSER)</span></span><br><span class="line">    &#123;<span class="string">&quot;video/mp2t&quot;</span>, EME_CODEC_MP2T_VIDEO_ALL&#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_MSE_MPEG2TS_STREAM_PARSER)</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(USE_PROPRIETARY_CODECS)</span></span></span><br><span class="line">&#125;;      <span class="comment">// namespace media</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// Adds the MIME type with the codec mask after verifying the validity.</span></span><br><span class="line"><span class="comment">// Only this function should modify |mime_type_to_codecs_map_|.</span></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemsImpl::RegisterMimeType</span><span class="params">(<span class="type">const</span> std::string&amp; mime_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                                      SupportedCodecs codecs)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(thread_checker_.<span class="built_in">CalledOnValidThread</span>());</span><br><span class="line">  <span class="built_in">DCHECK</span>(!mime_type_to_codecs_map_.<span class="built_in">count</span>(mime_type));</span><br><span class="line">  <span class="built_in">DCHECK</span>(<span class="built_in">IsValidMimeTypeCodecsCombination</span>(mime_type, codecs))</span><br><span class="line">      &lt;&lt; <span class="string">&quot;: mime_type = &quot;</span> &lt;&lt; mime_type &lt;&lt; <span class="string">&quot;, codecs = &quot;</span> &lt;&lt; codecs;</span><br><span class="line"></span><br><span class="line">  mime_type_to_codecs_map_[mime_type] = codecs;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="KeySystemsImpl-UpdateSupportedKeySystems"><a href="#KeySystemsImpl-UpdateSupportedKeySystems" class="headerlink" title="KeySystemsImpl::UpdateSupportedKeySystems"></a>KeySystemsImpl::UpdateSupportedKeySystems</h4><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemsImpl::UpdateSupportedKeySystems</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(!is_updating_);</span><br><span class="line">  is_updating_ = <span class="literal">true</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">GetMediaClient</span>()) &#123;</span><br><span class="line">    <span class="built_in">OnSupportedKeySystemsUpdated</span>(&#123;&#125;);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">GetMediaClient</span>()-&gt;<span class="built_in">GetSupportedKeySystems</span>(</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;KeySystemsImpl::OnSupportedKeySystemsUpdated,</span><br><span class="line">                          weak_factory_.<span class="built_in">GetWeakPtr</span>()));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>GetMediaClient()</code> 函数返回 RenderMediaClient 的指针</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RenderMediaClient::Initialize</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="type">static</span> RenderMediaClient* client = <span class="keyword">new</span> <span class="built_in">RenderMediaClient</span>();</span><br><span class="line">  media::<span class="built_in">SetMediaClient</span>(client);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="RenderMediaClient-GetSupportedKeySystems"><a href="#RenderMediaClient-GetSupportedKeySystems" class="headerlink" title="RenderMediaClient::GetSupportedKeySystems"></a>RenderMediaClient::GetSupportedKeySystems</h5><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">RenderMediaClient::GetSupportedKeySystems</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    media::GetSupportedKeySystemsCB cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">GetContentClient</span>()-&gt;<span class="built_in">renderer</span>()-&gt;<span class="built_in">GetSupportedKeySystems</span>(std::<span class="built_in">move</span>(cb));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>RenderMediaClient::GetSupportedKeySystems</code> 内部使用 <code>GetContentClient()</code> 获得 ContentRendererClient 的子类，这个子类是需要不同平台自己实现，比如下面的 XXXContentRendererClient 就支持 Widevine、Playready 两种 CDM</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">XXXContentRendererClient::GetSupportedKeySystems</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    media::GetSupportedKeySystemsCB cb)</span> </span>&#123;</span><br><span class="line">  media::KeySystemPropertiesVector key_systems;</span><br><span class="line">  <span class="keyword">if</span> (base::FeatureList::<span class="built_in">IsEnabled</span>(media::kExternalClearKeyForTesting))</span><br><span class="line">    key_systems.<span class="built_in">push_back</span>(std::<span class="built_in">make_unique</span>&lt;cdm::ExternalClearKeyProperties&gt;());</span><br><span class="line">  key_systems.<span class="built_in">emplace_back</span>(std::<span class="built_in">make_unique</span>&lt;WidevineProperties&gt;());</span><br><span class="line">  key_systems.<span class="built_in">emplace_back</span>(std::<span class="built_in">make_unique</span>&lt;PlayreadyProperties&gt;());</span><br><span class="line">  std::<span class="built_in">move</span>(cb).<span class="built_in">Run</span>(std::<span class="built_in">move</span>(key_systems));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>WidevineProperties、PlayreadyProperties</code> 继承 <code>media::KeySystemProperties</code>，其实现了相应的方法来表明当前 CDM 的属性，比如支持哪些加密模式（CBCS、CENC），是否支持 Persistent 模式，支持哪些 Codec</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">class</span> <span class="title class_">WidevineProperties</span> : <span class="keyword">public</span> media::KeySystemProperties &#123;</span><br><span class="line"> <span class="keyword">public</span>:</span><br><span class="line">  <span class="function">std::string <span class="title">GetBaseKeySystemName</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">IsSupportedInitDataType</span><span class="params">(media::EmeInitDataType init_data_type)</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::EmeConfigRule <span class="title">GetEncryptionSchemeConfigRule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      media::EncryptionScheme encryption_scheme)</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::SupportedCodecs <span class="title">GetSupportedCodecs</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::SupportedCodecs <span class="title">GetSupportedHwSecureCodecs</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::EmeConfigRule <span class="title">GetRobustnessConfigRule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> std::string&amp; key_system,</span></span></span><br><span class="line"><span class="params"><span class="function">      media::EmeMediaType media_type,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> std::string&amp; requested_robustness,</span></span></span><br><span class="line"><span class="params"><span class="function">      <span class="type">const</span> <span class="type">bool</span>* <span class="comment">/*hw_secure_requirement*/</span>)</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::EmeConfigRule <span class="title">GetPersistentLicenseSessionSupport</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::EmeFeatureSupport <span class="title">GetPersistentStateSupport</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function">media::EmeFeatureSupport <span class="title">GetDistinctiveIdentifierSupport</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">  <span class="function"><span class="type">bool</span> <span class="title">UseAesDecryptor</span><span class="params">()</span> <span class="type">const</span> <span class="keyword">final</span></span>;</span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="function">std::string <span class="title">WidevineProperties::GetBaseKeySystemName</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;com.widevine.alpha&quot;</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">WidevineProperties::IsSupportedInitDataType</span><span class="params">(media::EmeInitDataType init_data_type)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> init_data_type == media::EmeInitDataType::CENC ||</span><br><span class="line">         init_data_type == media::EmeInitDataType::WEBM ||</span><br><span class="line">         init_data_type == media::EmeInitDataType::KEYIDS;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::EmeConfigRule <span class="title">WidevineProperties::GetEncryptionSchemeConfigRule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    media::EncryptionScheme encryption_scheme)</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">switch</span> (encryption_scheme) &#123;</span><br><span class="line">    <span class="keyword">case</span> media::EncryptionScheme::kCenc:</span><br><span class="line">    <span class="keyword">case</span> media::EncryptionScheme::kCbcs:</span><br><span class="line">      <span class="keyword">return</span> media::EmeConfigRule::SUPPORTED;</span><br><span class="line">    <span class="keyword">case</span> media::EncryptionScheme::kUnencrypted:</span><br><span class="line">      <span class="keyword">break</span>;</span><br><span class="line">  &#125;</span><br><span class="line">  <span class="built_in">NOTREACHED</span>();</span><br><span class="line">  <span class="keyword">return</span> media::EmeConfigRule::NOT_SUPPORTED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::SupportedCodecs <span class="title">WidevineProperties::GetSupportedCodecs</span><span class="params">()</span> <span class="type">const</span>  </span>&#123;</span><br><span class="line">  <span class="comment">// On Android, Vorbis, VP8, AAC and AVC1 are supported in MediaCodec:</span></span><br><span class="line">  <span class="comment">// http://developer.android.com/guide/appendix/media-formats.html</span></span><br><span class="line">  <span class="comment">// VP9 support is device dependent.</span></span><br><span class="line">  <span class="keyword">return</span> media::EME_CODEC_VIDEO_ALL | media::EME_CODEC_AUDIO_ALL;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::SupportedCodecs <span class="title">WidevineProperties::GetSupportedHwSecureCodecs</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media::EME_CODEC_VIDEO_ALL | media::EME_CODEC_AUDIO_ALL;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::EmeConfigRule <span class="title">WidevineProperties::GetRobustnessConfigRule</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; key_system,</span></span></span><br><span class="line"><span class="params"><span class="function">    media::EmeMediaType media_type,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; requested_robustness,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> <span class="type">bool</span>* <span class="comment">/*hw_secure_requirement*/</span>)</span> <span class="type">const</span>  </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media::EmeConfigRule::SUPPORTED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::EmeConfigRule <span class="title">WidevineProperties::GetPersistentLicenseSessionSupport</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media::EmeConfigRule::NOT_SUPPORTED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::EmeFeatureSupport <span class="title">WidevineProperties::GetPersistentStateSupport</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media::EmeFeatureSupport::NOT_SUPPORTED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">media::EmeFeatureSupport <span class="title">WidevineProperties::GetDistinctiveIdentifierSupport</span><span class="params">()</span> <span class="type">const</span> </span>&#123;</span><br><span class="line">  <span class="keyword">return</span> media::EmeFeatureSupport::NOT_SUPPORTED;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">bool</span> <span class="title">WidevineProperties::UseAesDecryptor</span><span class="params">()</span> <span class="type">const</span> </span>&#123; <span class="keyword">return</span> <span class="literal">false</span>; &#125;</span><br></pre></td></tr></table></figure>
+
+<h6 id="KeySystemsImpl-OnSupportedKeySystemsUpdated"><a href="#KeySystemsImpl-OnSupportedKeySystemsUpdated" class="headerlink" title="KeySystemsImpl::OnSupportedKeySystemsUpdated"></a>KeySystemsImpl::OnSupportedKeySystemsUpdated</h6><p>获得 KeySystem 信息后调用 OnSupportedKeySystemsUpdated 将 KeySystem 信息回传给 WebEncryptedMediaClientImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemsImpl::OnSupportedKeySystemsUpdated</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    KeySystemPropertiesVector key_systems)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  is_updating_ = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clear Key is always supported.</span></span><br><span class="line">  key_systems.<span class="built_in">emplace_back</span>(<span class="keyword">new</span> <span class="built_in">ClearKeyProperties</span>());</span><br><span class="line"></span><br><span class="line">  <span class="built_in">ProcessSupportedKeySystems</span>(std::<span class="built_in">move</span>(key_systems));</span><br><span class="line"></span><br><span class="line">  update_callbacks_.<span class="built_in">Notify</span>();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemsImpl::ProcessSupportedKeySystems</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    KeySystemPropertiesVector key_systems)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK</span>(thread_checker_.<span class="built_in">CalledOnValidThread</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Clear `key_system_properties_map_` before we repopulating it.</span></span><br><span class="line">  key_system_properties_map_.<span class="built_in">clear</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (<span class="keyword">auto</span>&amp; properties : key_systems) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(!properties-&gt;<span class="built_in">GetBaseKeySystemName</span>().<span class="built_in">empty</span>());</span><br><span class="line">    <span class="built_in">DCHECK</span>(properties-&gt;<span class="built_in">GetPersistentStateSupport</span>() !=</span><br><span class="line">           EmeFeatureSupport::INVALID);</span><br><span class="line">    <span class="built_in">DCHECK</span>(properties-&gt;<span class="built_in">GetDistinctiveIdentifierSupport</span>() !=</span><br><span class="line">           EmeFeatureSupport::INVALID);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">IsPotentiallySupportedKeySystem</span>(properties-&gt;<span class="built_in">GetBaseKeySystemName</span>())) &#123;</span><br><span class="line">      <span class="comment">// If you encounter this path, see the comments for the function above.</span></span><br><span class="line">      <span class="built_in">DLOG</span>(ERROR) &lt;&lt; <span class="string">&quot;Unsupported name &#x27;&quot;</span> &lt;&lt; properties-&gt;<span class="built_in">GetBaseKeySystemName</span>()</span><br><span class="line">                  &lt;&lt; <span class="string">&quot;&#x27;. See code comments.&quot;</span>;</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Supporting persistent state is a prerequisite for supporting persistent</span></span><br><span class="line">    <span class="comment">// sessions.</span></span><br><span class="line">    <span class="keyword">if</span> (properties-&gt;<span class="built_in">GetPersistentStateSupport</span>() ==</span><br><span class="line">        EmeFeatureSupport::NOT_SUPPORTED) &#123;</span><br><span class="line">      <span class="built_in">DCHECK</span>(properties-&gt;<span class="built_in">GetPersistentLicenseSessionSupport</span>() ==</span><br><span class="line">             EmeConfigRule::NOT_SUPPORTED);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">CanBlock</span>(*properties)) &#123;</span><br><span class="line">      <span class="built_in">DCHECK</span>(properties-&gt;<span class="built_in">GetDistinctiveIdentifierSupport</span>() ==</span><br><span class="line">             EmeFeatureSupport::ALWAYS_ENABLED);</span><br><span class="line">      <span class="built_in">DCHECK</span>(properties-&gt;<span class="built_in">GetPersistentStateSupport</span>() ==</span><br><span class="line">             EmeFeatureSupport::ALWAYS_ENABLED);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="type">const</span> <span class="keyword">auto</span> base_key_system_name = properties-&gt;<span class="built_in">GetBaseKeySystemName</span>();</span><br><span class="line">    <span class="built_in">DCHECK</span>(!key_system_properties_map_.<span class="built_in">count</span>(base_key_system_name))</span><br><span class="line">        &lt;&lt; <span class="string">&quot;Key system &#x27;&quot;</span> &lt;&lt; base_key_system_name &lt;&lt; <span class="string">&quot;&#x27; already registered&quot;</span>;</span><br><span class="line">    <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot;: Adding key system &quot;</span> &lt;&lt; base_key_system_name;</span><br><span class="line">    key_system_properties_map_[base_key_system_name] = std::<span class="built_in">move</span>(properties);</span><br><span class="line">  &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>####### WebEncryptedMediaClientImpl::OnKeySystemsUpdated</p>
+<p>KeySystemsImpl::OnSupportedKeySystemsUpdated 的最后调用 WebEncryptedMediaClientImpl::OnKeySystemsUpdated</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::OnKeySystemsUpdated</span><span class="params">()</span> </span>&#123;</span><br><span class="line">  <span class="keyword">auto</span> requests = std::<span class="built_in">move</span>(pending_requests_);</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; request : requests)</span><br><span class="line">    <span class="built_in">SelectConfig</span>(request);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>pending_requests_</code> 就是 WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess 中的参数，SelectConfig 会处理每一个 Request</p>
+<p>SelectConfig 内部通过 <code>key_system_config_selector_</code>，而 <code>key_system_config_selector_</code> 内部有 key_system，<code>key_system_config_selector_</code> 通过 key_system 选择完毕后使用 WebEncryptedMediaClientImpl::OnConfigSelected 回传结果</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::SelectConfig</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebEncryptedMediaRequest request)</span> </span>&#123;</span><br><span class="line">  key_system_config_selector_.<span class="built_in">SelectConfig</span>(</span><br><span class="line">      request.<span class="built_in">KeySystem</span>(), request.<span class="built_in">SupportedConfigurations</span>(),</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;WebEncryptedMediaClientImpl::OnConfigSelected,</span><br><span class="line">                     weak_factory_.<span class="built_in">GetWeakPtr</span>(), request));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemConfigSelector::SelectConfig</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebString&amp; key_system,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebVector&lt;WebMediaKeySystemConfiguration&gt;&amp; candidate_configurations,</span></span></span><br><span class="line"><span class="params"><span class="function">    SelectConfigCB cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">MSG</span>(<span class="string">&quot;key_system: %s \n&quot;</span>, (key_system.<span class="built_in">ContainsOnlyASCII</span>() ? key_system.<span class="built_in">Ascii</span>().<span class="built_in">c_str</span>() : key_system.<span class="built_in">Latin1</span>().<span class="built_in">c_str</span>()));</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  std::string key_system_ascii = key_system.<span class="built_in">Ascii</span>();</span><br><span class="line">  <span class="keyword">if</span> (!key_systems_-&gt;<span class="built_in">IsSupportedKeySystem</span>(key_system_ascii)) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(cb).<span class="built_in">Run</span>(Status::kUnsupportedKeySystem, <span class="literal">nullptr</span>, <span class="literal">nullptr</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">const</span> <span class="type">bool</span> is_encrypted_media_enabled =</span><br><span class="line">      media_permission_-&gt;<span class="built_in">IsEncryptedMediaEnabled</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Only report this UMA at most once per renderer process.</span></span><br><span class="line">  <span class="type">static</span> <span class="type">bool</span> has_reported_encrypted_media_enabled_uma = <span class="literal">false</span>;</span><br><span class="line">  <span class="keyword">if</span> (!has_reported_encrypted_media_enabled_uma) &#123;</span><br><span class="line">    has_reported_encrypted_media_enabled_uma = <span class="literal">true</span>;</span><br><span class="line">    <span class="built_in">UMA_HISTOGRAM_BOOLEAN</span>(<span class="string">&quot;Media.EME.EncryptedMediaEnabled&quot;</span>,</span><br><span class="line">                          is_encrypted_media_enabled);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// According to Section 9 &quot;Common Key Systems&quot;: All user agents MUST support</span></span><br><span class="line">  <span class="comment">// the common key systems described in this section.</span></span><br><span class="line">  <span class="comment">//   9.1 Clear Key</span></span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="comment">// Therefore, always support Clear Key key system and only check settings for</span></span><br><span class="line">  <span class="comment">// other key systems.</span></span><br><span class="line">  <span class="keyword">if</span> (!is_encrypted_media_enabled &amp;&amp; !media::<span class="built_in">IsClearKey</span>(key_system_ascii)) &#123;</span><br><span class="line">    std::<span class="built_in">move</span>(cb).<span class="built_in">Run</span>(Status::kUnsupportedKeySystem, <span class="literal">nullptr</span>, <span class="literal">nullptr</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 6.2-6.4. Implemented by OnSelectConfig().</span></span><br><span class="line">  <span class="comment">// TODO(sandersd): This should be async, ideally not on the main thread.</span></span><br><span class="line">  <span class="keyword">auto</span> request = std::<span class="built_in">make_unique</span>&lt;SelectionRequest&gt;();</span><br><span class="line">  request-&gt;key_system = key_system_ascii;</span><br><span class="line">  request-&gt;candidate_configurations = candidate_configurations;</span><br><span class="line">  request-&gt;cb = std::<span class="built_in">move</span>(cb);</span><br><span class="line">  <span class="built_in">SelectConfigInternal</span>(std::<span class="built_in">move</span>(request));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">KeySystemConfigSelector::SelectConfigInternal</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;SelectionRequest&gt; request)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">3</span>) &lt;&lt; __func__;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Continued from requestMediaKeySystemAccess(), step 6, from</span></span><br><span class="line">  <span class="comment">// https://w3c.github.io/encrypted-media/#requestmediakeysystemaccess</span></span><br><span class="line">  <span class="comment">//</span></span><br><span class="line">  <span class="comment">// 6.2. Let implementation be the implementation of keySystem.</span></span><br><span class="line">  <span class="comment">//      (|key_systems_| fills this role.)</span></span><br><span class="line">  <span class="comment">// 6.3. For each value in supportedConfigurations:</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">size_t</span> i = <span class="number">0</span>; i &lt; request-&gt;candidate_configurations.<span class="built_in">size</span>(); i++) &#123;</span><br><span class="line">    <span class="comment">// 6.3.1. Let candidate configuration be the value.</span></span><br><span class="line">    <span class="comment">// 6.3.2. Let supported configuration be the result of executing the Get</span></span><br><span class="line">    <span class="comment">//        Supported Configuration algorithm on implementation, candidate</span></span><br><span class="line">    <span class="comment">//        configuration, and origin.</span></span><br><span class="line">    <span class="comment">// 6.3.3. If supported configuration is not NotSupported, [initialize</span></span><br><span class="line">    <span class="comment">//        and return a new MediaKeySystemAccess object.]</span></span><br><span class="line">    <span class="function">ConfigState <span class="title">config_state</span><span class="params">(request-&gt;was_permission_requested,</span></span></span><br><span class="line"><span class="params"><span class="function">                             request-&gt;is_permission_granted)</span></span>;</span><br><span class="line">    WebMediaKeySystemConfiguration accumulated_configuration;</span><br><span class="line">    media::CdmConfig cdm_config;</span><br><span class="line">    ConfigurationSupport support = <span class="built_in">GetSupportedConfiguration</span>(</span><br><span class="line">        request-&gt;key_system, request-&gt;candidate_configurations[i],</span><br><span class="line">        &amp;config_state, &amp;accumulated_configuration);</span><br><span class="line">    <span class="keyword">switch</span> (support) &#123;</span><br><span class="line">      <span class="keyword">case</span> CONFIGURATION_NOT_SUPPORTED:</span><br><span class="line">        <span class="keyword">continue</span>;</span><br><span class="line">      <span class="keyword">case</span> CONFIGURATION_REQUIRES_PERMISSION:</span><br><span class="line">        <span class="keyword">if</span> (request-&gt;was_permission_requested) &#123;</span><br><span class="line">          <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; <span class="string">&quot;Rejecting requested configuration because &quot;</span></span><br><span class="line">                   &lt;&lt; <span class="string">&quot;permission was denied.&quot;</span>;</span><br><span class="line">          <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="built_in">DVLOG</span>(<span class="number">3</span>) &lt;&lt; <span class="string">&quot;Request permission.&quot;</span>;</span><br><span class="line">        media_permission_-&gt;<span class="built_in">RequestPermission</span>(</span><br><span class="line">            media::MediaPermission::PROTECTED_MEDIA_IDENTIFIER,</span><br><span class="line">            base::<span class="built_in">BindOnce</span>(&amp;KeySystemConfigSelector::OnPermissionResult,</span><br><span class="line">                           weak_factory_.<span class="built_in">GetWeakPtr</span>(), std::<span class="built_in">move</span>(request)));</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">      <span class="keyword">case</span> CONFIGURATION_SUPPORTED:</span><br><span class="line">        std::string key_system = request-&gt;key_system;</span><br><span class="line">        <span class="keyword">if</span> (key_systems_-&gt;<span class="built_in">ShouldUseBaseKeySystemName</span>(key_system))</span><br><span class="line">          key_system = key_systems_-&gt;<span class="built_in">GetBaseKeySystemName</span>(key_system);</span><br><span class="line">        cdm_config.key_system = key_system;</span><br><span class="line"></span><br><span class="line">        cdm_config.allow_distinctive_identifier =</span><br><span class="line">            (accumulated_configuration.distinctive_identifier ==</span><br><span class="line">             EmeFeatureRequirement::kRequired);</span><br><span class="line">        cdm_config.allow_persistent_state =</span><br><span class="line">            (accumulated_configuration.persistent_state ==</span><br><span class="line">             EmeFeatureRequirement::kRequired);</span><br><span class="line">        cdm_config.use_hw_secure_codecs =</span><br><span class="line">            config_state.<span class="built_in">AreHwSecureCodecsRequired</span>();</span><br><span class="line"></span><br><span class="line">        std::<span class="built_in">move</span>(request-&gt;cb)</span><br><span class="line">            .<span class="built_in">Run</span>(Status::kSupported, &amp;accumulated_configuration, &amp;cdm_config);</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 6.4. Reject promise with a NotSupportedError.</span></span><br><span class="line">  std::<span class="built_in">move</span>(request-&gt;cb).<span class="built_in">Run</span>(Status::kUnsupportedConfigs, <span class="literal">nullptr</span>, <span class="literal">nullptr</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>######## WebEncryptedMediaClientImpl::OnConfigSelected</p>
+<p>OnConfigSelected 用输入的 CdmConfig 创建 WebContentDecryptionModuleAccessImpl，WebContentDecryptionModuleAccessImpl 就对应了上面例子中的 MediaKeySystemAccess，后面会通过 MediaKeySystemAccess 去创建 MediaKeys，这部分下篇文章再介绍。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">WebEncryptedMediaClientImpl::OnConfigSelected</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    WebEncryptedMediaRequest request,</span></span></span><br><span class="line"><span class="params"><span class="function">    KeySystemConfigSelector::Status status,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebMediaKeySystemConfiguration* accumulated_configuration,</span></span></span><br><span class="line"><span class="params"><span class="function">    media::CdmConfig* cdm_config)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Update encrypted_media_supported_types_browsertest.cc if updating these</span></span><br><span class="line">  <span class="comment">// strings.</span></span><br><span class="line">  <span class="comment">// TODO(xhwang): Consider using different messages for kUnsupportedKeySystem</span></span><br><span class="line">  <span class="comment">// and kUnsupportedConfigs.</span></span><br><span class="line">  <span class="type">const</span> <span class="type">char</span> kUnsupportedKeySystemOrConfigMessage[] =</span><br><span class="line">      <span class="string">&quot;Unsupported keySystem or supportedConfigurations.&quot;</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Handle unsupported cases first.</span></span><br><span class="line">  <span class="keyword">switch</span> (status) &#123;</span><br><span class="line">    <span class="keyword">case</span> KeySystemConfigSelector::Status::kUnsupportedKeySystem:</span><br><span class="line">    <span class="keyword">case</span> KeySystemConfigSelector::Status::kUnsupportedConfigs:</span><br><span class="line">      request.<span class="built_in">RequestNotSupported</span>(kUnsupportedKeySystemOrConfigMessage);</span><br><span class="line">      <span class="keyword">return</span>;</span><br><span class="line">    <span class="keyword">case</span> KeySystemConfigSelector::Status::kSupported:</span><br><span class="line">      <span class="keyword">break</span>;  <span class="comment">// Handled below.</span></span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Use the requested key system to match what&#x27;s reported in</span></span><br><span class="line">  <span class="comment">// RequestMediaKeySystemAccess().</span></span><br><span class="line">  <span class="built_in">DCHECK_EQ</span>(status, KeySystemConfigSelector::Status::kSupported);</span><br><span class="line">  <span class="built_in">GetReporter</span>(request.<span class="built_in">KeySystem</span>())-&gt;<span class="built_in">ReportSupported</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// If the frame is closed while the permission prompt is displayed,</span></span><br><span class="line">  <span class="comment">// the permission prompt is dismissed and this may result in the</span></span><br><span class="line">  <span class="comment">// requestMediaKeySystemAccess request succeeding. However, the blink</span></span><br><span class="line">  <span class="comment">// objects may have been cleared, so check if this is the case and simply</span></span><br><span class="line">  <span class="comment">// reject the request.</span></span><br><span class="line">  WebSecurityOrigin origin = request.<span class="built_in">GetSecurityOrigin</span>();</span><br><span class="line">  <span class="keyword">if</span> (origin.<span class="built_in">IsNull</span>()) &#123;</span><br><span class="line">    request.<span class="built_in">RequestNotSupported</span>(<span class="string">&quot;Unable to create MediaKeySystemAccess&quot;</span>);</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Use the returned key system which should be used for CDM creation.</span></span><br><span class="line">  request.<span class="built_in">RequestSucceeded</span>(WebContentDecryptionModuleAccessImpl::<span class="built_in">Create</span>(</span><br><span class="line">      origin, *accumulated_configuration, *cdm_config,</span><br><span class="line">      weak_factory_.<span class="built_in">GetWeakPtr</span>()));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这篇文章主要介绍了 requestMediaKeySystemAccess 的过程，核心是通过 WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess 函数，如果想让自己的系统支持哪些 CDM，需要实现 ContentRendererClient 的子类，在子类中重载 GetSupportedKeySystems 方法。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/27/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%B8%89%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-30 22:19:01
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                        <b>#</b> Chromium 多媒体
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/06/30/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%BA%94%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#%E7%A4%BA%E4%BE%8B%E4%BB%A3%E7%A0%81"><span class="toc-text">示例代码</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#requestMediaKeySystemAccess"><span class="toc-text">requestMediaKeySystemAccess</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#WebEncryptedMediaClientImpl-WebEncryptedMediaClientImpl"><span class="toc-text">WebEncryptedMediaClientImpl::WebEncryptedMediaClientImpl</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#WebEncryptedMediaClientImpl-RequestMediaKeySystemAccess"><span class="toc-text">WebEncryptedMediaClientImpl::RequestMediaKeySystemAccess</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#KeySystemsImpl-UpdateIfNeeded"><span class="toc-text">KeySystemsImpl::UpdateIfNeeded</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#KeySystemsImpl-KeySystemsImpl"><span class="toc-text">KeySystemsImpl::KeySystemsImpl</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#KeySystemsImpl-RegisterMimeType"><span class="toc-text">KeySystemsImpl::RegisterMimeType</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#KeySystemsImpl-UpdateSupportedKeySystems"><span class="toc-text">KeySystemsImpl::UpdateSupportedKeySystems</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#RenderMediaClient-GetSupportedKeySystems"><span class="toc-text">RenderMediaClient::GetSupportedKeySystems</span></a><ol class="toc-child"><li class="toc-item toc-level-6"><a class="toc-link" href="#KeySystemsImpl-OnSupportedKeySystemsUpdated"><span class="toc-text">KeySystemsImpl::OnSupportedKeySystemsUpdated</span></a></li></ol></li></ol></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

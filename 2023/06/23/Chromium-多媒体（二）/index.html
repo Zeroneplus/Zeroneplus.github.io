@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      Chromium 多媒体（二） 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">Chromium 多媒体（二）</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-06-23 13:11:42
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium/" title="Chromium">
+                    <b>#</b> Chromium
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                    <b>#</b> Chromium 多媒体
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章接着上一篇继续分析 ChunkDemuxer 相关的内容。</p>
+<h1 id="MediaSource-addSourceBuffer"><a href="#MediaSource-addSourceBuffer" class="headerlink" title="MediaSource::addSourceBuffer"></a>MediaSource::addSourceBuffer</h1><p>先看 MediaSource::addSourceBuffer 的实现。</p>
+<p>MediaSource::addSourceBuffer 调用 MediaSource::AddSourceBuffer_Locked</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">SourceBuffer* <span class="title">MediaSource::addSourceBuffer</span><span class="params">(<span class="type">const</span> String&amp; type,</span></span></span><br><span class="line"><span class="params"><span class="function">                                           ExceptionState&amp; exception_state)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; this=&quot;</span> &lt;&lt; <span class="keyword">this</span> &lt;&lt; <span class="string">&quot; type=&quot;</span> &lt;&lt; type;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Do remainder of steps only if attachment is usable and underlying demuxer</span></span><br><span class="line">  <span class="comment">// is protected from destruction (applicable especially for MSE-in-Worker</span></span><br><span class="line">  <span class="comment">// case).</span></span><br><span class="line">  SourceBuffer* source_buffer = <span class="literal">nullptr</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// Note, here we must be open, therefore we must have an attachment.</span></span><br><span class="line">  <span class="keyword">if</span> (!<span class="built_in">RunUnlessElementGoneOrClosingUs</span>(WTF::<span class="built_in">Bind</span>(</span><br><span class="line">          &amp;MediaSource::AddSourceBuffer_Locked, <span class="built_in">WrapPersistent</span>(<span class="keyword">this</span>), type,</span><br><span class="line">          <span class="literal">nullptr</span> <span class="comment">/* audio_config */</span>, <span class="literal">nullptr</span> <span class="comment">/* video_config */</span>,</span><br><span class="line">          WTF::<span class="built_in">Unretained</span>(&amp;exception_state),</span><br><span class="line">          WTF::<span class="built_in">Unretained</span>(&amp;source_buffer)))) &#123;</span><br><span class="line">    <span class="comment">// TODO(https://crbug.com/878133): Determine in specification what the</span></span><br><span class="line">    <span class="comment">// specific, app-visible, exception should be for this case.</span></span><br><span class="line">    <span class="built_in">LogAndThrowDOMException</span>(exception_state,</span><br><span class="line">                            DOMExceptionCode::kInvalidStateError,</span><br><span class="line">                            <span class="string">&quot;Worker MediaSource attachment is closing&quot;</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> source_buffer;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>MediaSource::AddSourceBuffer_Locked 内部先通过 MediaSource::CreateWebSourceBuffer 创建 WebSourceBuffer 的对象，然后用该对象创建 SourceBuffer 的对象</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MediaSource::AddSourceBuffer_Locked</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> String&amp; type,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;media::AudioDecoderConfig&gt; audio_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;media::VideoDecoderConfig&gt; video_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    ExceptionState* exception_state,</span></span></span><br><span class="line"><span class="params"><span class="function">    SourceBuffer** created_buffer,</span></span></span><br><span class="line"><span class="params"><span class="function">    MediaSourceAttachmentSupplement::ExclusiveKey pass_key)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">AssertAttachmentsMutexHeldIfCrossThreadForDebugging</span>();</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 5. Create a new SourceBuffer object and associated resources.</span></span><br><span class="line">  <span class="comment">// TODO(crbug.com/1144908): Plumb the configs through into a new logic in</span></span><br><span class="line">  <span class="comment">// WebSourceBuffer and SourceBufferState such that configs and encoded chunks</span></span><br><span class="line">  <span class="comment">// can be buffered, with appropriate invocations of the</span></span><br><span class="line">  <span class="comment">// InitializationSegmentReceived and AppendError methods.</span></span><br><span class="line">  <span class="function">ContentType <span class="title">content_type</span><span class="params">(type)</span></span>;</span><br><span class="line">  String codecs = content_type.<span class="built_in">Parameter</span>(<span class="string">&quot;codecs&quot;</span>);</span><br><span class="line">  std::unique_ptr&lt;WebSourceBuffer&gt; web_source_buffer = <span class="built_in">CreateWebSourceBuffer</span>(</span><br><span class="line">      content_type.<span class="built_in">GetType</span>(), codecs, std::<span class="built_in">move</span>(audio_config),</span><br><span class="line">      std::<span class="built_in">move</span>(video_config), *exception_state);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (!web_source_buffer) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(exception_state-&gt;<span class="built_in">CodeAs</span>&lt;DOMExceptionCode&gt;() ==</span><br><span class="line">               DOMExceptionCode::kNotSupportedError ||</span><br><span class="line">           exception_state-&gt;<span class="built_in">CodeAs</span>&lt;DOMExceptionCode&gt;() ==</span><br><span class="line">               DOMExceptionCode::kQuotaExceededError);</span><br><span class="line">    <span class="comment">// 2. If type contains a MIME type that is not supported ..., then throw a</span></span><br><span class="line">    <span class="comment">//    NotSupportedError exception and abort these steps.</span></span><br><span class="line">    <span class="comment">// 3. If the user agent can&#x27;t handle any more SourceBuffer objects then</span></span><br><span class="line">    <span class="comment">//    throw a QuotaExceededError exception and abort these steps</span></span><br><span class="line">    *created_buffer = <span class="literal">nullptr</span>;</span><br><span class="line">    <span class="keyword">return</span>;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="type">bool</span> generate_timestamps_flag =</span><br><span class="line">      web_source_buffer-&gt;<span class="built_in">GetGenerateTimestampsFlag</span>();</span><br><span class="line"></span><br><span class="line">  <span class="keyword">auto</span>* buffer = <span class="built_in">MakeGarbageCollected</span>&lt;SourceBuffer&gt;(</span><br><span class="line">      std::<span class="built_in">move</span>(web_source_buffer), <span class="keyword">this</span>, async_event_queue_.<span class="built_in">Get</span>());</span><br><span class="line">  <span class="comment">// 8. Add the new object to sourceBuffers and queue a simple task to fire a</span></span><br><span class="line">  <span class="comment">//    simple event named addsourcebuffer at sourceBuffers.</span></span><br><span class="line">  source_buffers_-&gt;<span class="built_in">Add</span>(buffer);</span><br><span class="line">  <span class="comment">//source_buffers_ 就是 SourceBufferList</span></span><br><span class="line"></span><br><span class="line">  <span class="comment">// Steps 6 and 7 (Set the SourceBuffer&#x27;s mode attribute based on the byte</span></span><br><span class="line">  <span class="comment">// stream format&#x27;s generate timestamps flag). We do this after adding to</span></span><br><span class="line">  <span class="comment">// sourceBuffers (step 8) to enable direct reuse of the SetMode_Locked() logic</span></span><br><span class="line">  <span class="comment">// here, which depends on |buffer| being in |source_buffers_| in our</span></span><br><span class="line">  <span class="comment">// implementation.</span></span><br><span class="line">  <span class="keyword">if</span> (generate_timestamps_flag) &#123;</span><br><span class="line">    buffer-&gt;<span class="built_in">SetMode_Locked</span>(SourceBuffer::<span class="built_in">SequenceKeyword</span>(), exception_state,</span><br><span class="line">                           pass_key);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    buffer-&gt;<span class="built_in">SetMode_Locked</span>(SourceBuffer::<span class="built_in">SegmentsKeyword</span>(), exception_state,</span><br><span class="line">                           pass_key);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// 9. Return the new object to the caller.</span></span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">3</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; this=&quot;</span> &lt;&lt; <span class="keyword">this</span> &lt;&lt; <span class="string">&quot; type=&quot;</span> &lt;&lt; type &lt;&lt; <span class="string">&quot; -&gt; &quot;</span></span><br><span class="line">           &lt;&lt; buffer;</span><br><span class="line">  *created_buffer = buffer;</span><br><span class="line">  <span class="keyword">return</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="MediaSource-CreateWebSourceBuffer"><a href="#MediaSource-CreateWebSourceBuffer" class="headerlink" title="MediaSource::CreateWebSourceBuffer"></a>MediaSource::CreateWebSourceBuffer</h2><p>CreateWebSourceBuffer 函数通过 <code>web_media_source_</code> 来进行 AddSourceBuffer，<code>web_media_source_</code> 是 WebMediaSourceImpl 类型的对象，是在 WebMediaPlayerImpl::OnDemuxerOpened 中创建的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;WebSourceBuffer&gt; <span class="title">MediaSource::CreateWebSourceBuffer</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> String&amp; type,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> String&amp; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;media::AudioDecoderConfig&gt; audio_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;media::VideoDecoderConfig&gt; video_config,</span></span></span><br><span class="line"><span class="params"><span class="function">    ExceptionState&amp; exception_state)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">AssertAttachmentsMutexHeldIfCrossThreadForDebugging</span>();</span><br><span class="line"></span><br><span class="line">  std::unique_ptr&lt;WebSourceBuffer&gt; web_source_buffer;</span><br><span class="line">  WebMediaSource::AddStatus add_status;</span><br><span class="line">  <span class="keyword">if</span> (audio_config) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(!video_config);</span><br><span class="line">    <span class="built_in">DCHECK</span>(type.<span class="built_in">IsNull</span>() &amp;&amp; codecs.<span class="built_in">IsNull</span>());</span><br><span class="line">    web_source_buffer = web_media_source_-&gt;<span class="built_in">AddSourceBuffer</span>(</span><br><span class="line">        std::<span class="built_in">move</span>(audio_config), add_status <span class="comment">/* out */</span>);</span><br><span class="line">    <span class="built_in">DCHECK_NE</span>(add_status, WebMediaSource::kAddStatusNotSupported);</span><br><span class="line">  &#125; <span class="keyword">else</span> <span class="keyword">if</span> (video_config) &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(type.<span class="built_in">IsNull</span>() &amp;&amp; codecs.<span class="built_in">IsNull</span>());</span><br><span class="line">    web_source_buffer = web_media_source_-&gt;<span class="built_in">AddSourceBuffer</span>(</span><br><span class="line">        std::<span class="built_in">move</span>(video_config), add_status <span class="comment">/* out */</span>);</span><br><span class="line">    <span class="built_in">DCHECK_NE</span>(add_status, WebMediaSource::kAddStatusNotSupported);</span><br><span class="line">  &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">    <span class="built_in">DCHECK</span>(!type.<span class="built_in">IsNull</span>());</span><br><span class="line">    web_source_buffer =</span><br><span class="line">        web_media_source_-&gt;<span class="built_in">AddSourceBuffer</span>(type, codecs, add_status <span class="comment">/* out */</span>);</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">switch</span> (add_status) &#123;</span><br><span class="line">    <span class="keyword">case</span> WebMediaSource::kAddStatusOk:</span><br><span class="line">      <span class="built_in">DCHECK</span>(web_source_buffer);</span><br><span class="line">      <span class="keyword">return</span> web_source_buffer;</span><br><span class="line">...</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="built_in">NOTREACHED</span>();</span><br><span class="line">  <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="WebMediaSourceImpl-AddSourceBuffer"><a href="#WebMediaSourceImpl-AddSourceBuffer" class="headerlink" title="WebMediaSourceImpl::AddSourceBuffer"></a>WebMediaSourceImpl::AddSourceBuffer</h3><p>WebMediaSourceImpl::AddSourceBuffer 会在 ChunkDemuxer 内部创建一个 SourceBufferState，然后返回一个标识 id，用该 id 来创建 WebSourceBufferImpl</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;WebSourceBuffer&gt; <span class="title">WebMediaSourceImpl::AddSourceBuffer</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebString&amp; content_type,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> WebString&amp; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    WebMediaSource::AddStatus&amp; out_status <span class="comment">/* out */</span>)</span> </span>&#123;</span><br><span class="line">  std::string id = base::<span class="built_in">GenerateGUID</span>();</span><br><span class="line"></span><br><span class="line">  out_status = <span class="built_in">static_cast</span>&lt;WebMediaSource::AddStatus&gt;(</span><br><span class="line">      demuxer_-&gt;<span class="built_in">AddId</span>(id, content_type.<span class="built_in">Utf8</span>(), codecs.<span class="built_in">Utf8</span>()));</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (out_status == WebMediaSource::kAddStatusOk)</span><br><span class="line">    <span class="keyword">return</span> std::<span class="built_in">make_unique</span>&lt;WebSourceBufferImpl&gt;(id, demuxer_);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="literal">nullptr</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">ChunkDemuxer::Status <span class="title">ChunkDemuxer::AddId</span><span class="params">(<span class="type">const</span> std::string&amp; id,</span></span></span><br><span class="line"><span class="params"><span class="function">                                         <span class="type">const</span> std::string&amp; content_type,</span></span></span><br><span class="line"><span class="params"><span class="function">                                         <span class="type">const</span> std::string&amp; codecs)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; id=&quot;</span> &lt;&lt; id &lt;&lt; <span class="string">&quot; content_type=&quot;</span> &lt;&lt; content_type</span><br><span class="line">           &lt;&lt; <span class="string">&quot; codecs=&quot;</span> &lt;&lt; codecs;</span><br><span class="line">  <span class="function">base::AutoLock <span class="title">auto_lock</span><span class="params">(lock_)</span></span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> ((state_ != WAITING_FOR_INIT &amp;&amp; state_ != INITIALIZING) || <span class="built_in">IsValidId</span>(id))</span><br><span class="line">    <span class="keyword">return</span> kReachedIdLimit;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(wolenetz): Change to DCHECK once less verification in release build is</span></span><br><span class="line">  <span class="comment">// needed. See https://crbug.com/786975.</span></span><br><span class="line">  <span class="built_in">CHECK</span>(init_cb_);</span><br><span class="line"></span><br><span class="line">  <span class="function">std::unique_ptr&lt;media::StreamParser&gt; <span class="title">stream_parser</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">      CreateParserForTypeAndCodecs(content_type, codecs, media_log_))</span></span>;</span><br><span class="line">  <span class="keyword">if</span> (!stream_parser) &#123;</span><br><span class="line">    <span class="built_in">DVLOG</span>(<span class="number">1</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; failed: unsupported content_type=&quot;</span> &lt;&lt; content_type</span><br><span class="line">             &lt;&lt; <span class="string">&quot; codecs=&quot;</span> &lt;&lt; codecs;</span><br><span class="line">    <span class="keyword">return</span> ChunkDemuxer::kNotSupported;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="built_in">AddIdInternal</span>(id, std::<span class="built_in">move</span>(stream_parser),</span><br><span class="line">                       <span class="built_in">ExpectedCodecs</span>(content_type, codecs));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="创建-StreamParser"><a href="#创建-StreamParser" class="headerlink" title="创建 StreamParser"></a>创建 StreamParser</h4><p>ChunkDemuxer::AddId 先创建 StreamParser</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;media::StreamParser&gt; <span class="title">CreateParserForTypeAndCodecs</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; content_type,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    media::MediaLog* media_log)</span> </span>&#123;</span><br><span class="line">  std::vector&lt;std::string&gt; parsed_codec_ids;</span><br><span class="line">  media::<span class="built_in">SplitCodecs</span>(codecs, &amp;parsed_codec_ids);</span><br><span class="line">  <span class="keyword">return</span> media::StreamParserFactory::<span class="built_in">Create</span>(content_type, parsed_codec_ids,</span><br><span class="line">                                            media_log);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">std::unique_ptr&lt;StreamParser&gt; <span class="title">StreamParserFactory::Create</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; type,</span></span></span><br><span class="line"><span class="params"><span class="function">    base::span&lt;<span class="type">const</span> std::string&gt; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    MediaLog* media_log)</span> </span>&#123;</span><br><span class="line">  std::unique_ptr&lt;StreamParser&gt; stream_parser;</span><br><span class="line">  ParserFactoryFunction factory_function;</span><br><span class="line">  std::vector&lt;CodecInfo::HistogramTag&gt; audio_codecs;</span><br><span class="line">  std::vector&lt;CodecInfo::HistogramTag&gt; video_codecs;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(crbug.com/535738): Relax the requirement for specific codecs (allow</span></span><br><span class="line">  <span class="comment">// MayBeSupported here), and relocate the logging to the parser configuration</span></span><br><span class="line">  <span class="comment">// callback. This creation method is called in AddId(), and also in</span></span><br><span class="line">  <span class="comment">// CanChangeType() and ChangeType(), so potentially overlogs codecs leading to</span></span><br><span class="line">  <span class="comment">// disproportion versus actually parsed codec configurations from</span></span><br><span class="line">  <span class="comment">// initialization segments. For this work and also recording when implicit</span></span><br><span class="line">  <span class="comment">// codec switching occurs (without explicit ChangeType), see</span></span><br><span class="line">  <span class="comment">// https://crbug.com/535738.</span></span><br><span class="line">  SupportsType supportsType = <span class="built_in">CheckTypeAndCodecs</span>(</span><br><span class="line">      type, codecs, media_log, &amp;factory_function, &amp;audio_codecs, &amp;video_codecs);</span><br><span class="line"></span><br><span class="line">  <span class="keyword">if</span> (IsSupported == supportsType) &#123;</span><br><span class="line">...</span><br><span class="line">    stream_parser.<span class="built_in">reset</span>(<span class="built_in">factory_function</span>(codecs, media_log));</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> stream_parser;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>CheckTypeAndCodecs 会检查输入的 type 和 codecs 信息，然后返回一个函数指针用来创建 StreamParser</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> SupportsType <span class="title">CheckTypeAndCodecs</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; type,</span></span></span><br><span class="line"><span class="params"><span class="function">    base::span&lt;<span class="type">const</span> std::string&gt; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    MediaLog* media_log,</span></span></span><br><span class="line"><span class="params"><span class="function">    ParserFactoryFunction* factory_function,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::vector&lt;CodecInfo::HistogramTag&gt;* audio_codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::vector&lt;CodecInfo::HistogramTag&gt;* video_codecs)</span> </span>&#123;</span><br><span class="line">  <span class="comment">// Search for the SupportedTypeInfo for |type|.</span></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; type_info : kSupportedTypeInfo) &#123;</span><br><span class="line">    <span class="keyword">if</span> (type == type_info.type) &#123;</span><br><span class="line">      <span class="keyword">if</span> (codecs.<span class="built_in">empty</span>()) &#123;</span><br><span class="line">...</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="comment">// Make sure all the codecs specified in |codecs| are</span></span><br><span class="line">      <span class="comment">// in the supported type info.</span></span><br><span class="line">      <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; codec_id : codecs) &#123;</span><br><span class="line">        <span class="comment">// Search the type info for a match.</span></span><br><span class="line">        <span class="type">bool</span> found_codec = <span class="literal">false</span>;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; type_info.codecs[i]; ++i) &#123;</span><br><span class="line">          <span class="comment">// Only check a codec pattern if there is one to check. Some types,</span></span><br><span class="line">          <span class="comment">// like audio/mpeg and audio/aac require there be no codecs parameter,</span></span><br><span class="line">          <span class="comment">// and instead have implicit codec. If a codec is provided for such a</span></span><br><span class="line">          <span class="comment">// type then it is not supported by MSE. We don&#x27;t check any other</span></span><br><span class="line">          <span class="comment">// potential matches because none should be configured.</span></span><br><span class="line">          <span class="keyword">if</span> (!type_info.codecs[i]-&gt;pattern) &#123;</span><br><span class="line">            <span class="built_in">DCHECK</span>(i == <span class="number">0</span> &amp;&amp; !type_info.codecs[<span class="number">1</span>])</span><br><span class="line">                &lt;&lt; <span class="string">&quot;For a type with implicit codec, then only one codec must &quot;</span></span><br><span class="line">                   <span class="string">&quot;be configured&quot;</span>;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">          &#125;</span><br><span class="line"></span><br><span class="line">          <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, type_info.codecs[i]-&gt;pattern) &amp;&amp;</span><br><span class="line">              (!type_info.codecs[i]-&gt;validator ||</span><br><span class="line">               type_info.codecs[i]-&gt;<span class="built_in">validator</span>(codec_id, media_log))) &#123;</span><br><span class="line">            found_codec =</span><br><span class="line">                <span class="built_in">VerifyCodec</span>(type_info.codecs[i], audio_codecs, video_codecs);</span><br><span class="line">            <span class="keyword">break</span>;  <span class="comment">// Since only 1 pattern will match, no need to check others.</span></span><br><span class="line">          &#125;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!found_codec) &#123;</span><br><span class="line">          <span class="built_in">MEDIA_LOG</span>(DEBUG, media_log)</span><br><span class="line">              &lt;&lt; <span class="string">&quot;Codec &#x27;&quot;</span> &lt;&lt; codec_id &lt;&lt; <span class="string">&quot;&#x27; is not supported for &#x27;&quot;</span> &lt;&lt; type</span><br><span class="line">              &lt;&lt; <span class="string">&quot;&#x27;&quot;</span>;</span><br><span class="line">          <span class="comment">// Though the major/minor type is supported, a codecs parameter value</span></span><br><span class="line">          <span class="comment">// was found to not be supported.</span></span><br><span class="line">          <span class="keyword">return</span> IsNotSupported;</span><br><span class="line">        &#125;</span><br><span class="line">      &#125;</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (factory_function)</span><br><span class="line">        *factory_function = type_info.factory_function;</span><br><span class="line"></span><br><span class="line">      <span class="comment">// There was a non-empty |codecs| for this supported |type|, and all of</span></span><br><span class="line">      <span class="comment">// |codecs| are supported for this |type|.</span></span><br><span class="line">      <span class="keyword">return</span> IsSupported;</span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// |type| didn&#x27;t match any of the supported types.</span></span><br><span class="line">  <span class="keyword">return</span> IsNotSupported;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>kSupportedTypeInfo 数组的每一项对应了一个 codec 以及相应的函数</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> SupportedTypeInfo kSupportedTypeInfo[] = &#123;</span><br><span class="line">    &#123;<span class="string">&quot;video/webm&quot;</span>, &amp;BuildWebMParser, kVideoWebMCodecs&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;audio/webm&quot;</span>, &amp;BuildWebMParser, kAudioWebMCodecs&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;audio/mpeg&quot;</span>, &amp;BuildMP3Parser, kAudioMP3Codecs&#125;,</span><br><span class="line">    <span class="comment">// <span class="doctag">NOTE:</span> Including proprietary MP4 codecs is gated by build flags above.</span></span><br><span class="line">    &#123;<span class="string">&quot;video/mp4&quot;</span>, &amp;BuildMP4Parser, kVideoMP4Codecs&#125;,</span><br><span class="line">    &#123;<span class="string">&quot;audio/mp4&quot;</span>, &amp;BuildMP4Parser, kAudioMP4Codecs&#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(USE_PROPRIETARY_CODECS)</span></span><br><span class="line">    &#123;<span class="string">&quot;audio/aac&quot;</span>, &amp;BuildADTSParser, kAudioADTSCodecs&#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_MSE_MPEG2TS_STREAM_PARSER)</span></span><br><span class="line">    &#123;<span class="string">&quot;video/mp2t&quot;</span>, &amp;BuildMP2TParser, kVideoMP2TCodecs&#125;,</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>比如如果是 MP4 格式，那么就会使用 BuildMP4Parser 来创建 StreamParser</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> StreamParser* <span class="title">BuildMP4Parser</span><span class="params">(base::span&lt;<span class="type">const</span> std::string&gt; codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">                                    MediaLog* media_log)</span> </span>&#123;</span><br><span class="line">  std::set&lt;<span class="type">int</span>&gt; audio_object_types;</span><br><span class="line">  <span class="type">bool</span> has_sbr = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">  <span class="comment">// The draft version 0.0.4 FLAC-in-ISO spec</span></span><br><span class="line">  <span class="comment">// (https://github.com/xiph/flac/blob/master/doc/isoflac.txt) does not define</span></span><br><span class="line">  <span class="comment">// any encapsulation using MP4AudioSampleEntry with objectTypeIndication.</span></span><br><span class="line">  <span class="comment">// Rather, it uses a FLAC-specific &quot;fLaC&quot; codingname in the sample entry along</span></span><br><span class="line">  <span class="comment">// with a &quot;dfLa&quot; FLACSpecificBox. We still need to tell our parser to</span></span><br><span class="line">  <span class="comment">// conditionally expect a FLAC stream, hence |has_flac|.</span></span><br><span class="line">  <span class="type">bool</span> has_flac = <span class="literal">false</span>;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; codec_id : codecs) &#123;</span><br><span class="line">    <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kMPEG4FLACCodecInfo.pattern)) &#123;</span><br><span class="line">      has_flac = <span class="literal">true</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(USE_PROPRIETARY_CODECS)</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kMPEG2AACLCCodecInfo.pattern)) &#123;</span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kISO_13818_7_AAC_LC);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kMPEG4AACCodecInfo.pattern)) &#123;</span><br><span class="line">      <span class="type">int</span> audio_object_type = <span class="built_in">GetMP4AudioObjectType</span>(codec_id, media_log);</span><br><span class="line">      <span class="built_in">DCHECK_GT</span>(audio_object_type, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kISO_14496_3);</span><br><span class="line"></span><br><span class="line">      <span class="keyword">if</span> (audio_object_type == kAACSBRObjectType ||</span><br><span class="line">          audio_object_type == kAACPSObjectType) &#123;</span><br><span class="line">        has_sbr = <span class="literal">true</span>;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line">      &#125;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_PLATFORM_AC3_EAC3_AUDIO)</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kAC3CodecInfo1.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kAC3CodecInfo2.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kAC3CodecInfo3.pattern)) &#123;</span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kAC3);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kEAC3CodecInfo1.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kEAC3CodecInfo2.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kEAC3CodecInfo3.pattern)) &#123;</span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kEAC3);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_PLATFORM_AC3_EAC3_AUDIO)</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">if</span> BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kDTSCodecInfo1.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kDTSCodecInfo2.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kDTSCodecInfo3.pattern)) &#123;</span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kDTS);</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (base::<span class="built_in">MatchPattern</span>(codec_id, kDTSXCodecInfo1.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kDTSXCodecInfo2.pattern) ||</span><br><span class="line">               base::<span class="built_in">MatchPattern</span>(codec_id, kDTSXCodecInfo3.pattern)) &#123;</span><br><span class="line">      audio_object_types.<span class="built_in">insert</span>(mp4::kDTSX);</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(ENABLE_PLATFORM_DTS_AUDIO)</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">endif</span>  <span class="comment">// BUILDFLAG(USE_PROPRIETARY_CODECS)</span></span></span><br><span class="line">    &#125;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  <span class="keyword">return</span> <span class="keyword">new</span> mp4::<span class="built_in">MP4StreamParser</span>(audio_object_types, has_sbr, has_flac);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="ChunkDemuxer-AddIdInternal"><a href="#ChunkDemuxer-AddIdInternal" class="headerlink" title="ChunkDemuxer::AddIdInternal"></a>ChunkDemuxer::AddIdInternal</h4><p>ChunkDemuxer::AddId 中创建完 StreamParser 后会调用 AddIdInternal 函数</p>
+<p>AddIdInternal 内部先创建 FrameProcessor，然后用 FrameProcessor 和 StreamParser 去创建 SourceBufferState</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line"><span class="function">ChunkDemuxer::Status <span class="title">ChunkDemuxer::AddIdInternal</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; id,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::unique_ptr&lt;media::StreamParser&gt; stream_parser,</span></span></span><br><span class="line"><span class="params"><span class="function">    std::string expected_codecs)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DVLOG</span>(<span class="number">2</span>) &lt;&lt; __func__ &lt;&lt; <span class="string">&quot; id=&quot;</span> &lt;&lt; id</span><br><span class="line">           &lt;&lt; <span class="string">&quot; expected_codecs=&quot;</span> &lt;&lt; expected_codecs;</span><br><span class="line">  lock_.<span class="built_in">AssertAcquired</span>();</span><br><span class="line"></span><br><span class="line">  std::unique_ptr&lt;FrameProcessor&gt; frame_processor =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;FrameProcessor&gt;(</span><br><span class="line">          base::<span class="built_in">BindRepeating</span>(&amp;ChunkDemuxer::IncreaseDurationIfNecessary,</span><br><span class="line">                              base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">          media_log_);</span><br><span class="line"></span><br><span class="line">  std::unique_ptr&lt;SourceBufferState&gt; source_state =</span><br><span class="line">      std::<span class="built_in">make_unique</span>&lt;SourceBufferState&gt;(</span><br><span class="line">          std::<span class="built_in">move</span>(stream_parser), std::<span class="built_in">move</span>(frame_processor),</span><br><span class="line">          base::<span class="built_in">BindRepeating</span>(&amp;ChunkDemuxer::CreateDemuxerStream,</span><br><span class="line">                              base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>), id),</span><br><span class="line">          media_log_);</span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(wolenetz): Change these to DCHECKs or switch to returning</span></span><br><span class="line">  <span class="comment">// kReachedIdLimit once less verification in release build is needed. See</span></span><br><span class="line">  <span class="comment">// https://crbug.com/786975.</span></span><br><span class="line">  <span class="built_in">CHECK</span>(pending_source_init_ids_.<span class="built_in">find</span>(id) == pending_source_init_ids_.<span class="built_in">end</span>());</span><br><span class="line">  <span class="keyword">auto</span> insert_result = pending_source_init_ids_.<span class="built_in">insert</span>(id);</span><br><span class="line">  <span class="built_in">CHECK</span>(insert_result.first != pending_source_init_ids_.<span class="built_in">end</span>());</span><br><span class="line">  <span class="built_in">CHECK</span>(*insert_result.first == id);</span><br><span class="line">  <span class="built_in">CHECK</span>(insert_result.second);  <span class="comment">// Only true if insertion succeeded.</span></span><br><span class="line"></span><br><span class="line">  source_state-&gt;<span class="built_in">Init</span>(base::<span class="built_in">BindOnce</span>(&amp;ChunkDemuxer::OnSourceInitDone,</span><br><span class="line">                                    base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>), id),</span><br><span class="line">                     expected_codecs, encrypted_media_init_data_cb_,</span><br><span class="line">                     base::<span class="built_in">NullCallback</span>());</span><br><span class="line"></span><br><span class="line">  <span class="comment">// TODO(wolenetz): Change to DCHECKs once less verification in release build</span></span><br><span class="line">  <span class="comment">// is needed. See https://crbug.com/786975.</span></span><br><span class="line">  <span class="built_in">CHECK</span>(!<span class="built_in">IsValidId</span>(id));</span><br><span class="line">  source_state_map_[id] = std::<span class="built_in">move</span>(source_state);</span><br><span class="line">  <span class="built_in">CHECK</span>(<span class="built_in">IsValidId</span>(id));</span><br><span class="line">  <span class="keyword">return</span> kOk;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h5 id="SourceBufferState-Init"><a href="#SourceBufferState-Init" class="headerlink" title="SourceBufferState::Init"></a>SourceBufferState::Init</h5><p>调用 SourceBufferState::Init 进行初始化。<code>init_cb_</code> 将在 SourceBufferState::OnSourceInitDone 中触发，而 SourceBufferState::OnSourceInitDone 又被作为 StreamParser 的回调</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SourceBufferState::Init</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    StreamParser::InitCB init_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> std::string&amp; expected_codecs,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> StreamParser::EncryptedMediaInitDataCB&amp; encrypted_media_init_data_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    NewTextTrackCB new_text_track_cb)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK_EQ</span>(state_, UNINITIALIZED);</span><br><span class="line">  init_cb_ = std::<span class="built_in">move</span>(init_cb);</span><br><span class="line">  encrypted_media_init_data_cb_ = encrypted_media_init_data_cb;</span><br><span class="line">  new_text_track_cb_ = std::<span class="built_in">move</span>(new_text_track_cb); <span class="comment">// null</span></span><br><span class="line">  state_ = PENDING_PARSER_CONFIG;</span><br><span class="line">  <span class="built_in">InitializeParser</span>(expected_codecs);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">SourceBufferState::InitializeParser</span><span class="params">(<span class="type">const</span> std::string&amp; expected_codecs)</span> </span>&#123;</span><br><span class="line">  expected_audio_codecs_.<span class="built_in">clear</span>();</span><br><span class="line">  expected_video_codecs_.<span class="built_in">clear</span>();</span><br><span class="line"></span><br><span class="line">  std::vector&lt;std::string&gt; expected_codecs_parsed;</span><br><span class="line">  <span class="built_in">SplitCodecs</span>(expected_codecs, &amp;expected_codecs_parsed);</span><br><span class="line"></span><br><span class="line">  std::vector&lt;AudioCodec&gt; expected_acodecs;</span><br><span class="line">  std::vector&lt;VideoCodec&gt; expected_vcodecs;</span><br><span class="line">  <span class="keyword">for</span> (<span class="type">const</span> <span class="keyword">auto</span>&amp; codec_id : expected_codecs_parsed) &#123;</span><br><span class="line">    AudioCodec acodec = <span class="built_in">StringToAudioCodec</span>(codec_id);</span><br><span class="line">    <span class="keyword">if</span> (acodec != AudioCodec::kUnknown) &#123;</span><br><span class="line">      expected_audio_codecs_.<span class="built_in">push_back</span>(acodec);</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    VideoCodec vcodec = <span class="built_in">StringToVideoCodec</span>(codec_id);</span><br><span class="line">    <span class="keyword">if</span> (vcodec != VideoCodec::kUnknown) &#123;</span><br><span class="line">      expected_video_codecs_.<span class="built_in">push_back</span>(vcodec);</span><br><span class="line">      <span class="keyword">continue</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="built_in">MEDIA_LOG</span>(INFO, media_log_) &lt;&lt; <span class="string">&quot;Unrecognized media codec: &quot;</span> &lt;&lt; codec_id;</span><br><span class="line">  &#125;</span><br><span class="line"></span><br><span class="line">  stream_parser_-&gt;<span class="built_in">Init</span>(</span><br><span class="line">      base::<span class="built_in">BindOnce</span>(&amp;SourceBufferState::OnSourceInitDone,</span><br><span class="line">                     base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;SourceBufferState::OnNewConfigs,</span><br><span class="line">                          base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>), expected_codecs),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;SourceBufferState::OnNewBuffers,</span><br><span class="line">                          base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">      !new_text_track_cb_,</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;SourceBufferState::OnEncryptedMediaInitData,</span><br><span class="line">                          base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;SourceBufferState::OnNewMediaSegment,</span><br><span class="line">                          base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">      base::<span class="built_in">BindRepeating</span>(&amp;SourceBufferState::OnEndOfMediaSegment,</span><br><span class="line">                          base::<span class="built_in">Unretained</span>(<span class="keyword">this</span>)),</span><br><span class="line">      media_log_);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>SourceBufferState::InitializeParser 中会调用 MP4StreamParser::Init，并且将 SourceBufferState 的函数设置为 MP4StreamParser 的回调，目前重点关注 SourceBufferState::OnSourceInitDone、SourceBufferState::OnNewBuffers、SourceBufferState::OnEncryptedMediaInitData</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">void</span> <span class="title">MP4StreamParser::Init</span><span class="params">(</span></span></span><br><span class="line"><span class="params"><span class="function">    InitCB init_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> NewConfigCB&amp; config_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> NewBuffersCB&amp; new_buffers_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">bool</span> <span class="comment">/* ignore_text_tracks */</span>,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> EncryptedMediaInitDataCB&amp; encrypted_media_init_data_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> NewMediaSegmentCB&amp; new_segment_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">const</span> EndMediaSegmentCB&amp; end_of_segment_cb,</span></span></span><br><span class="line"><span class="params"><span class="function">    MediaLog* media_log)</span> </span>&#123;</span><br><span class="line">  <span class="built_in">DCHECK_EQ</span>(state_, kWaitingForInit);</span><br><span class="line">  <span class="built_in">DCHECK</span>(!init_cb_);</span><br><span class="line">  <span class="built_in">DCHECK</span>(init_cb);</span><br><span class="line">  <span class="built_in">DCHECK</span>(config_cb);</span><br><span class="line">  <span class="built_in">DCHECK</span>(new_buffers_cb);</span><br><span class="line">  <span class="built_in">DCHECK</span>(encrypted_media_init_data_cb);</span><br><span class="line">  <span class="built_in">DCHECK</span>(new_segment_cb);</span><br><span class="line">  <span class="built_in">DCHECK</span>(end_of_segment_cb);</span><br><span class="line"></span><br><span class="line">  <span class="built_in">ChangeState</span>(kParsingBoxes);</span><br><span class="line">  init_cb_ = std::<span class="built_in">move</span>(init_cb);</span><br><span class="line">  config_cb_ = config_cb;</span><br><span class="line">  new_buffers_cb_ = new_buffers_cb;</span><br><span class="line">  encrypted_media_init_data_cb_ = encrypted_media_init_data_cb;</span><br><span class="line">  new_segment_cb_ = new_segment_cb;</span><br><span class="line">  end_of_segment_cb_ = end_of_segment_cb;</span><br><span class="line">  media_log_ = media_log;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>init_cb_</code> 是在 MP4StreamParser::ParseMoov 中被调用的，也就是上层往 SourceBuffer 中 appendBuffer 后进行 Parse 之后可能会调用，后面会分析 appendBuffer 流程。</p>
+<p><code>new_buffers_cb_</code> 是在 MP4StreamParser::Parse 中调用，该函数就是 SourceBufferState::OnNewBuffers，通过该函数往 FrameProcessor 中送数据，会面也会分析该过程。</p>
+<p><code>encrypted_media_init_data_cb_</code> 也是在 MP4StreamParser::ParseMoov 中被调用，因为加密信息就在 moov 中的 stsd 中的 entry 里面。</p>
+<p>这篇文章先分析到这里，下篇文章分析 SourceBuffer::appendBuffer 相关过程。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/06/23/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%B8%80%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-06-23 13:11:42
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium/" title="Chromium">
+                        <b>#</b> Chromium
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93/" title="Chromium 多媒体">
+                        <b>#</b> Chromium 多媒体
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/06/27/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%B8%89%EF%BC%89/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#MediaSource-addSourceBuffer"><span class="toc-text">MediaSource::addSourceBuffer</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#MediaSource-CreateWebSourceBuffer"><span class="toc-text">MediaSource::CreateWebSourceBuffer</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#WebMediaSourceImpl-AddSourceBuffer"><span class="toc-text">WebMediaSourceImpl::AddSourceBuffer</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%9B%E5%BB%BA-StreamParser"><span class="toc-text">创建 StreamParser</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#ChunkDemuxer-AddIdInternal"><span class="toc-text">ChunkDemuxer::AddIdInternal</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#SourceBufferState-Init"><span class="toc-text">SourceBufferState::Init</span></a></li></ol></li></ol></li></ol></li></ol></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
