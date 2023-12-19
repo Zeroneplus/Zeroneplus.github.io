@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg mov demuxer 如何读取 extradata 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg mov demuxer 如何读取 extradata</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-09-19 21:50:57
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/mp4/" title="mp4">
+                    <b>#</b> mp4
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章记录一下 ffmpeg mov demuxer 读取 extradata，也就是读取 sps&#x2F;pps 的过程。</p>
+<p>sps&#x2F;pps 存储在 stsd box 中，mov_read_stsd 函数如下，根据 entries 可以确定 stsd 中有多少个条目，分别读取每一个条目</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mov_read_stsd</span><span class="params">(MOVContext *c, AVIOContext *pb, MOVAtom atom)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVStream *st;</span><br><span class="line">    MOVStreamContext *sc;</span><br><span class="line">    <span class="type">int</span> ret, entries;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (c-&gt;fc-&gt;nb_streams &lt; <span class="number">1</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    st = c-&gt;fc-&gt;streams[c-&gt;fc-&gt;nb_streams - <span class="number">1</span>];</span><br><span class="line">    sc = st-&gt;priv_data;</span><br><span class="line"></span><br><span class="line">    sc-&gt;stsd_version = <span class="built_in">avio_r8</span>(pb);</span><br><span class="line">    <span class="built_in">avio_rb24</span>(pb); <span class="comment">/* flags */</span></span><br><span class="line">    entries = <span class="built_in">avio_rb32</span>(pb);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Each entry contains a size (4 bytes) and format (4 bytes). */</span></span><br><span class="line">    <span class="keyword">if</span> (entries &lt;= <span class="number">0</span> || entries &gt; atom.size / <span class="number">8</span> || entries &gt; <span class="number">1024</span>) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(c-&gt;fc, AV_LOG_ERROR, <span class="string">&quot;invalid STSD entries %d\n&quot;</span>, entries);</span><br><span class="line">        <span class="keyword">return</span> AVERROR_INVALIDDATA;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (sc-&gt;extradata) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(c-&gt;fc, AV_LOG_ERROR,</span><br><span class="line">               <span class="string">&quot;Duplicate stsd found in this track.\n&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> AVERROR_INVALIDDATA;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Prepare space for hosting multiple extradata. */</span></span><br><span class="line">    sc-&gt;extradata = <span class="built_in">av_calloc</span>(entries, <span class="built_in">sizeof</span>(*sc-&gt;extradata));</span><br><span class="line">    <span class="keyword">if</span> (!sc-&gt;extradata)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line"></span><br><span class="line">    sc-&gt;extradata_size = <span class="built_in">av_calloc</span>(entries, <span class="built_in">sizeof</span>(*sc-&gt;extradata_size));</span><br><span class="line">    <span class="keyword">if</span> (!sc-&gt;extradata_size) &#123;</span><br><span class="line">        ret = <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    ret = <span class="built_in">ff_mov_read_stsd_entries</span>(c, pb, entries);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">goto</span> fail;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Restore back the primary extradata. */</span></span><br><span class="line">    <span class="built_in">av_freep</span>(&amp;st-&gt;codecpar-&gt;extradata);</span><br><span class="line">    st-&gt;codecpar-&gt;extradata_size = sc-&gt;extradata_size[<span class="number">0</span>];</span><br><span class="line">    <span class="keyword">if</span> (sc-&gt;extradata_size[<span class="number">0</span>]) &#123;</span><br><span class="line">        st-&gt;codecpar-&gt;extradata = <span class="built_in">av_mallocz</span>(sc-&gt;extradata_size[<span class="number">0</span>] + AV_INPUT_BUFFER_PADDING_SIZE);</span><br><span class="line">        <span class="keyword">if</span> (!st-&gt;codecpar-&gt;extradata)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">        <span class="built_in">memcpy</span>(st-&gt;codecpar-&gt;extradata, sc-&gt;extradata[<span class="number">0</span>], sc-&gt;extradata_size[<span class="number">0</span>]);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">mov_finalize_stsd_codec</span>(c, pb, st, sc);</span><br><span class="line">fail:</span><br><span class="line">    <span class="keyword">if</span> (sc-&gt;extradata) &#123;</span><br><span class="line">        <span class="type">int</span> j;</span><br><span class="line">        <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; sc-&gt;stsd_count; j++)</span><br><span class="line">            <span class="built_in">av_freep</span>(&amp;sc-&gt;extradata[j]);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_freep</span>(&amp;sc-&gt;extradata);</span><br><span class="line">    <span class="built_in">av_freep</span>(&amp;sc-&gt;extradata_size);</span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ff_mov_read_stsd_entries 函数如下，对每个 entries，需要读取 box type（也就是 format）、dref_id（表明当前 entry 使用哪个 data reference），注意下面把 format 赋给了 codec_tag</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_mov_read_stsd_entries</span><span class="params">(MOVContext *c, AVIOContext *pb, <span class="type">int</span> entries)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVStream *st;</span><br><span class="line">    MOVStreamContext *sc;</span><br><span class="line">    <span class="type">int</span> pseudo_stream_id;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_assert0</span> (c-&gt;fc-&gt;nb_streams &gt;= <span class="number">1</span>);</span><br><span class="line">    st = c-&gt;fc-&gt;streams[c-&gt;fc-&gt;nb_streams<span class="number">-1</span>];</span><br><span class="line">    sc = st-&gt;priv_data;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (pseudo_stream_id = <span class="number">0</span>;</span><br><span class="line">         pseudo_stream_id &lt; entries &amp;&amp; !pb-&gt;eof_reached;</span><br><span class="line">         pseudo_stream_id++) &#123;</span><br><span class="line">        <span class="comment">//Parsing Sample description table</span></span><br><span class="line">        <span class="keyword">enum</span> <span class="title class_">AVCodecID</span> id;</span><br><span class="line">        <span class="type">int</span> ret, dref_id = <span class="number">1</span>;</span><br><span class="line">        MOVAtom a = &#123; <span class="built_in">AV_RL32</span>(<span class="string">&quot;stsd&quot;</span>) &#125;;</span><br><span class="line">        <span class="type">int64_t</span> start_pos = <span class="built_in">avio_tell</span>(pb);</span><br><span class="line">        <span class="type">int64_t</span> size    = <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* size */</span></span><br><span class="line">        <span class="type">uint32_t</span> format = <span class="built_in">avio_rl32</span>(pb); <span class="comment">/* data format */</span></span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (size &gt;= <span class="number">16</span>) &#123;</span><br><span class="line">            <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* reserved */</span></span><br><span class="line">            <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* reserved */</span></span><br><span class="line">            dref_id = <span class="built_in">avio_rb16</span>(pb);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (size &lt;= <span class="number">7</span>) &#123;</span><br><span class="line">            <span class="built_in">av_log</span>(c-&gt;fc, AV_LOG_ERROR,</span><br><span class="line">                   <span class="string">&quot;invalid size %&quot;</span>PRId64<span class="string">&quot; in stsd\n&quot;</span>, size);</span><br><span class="line">            <span class="keyword">return</span> AVERROR_INVALIDDATA;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">mov_skip_multiple_stsd</span>(c, pb, st-&gt;codecpar-&gt;codec_tag, format,</span><br><span class="line">                                   size - (<span class="built_in">avio_tell</span>(pb) - start_pos))) &#123;</span><br><span class="line">            sc-&gt;stsd_count++;</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        sc-&gt;pseudo_stream_id = st-&gt;codecpar-&gt;codec_tag ? <span class="number">-1</span> : pseudo_stream_id;</span><br><span class="line">        sc-&gt;dref_id= dref_id;</span><br><span class="line">        sc-&gt;format = format;</span><br><span class="line"></span><br><span class="line">        id = <span class="built_in">mov_codec_id</span>(st, format);</span><br><span class="line"></span><br><span class="line">        <span class="built_in">av_log</span>(c-&gt;fc, AV_LOG_TRACE,</span><br><span class="line">               <span class="string">&quot;size=%&quot;</span>PRId64<span class="string">&quot; 4CC=%s codec_type=%d\n&quot;</span>, size,</span><br><span class="line">               <span class="built_in">av_fourcc2str</span>(format), st-&gt;codecpar-&gt;codec_type);</span><br><span class="line"></span><br><span class="line">        st-&gt;codecpar-&gt;codec_id = id;</span><br><span class="line">        <span class="keyword">if</span> (st-&gt;codecpar-&gt;codec_type==AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">            <span class="built_in">mov_parse_stsd_video</span>(c, pb, st, sc);</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (st-&gt;codecpar-&gt;codec_type==AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">...</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (st-&gt;codecpar-&gt;codec_type==AVMEDIA_TYPE_SUBTITLE)&#123;</span><br><span class="line">...</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">...</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">/* this will read extra atoms at the end (wave, alac, damr, avcC, hvcC, SMI ...) */</span></span><br><span class="line">        a.size = size - (<span class="built_in">avio_tell</span>(pb) - start_pos);</span><br><span class="line">        <span class="keyword">if</span> (a.size &gt; <span class="number">8</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((ret = <span class="built_in">mov_read_default</span>(c, pb, a)) &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (a.size &gt; <span class="number">0</span>)</span><br><span class="line">            <span class="built_in">avio_skip</span>(pb, a.size);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (sc-&gt;extradata &amp;&amp; st-&gt;codecpar-&gt;extradata) &#123;</span><br><span class="line">            <span class="type">int</span> extra_size = st-&gt;codecpar-&gt;extradata_size;</span><br><span class="line"></span><br><span class="line">            <span class="comment">/* Move the current stream extradata to the stream context one. */</span></span><br><span class="line">            sc-&gt;extradata_size[pseudo_stream_id] = extra_size;</span><br><span class="line">            sc-&gt;extradata[pseudo_stream_id] = st-&gt;codecpar-&gt;extradata;</span><br><span class="line">            st-&gt;codecpar-&gt;extradata      = <span class="literal">NULL</span>;</span><br><span class="line">            st-&gt;codecpar-&gt;extradata_size = <span class="number">0</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        sc-&gt;stsd_count++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>先看 mov_parse_stsd_video 函数，这个函数读取 isom 中定义的一些通用的 stsd 信息</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">mov_parse_stsd_video</span><span class="params">(MOVContext *c, AVIOContext *pb,</span></span></span><br><span class="line"><span class="params"><span class="function">                                 AVStream *st, MOVStreamContext *sc)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">uint8_t</span> codec_name[<span class="number">32</span>] = &#123; <span class="number">0</span> &#125;;</span><br><span class="line">    <span class="type">int64_t</span> stsd_start;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> len;</span><br><span class="line">    <span class="type">uint32_t</span> id = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* The first 16 bytes of the video sample description are already</span></span><br><span class="line"><span class="comment">     * read in ff_mov_read_stsd_entries() */</span></span><br><span class="line">    stsd_start = <span class="built_in">avio_tell</span>(pb) - <span class="number">16</span>;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* version */</span></span><br><span class="line">    <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* revision level */</span></span><br><span class="line">    id = <span class="built_in">avio_rl32</span>(pb); <span class="comment">/* vendor */</span></span><br><span class="line">    <span class="built_in">av_dict_set</span>(&amp;st-&gt;metadata, <span class="string">&quot;vendor_id&quot;</span>, <span class="built_in">av_fourcc2str</span>(id), <span class="number">0</span>);</span><br><span class="line">    <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* temporal quality */</span></span><br><span class="line">    <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* spatial quality */</span></span><br><span class="line"></span><br><span class="line">    st-&gt;codecpar-&gt;width  = <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* width */</span></span><br><span class="line">    st-&gt;codecpar-&gt;height = <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* height */</span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* horiz resolution */</span></span><br><span class="line">    <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* vert resolution */</span></span><br><span class="line">    <span class="built_in">avio_rb32</span>(pb); <span class="comment">/* data size, always 0 */</span></span><br><span class="line">    <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* frames per samples */</span></span><br><span class="line"></span><br><span class="line">    len = <span class="built_in">avio_r8</span>(pb); <span class="comment">/* codec name, pascal string */</span></span><br><span class="line">    <span class="keyword">if</span> (len &gt; <span class="number">31</span>)</span><br><span class="line">        len = <span class="number">31</span>;</span><br><span class="line">    <span class="built_in">mov_read_mac_string</span>(c, pb, len, codec_name, <span class="built_in">sizeof</span>(codec_name));</span><br><span class="line">    <span class="keyword">if</span> (len &lt; <span class="number">31</span>)</span><br><span class="line">        <span class="built_in">avio_skip</span>(pb, <span class="number">31</span> - len);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (codec_name[<span class="number">0</span>])</span><br><span class="line">        <span class="built_in">av_dict_set</span>(&amp;st-&gt;metadata, <span class="string">&quot;encoder&quot;</span>, codec_name, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* codec_tag YV12 triggers an UV swap in rawdec.c */</span></span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">strncmp</span>(codec_name, <span class="string">&quot;Planar Y&#x27;CbCr 8-bit 4:2:0&quot;</span>, <span class="number">25</span>)) &#123;</span><br><span class="line">        st-&gt;codecpar-&gt;codec_tag = <span class="built_in">MKTAG</span>(<span class="string">&#x27;I&#x27;</span>, <span class="string">&#x27;4&#x27;</span>, <span class="string">&#x27;2&#x27;</span>, <span class="string">&#x27;0&#x27;</span>);</span><br><span class="line">        st-&gt;codecpar-&gt;width &amp;= ~<span class="number">1</span>;</span><br><span class="line">        st-&gt;codecpar-&gt;height &amp;= ~<span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">/* Flash Media Server uses tag H.263 with Sorenson Spark */</span></span><br><span class="line">    <span class="keyword">if</span> (st-&gt;codecpar-&gt;codec_tag == <span class="built_in">MKTAG</span>(<span class="string">&#x27;H&#x27;</span>,<span class="string">&#x27;2&#x27;</span>,<span class="string">&#x27;6&#x27;</span>,<span class="string">&#x27;3&#x27;</span>) &amp;&amp;</span><br><span class="line">        !<span class="built_in">strncmp</span>(codec_name, <span class="string">&quot;Sorenson H263&quot;</span>, <span class="number">13</span>))</span><br><span class="line">        st-&gt;codecpar-&gt;codec_id = AV_CODEC_ID_FLV1;</span><br><span class="line"></span><br><span class="line">    st-&gt;codecpar-&gt;bits_per_coded_sample = <span class="built_in">avio_rb16</span>(pb); <span class="comment">/* depth */</span></span><br><span class="line"></span><br><span class="line">    <span class="built_in">avio_seek</span>(pb, stsd_start, SEEK_SET);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">ff_get_qtpalette</span>(st-&gt;codecpar-&gt;codec_id, pb, sc-&gt;palette)) &#123;</span><br><span class="line">        st-&gt;codecpar-&gt;bits_per_coded_sample &amp;= <span class="number">0x1F</span>;</span><br><span class="line">        sc-&gt;has_palette = <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>要想读取 sps&#x2F;pps，还需要读取 mp4 标准对 video stsd 的扩展部分，ff_mov_read_stsd_entries 在 mov_parse_stsd_video 之后还会执行 mov_read_default 来继续读取 box。比如 mp4 格式，就是继承标准的 visual stsd entry 并把 format（也就是 box type）改成 avc1，然后在标准的 visual stsd entry 的后面加上 avcc box，继续看 avcc box 的解析过程</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mov_read_glbl</span><span class="params">(MOVContext *c, AVIOContext *pb, MOVAtom atom)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    AVStream *st;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (c-&gt;fc-&gt;nb_streams &lt; <span class="number">1</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    st = c-&gt;fc-&gt;streams[c-&gt;fc-&gt;nb_streams<span class="number">-1</span>];</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((<span class="type">uint64_t</span>)atom.size &gt; (<span class="number">1</span>&lt;&lt;<span class="number">30</span>))</span><br><span class="line">        <span class="keyword">return</span> AVERROR_INVALIDDATA;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (atom.size &gt;= <span class="number">10</span>) &#123;</span><br><span class="line">        <span class="comment">// Broken files created by legacy versions of libavformat will</span></span><br><span class="line">        <span class="comment">// wrap a whole fiel atom inside of a glbl atom.</span></span><br><span class="line">        <span class="type">unsigned</span> size = <span class="built_in">avio_rb32</span>(pb);</span><br><span class="line">        <span class="type">unsigned</span> type = <span class="built_in">avio_rl32</span>(pb);</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">avio_feof</span>(pb))</span><br><span class="line">            <span class="keyword">return</span> AVERROR_INVALIDDATA;</span><br><span class="line">        <span class="built_in">avio_seek</span>(pb, <span class="number">-8</span>, SEEK_CUR);</span><br><span class="line">        <span class="keyword">if</span> (type == <span class="built_in">MKTAG</span>(<span class="string">&#x27;f&#x27;</span>,<span class="string">&#x27;i&#x27;</span>,<span class="string">&#x27;e&#x27;</span>,<span class="string">&#x27;l&#x27;</span>) &amp;&amp; size == atom.size)</span><br><span class="line">            <span class="keyword">return</span> <span class="built_in">mov_read_default</span>(c, pb, atom);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (st-&gt;codecpar-&gt;extradata_size &gt; <span class="number">1</span> &amp;&amp; st-&gt;codecpar-&gt;extradata) &#123;</span><br><span class="line">        <span class="built_in">av_log</span>(c-&gt;fc, AV_LOG_WARNING, <span class="string">&quot;ignoring multiple glbl\n&quot;</span>);</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    ret = <span class="built_in">ff_get_extradata</span>(c-&gt;fc, st-&gt;codecpar, pb, atom.size);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> (atom.type == <span class="built_in">MKTAG</span>(<span class="string">&#x27;h&#x27;</span>,<span class="string">&#x27;v&#x27;</span>,<span class="string">&#x27;c&#x27;</span>,<span class="string">&#x27;C&#x27;</span>) &amp;&amp; st-&gt;codecpar-&gt;codec_tag == <span class="built_in">MKTAG</span>(<span class="string">&#x27;d&#x27;</span>,<span class="string">&#x27;v&#x27;</span>,<span class="string">&#x27;h&#x27;</span>,<span class="string">&#x27;1&#x27;</span>))</span><br><span class="line">        <span class="comment">/* HEVC-based Dolby Vision derived from hvc1.</span></span><br><span class="line"><span class="comment">           Happens to match with an identifier</span></span><br><span class="line"><span class="comment">           previously utilized for DV. Thus, if we have</span></span><br><span class="line"><span class="comment">           the hvcC extradata box available as specified,</span></span><br><span class="line"><span class="comment">           set codec to HEVC */</span></span><br><span class="line">        st-&gt;codecpar-&gt;codec_id = AV_CODEC_ID_HEVC;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">int</span> <span class="title">ff_get_extradata</span><span class="params">(<span class="type">void</span> *logctx, AVCodecParameters *par, AVIOContext *pb, <span class="type">int</span> size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">int</span> ret = <span class="built_in">ff_alloc_extradata</span>(par, size);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    ret = <span class="built_in">ffio_read_size</span>(pb, par-&gt;extradata, size);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">av_freep</span>(&amp;par-&gt;extradata);</span><br><span class="line">        par-&gt;extradata_size = <span class="number">0</span>;</span><br><span class="line">        <span class="built_in">av_log</span>(logctx, AV_LOG_ERROR, <span class="string">&quot;Failed to read extradata of size %d\n&quot;</span>, size);</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> ret;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，就是把整个 avcc box 的内容取出来作为 extradata</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/09/05/ffmpeg-mov-demuxer-%E5%A6%82%E4%BD%95-read-pkt/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-09-19 21:50:57
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/mp4/" title="mp4">
+                        <b>#</b> mp4
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/09/27/mp4-%E7%9A%84-edit-box/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

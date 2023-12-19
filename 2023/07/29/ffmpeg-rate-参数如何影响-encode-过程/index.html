@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg rate 参数如何影响 encode 过程 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg rate 参数如何影响 encode 过程</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-07-29 21:43:47
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg-cmd/" title="ffmpeg cmd">
+                    <b>#</b> ffmpeg cmd
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>上一篇文章分析了 ffmpeg rate 参数如何影响 decode 过程，其实也可以给编码过程设置 rate 参数：</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ffmpeg -hide_banner -i <span class="number">1.</span>mp4 -r <span class="number">60</span> <span class="number">2.</span>mp4</span><br></pre></td></tr></table></figure>
+
+<p>假设上面 1.mp4 是 30fps，但是上面过程指定了输出文件是 60fps，ffmpeg cmd 则会对 1.mp4 进行 duplicate 来自动补帧，也就是将 30fps 的文件变成 60fps，frame 数会增大一倍。接下来就分析一下这个过程。</p>
+<p>不用管 decoder 的 pts 的 timebase，因为 decoder 的 pts 会转换为以 encoder 的 timebase 为单位，encoder 的 timebase 是在下面设置的</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">init_output_stream_encode</span><span class="params">(OutputStream *ost, AVFrame *frame)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">switch</span> (enc_ctx-&gt;codec_type) &#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">case</span> AVMEDIA_TYPE_VIDEO:</span><br><span class="line">        <span class="built_in">init_encoder_time_base</span>(ost, <span class="built_in">av_inv_q</span>(ost-&gt;frame_rate));</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>ost-&gt;frame_rate 则是如果主动给编码设置了 r 参数，就把 r 参数设置给 ost-&gt;frame_rate，否则就使用 ist 的 frame_rate。</p>
+<p>ost-&gt;frame_rate 很重要，他可以决定 encoder 的 timebase：下面的 init_encoder_time_base 中如果没有通过命令行设置 encoder 的 enc_time_base 参数，那么就会把 av_inv_q(ost-&gt;frame_rate)作为 encoder 的 time_base，在上面的例子中最后就把 encoder 的 time_base 设置为 1:60，因为 ost-&gt;frame_rate 是 60</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">init_encoder_time_base</span><span class="params">(OutputStream *ost, AVRational default_time_base)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    InputStream *ist = <span class="built_in">get_input_stream</span>(ost);</span><br><span class="line">    AVCodecContext *enc_ctx = ost-&gt;enc_ctx;</span><br><span class="line">    AVFormatContext *oc;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ost-&gt;enc_timebase.num &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        enc_ctx-&gt;time_base = ost-&gt;enc_timebase;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ost-&gt;enc_timebase.num &lt; <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (ist) &#123;</span><br><span class="line">            enc_ctx-&gt;time_base = ist-&gt;st-&gt;time_base;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        oc = output_files[ost-&gt;file_index]-&gt;ctx;</span><br><span class="line">        <span class="built_in">av_log</span>(oc, AV_LOG_WARNING, <span class="string">&quot;Input stream data not available, using default time base\n&quot;</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    enc_ctx-&gt;time_base = default_time_base;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>接下来再看自动 duplicate 过程。每从 filter 中拿到一个 frame 之后，先把 pts 转换为以 encoder 的 timebase 为单位，然后计算当前 frame 的 duration，计算 duration 时需要以 1&#x2F;ist-&gt;frame_rate 以及 1&#x2F;ost-&gt;frame_rate 中较小的为单位，后面会看到会根据 duration 来进行 duplicate 或者 drop</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">do_video_out</span><span class="params">(OutputFile *of,</span></span></span><br><span class="line"><span class="params"><span class="function">                         OutputStream *ost,</span></span></span><br><span class="line"><span class="params"><span class="function">                         AVFrame *next_picture)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    sync_ipts = <span class="built_in">adjust_frame_pts_to_encoder_tb</span>(of, ost, next_picture);</span><br><span class="line">...</span><br><span class="line">    frame_rate = <span class="built_in">av_buffersink_get_frame_rate</span>(filter);</span><br><span class="line">    <span class="keyword">if</span> (frame_rate.num &gt; <span class="number">0</span> &amp;&amp; frame_rate.den &gt; <span class="number">0</span>)</span><br><span class="line">        duration = <span class="number">1</span>/(<span class="built_in">av_q2d</span>(frame_rate) * <span class="built_in">av_q2d</span>(enc-&gt;time_base));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(ist &amp;&amp; ist-&gt;st-&gt;start_time != AV_NOPTS_VALUE &amp;&amp; ist-&gt;first_dts != AV_NOPTS_VALUE &amp;&amp; ost-&gt;frame_rate.num)</span><br><span class="line">        duration = <span class="built_in">FFMIN</span>(duration, <span class="number">1</span>/(<span class="built_in">av_q2d</span>(ost-&gt;frame_rate) * <span class="built_in">av_q2d</span>(enc-&gt;time_base)));</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (!next_picture) &#123;</span><br><span class="line">        <span class="comment">//end, flushing</span></span><br><span class="line">        nb0_frames = nb_frames = <span class="built_in">mid_pred</span>(ost-&gt;last_nb0_frames[<span class="number">0</span>],</span><br><span class="line">                                          ost-&gt;last_nb0_frames[<span class="number">1</span>],</span><br><span class="line">                                          ost-&gt;last_nb0_frames[<span class="number">2</span>]);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        delta0 = sync_ipts - ost-&gt;sync_opts; <span class="comment">// delta0 is the &quot;drift&quot; between the input frame (next_picture) and where it would fall in the output.</span></span><br><span class="line">        delta  = delta0 + duration;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">/* by default, we output a single frame */</span></span><br><span class="line">        nb0_frames = <span class="number">0</span>; <span class="comment">// tracks the number of times the PREVIOUS frame should be duplicated, mostly for variable framerate (VFR)</span></span><br><span class="line">        nb_frames = <span class="number">1</span>;</span><br><span class="line">        ...</span><br><span class="line">        <span class="keyword">switch</span> (ost-&gt;vsync_method) &#123;</span><br><span class="line">        <span class="keyword">case</span> VSYNC_VSCFR:</span><br><span class="line">...</span><br><span class="line">        <span class="keyword">case</span> VSYNC_CFR:</span><br><span class="line">            <span class="comment">// FIXME set to 0.5 after we fix some dts/pts bugs like in avidec.c</span></span><br><span class="line">            <span class="keyword">if</span> (frame_drop_threshold &amp;&amp; delta &lt; frame_drop_threshold &amp;&amp; ost-&gt;frame_number) &#123;</span><br><span class="line">                nb_frames = <span class="number">0</span>;</span><br><span class="line">            &#125; <span class="keyword">else</span> <span class="keyword">if</span> (delta &lt; <span class="number">-1.1</span>)</span><br><span class="line">                nb_frames = <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">else</span> <span class="keyword">if</span> (delta &gt; <span class="number">1.1</span>) &#123;</span><br><span class="line">                nb_frames = <span class="built_in">llrintf</span>(delta);</span><br><span class="line">                <span class="keyword">if</span> (delta0 &gt; <span class="number">1.1</span>)</span><br><span class="line">                    nb0_frames = <span class="built_in">llrintf</span>(delta0 - <span class="number">0.6</span>);</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">break</span>;</span><br><span class="line">...</span><br><span class="line">        &#125;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">    <span class="comment">/* duplicates frame if needed */</span></span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; nb_frames; i++) &#123;</span><br><span class="line">        AVFrame *in_picture;</span><br><span class="line">        <span class="type">int</span> forced_keyframe = <span class="number">0</span>;</span><br><span class="line">        <span class="type">double</span> pts_time;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (i &lt; nb0_frames &amp;&amp; ost-&gt;last_frame-&gt;buf[<span class="number">0</span>]) &#123;</span><br><span class="line">            in_picture = ost-&gt;last_frame;</span><br><span class="line">        &#125; <span class="keyword">else</span></span><br><span class="line">            in_picture = next_picture;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!in_picture)</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">        in_picture-&gt;pts = ost-&gt;sync_opts;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">check_recording_time</span>(ost))</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">        in_picture-&gt;quality = enc-&gt;global_quality;</span><br><span class="line">        in_picture-&gt;pict_type = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (ost-&gt;forced_kf_ref_pts == AV_NOPTS_VALUE &amp;&amp;</span><br><span class="line">            in_picture-&gt;pts != AV_NOPTS_VALUE)</span><br><span class="line">            ost-&gt;forced_kf_ref_pts = in_picture-&gt;pts;</span><br><span class="line"></span><br><span class="line">        pts_time = in_picture-&gt;pts != AV_NOPTS_VALUE ?</span><br><span class="line">            (in_picture-&gt;pts - ost-&gt;forced_kf_ref_pts) * <span class="built_in">av_q2d</span>(enc-&gt;time_base) : NAN;</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">encode_frame</span>(of, ost, in_picture);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="built_in">exit_program</span>(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line">        ost-&gt;sync_opts++;</span><br><span class="line">        ost-&gt;frame_number++;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>算完 duration 之后计算当前输入 frame 的 sync_ipts 与下一个期望输出的时间 ost-&gt;sync_opts 的差距 delta0，然后将 delta0 加上上面计算出来的 duration 得到 delta，delta0 用来计算前一张 frame 需要 duplicate 的次数 nb0_frames，delta 用来计算总的 duplicate 的次数（总次数&#x3D;前一张 duplicate 次数 + 当前张的 duplicate 次数）nb_frames。</p>
+<p>在算 nb0_frames 以及 nb_frames 时，就是把 delta0、delta 进行一个取整，所以 encoder 的 time base 非常重要，一般都需要设置为 frame rate，不然的话在算 duplicate&#x2F;drop 的时候就会出问题</p>
+<p>算完 nb0_frames 以及 nb_frames 之后会进行 duplicate（如果需要的话），nb0_frames 代表前一张 duplicate 的次数，nb_frames-nb0_frames 代表当前张的 duplicate 的次数。</p>
+<p>这样说可能不太好理解，举一个例子：</p>
+<p>把一个 30fps 的视频转成 60fps，那么 encoder 的 timebase 就是 1:60，输入视频的 sync_ipts（以 encoder 的 timebase 为单位）就是 0、2、4、6、8、10…，duration（以 encoder 的 timebase 为单位）就是 1（取 1&#x2F;30 和 1&#x2F;60 中较小的）</p>
+<p>输入第 1 张的时候，delta0 是 0，delta 是 1，那么就只需要输出当前图像 1 次，此时 ost-&gt;sync_opts 自增之后成为 1</p>
+<p>输入第二张的时候 delta0 是 1，delta 是 2，此时需要对前一张图像 duplicate 一次，然后再输出当前图像一次，ost-&gt;sync_opts 自增两次变成 3</p>
+<p>输入第 3 张的时候 delta0 是 1，delta 是 2，也需要对前一张图像 duplicate 一次，然后再输出当前图像一次</p>
+<p>所以每输入一张图像，就需要对前一张 duplicate 一次来满足输出 60fps 图像的要求。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">delta0 = sync_ipts - ost-&gt;sync_opts; <span class="comment">// ost-&gt;sync_opts初值是0</span></span><br><span class="line">delta  = delta0 + duration;</span><br></pre></td></tr></table></figure>
+
+<p>drop 的过程和 duplicate 类似，这里就不再分析。</p>
+<p>从上面的分析中可以看到，encoder 的 timebase 非常重要，每次 duplicate 时会以 encoder 的 timebase 为单位，encoder 的 timebase 应当尽可能以 framerate 为单位，如果设置为不恰当的值会导致输出图像异常 duplicate&#x2F;drop，比如下面，会导致出现非常多的 duplicate</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ffmpeg -hide_banner -i <span class="number">1.</span>mp4 -enc_time_base <span class="number">1</span>:<span class="number">1000</span> <span class="number">2.</span>mp4</span><br></pre></td></tr></table></figure>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/07/21/ffmpeg-rate-%E5%8F%82%E6%95%B0%E5%A6%82%E4%BD%95%E5%BD%B1%E5%93%8D-decode-%E8%BF%87%E7%A8%8B/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-07-29 21:43:47
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg-cmd/" title="ffmpeg cmd">
+                        <b>#</b> ffmpeg cmd
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/08/10/ffmpeg-mov-demuxer-%E5%A6%82%E4%BD%95%E8%AE%A1%E7%AE%97-index/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

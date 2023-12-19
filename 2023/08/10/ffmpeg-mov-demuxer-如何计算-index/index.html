@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg mov demuxer 如何计算 index 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg mov demuxer 如何计算 index</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-08-10 21:50:22
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/mp4/" title="mp4">
+                    <b>#</b> mp4
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>最近在看 ffmpeg mov demuxer 的代码，发现 mov demuxer 在 read header 的时候就把所有 sample 的 pts、dts、pos 信息都计算出来，存在一个 entry 数组里。这篇文章就分析一下这个过程。</p>
+<p>代码如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br><span class="line">140</span><br><span class="line">141</span><br><span class="line">142</span><br><span class="line">143</span><br><span class="line">144</span><br><span class="line">145</span><br><span class="line">146</span><br><span class="line">147</span><br><span class="line">148</span><br><span class="line">149</span><br><span class="line">150</span><br><span class="line">151</span><br><span class="line">152</span><br><span class="line">153</span><br><span class="line">154</span><br><span class="line">155</span><br><span class="line">156</span><br><span class="line">157</span><br><span class="line">158</span><br><span class="line">159</span><br><span class="line">160</span><br><span class="line">161</span><br><span class="line">162</span><br><span class="line">163</span><br><span class="line">164</span><br><span class="line">165</span><br><span class="line">166</span><br><span class="line">167</span><br><span class="line">168</span><br><span class="line">169</span><br><span class="line">170</span><br><span class="line">171</span><br><span class="line">172</span><br><span class="line">173</span><br><span class="line">174</span><br><span class="line">175</span><br><span class="line">176</span><br><span class="line">177</span><br><span class="line">178</span><br><span class="line">179</span><br><span class="line">180</span><br><span class="line">181</span><br><span class="line">182</span><br><span class="line">183</span><br><span class="line">184</span><br><span class="line">185</span><br><span class="line">186</span><br><span class="line">187</span><br><span class="line">188</span><br><span class="line">189</span><br><span class="line">190</span><br><span class="line">191</span><br><span class="line">192</span><br><span class="line">193</span><br><span class="line">194</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">mov_build_index</span><span class="params">(MOVContext *mov, AVStream *st)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MOVStreamContext *sc = st-&gt;priv_data;</span><br><span class="line">    FFStream *<span class="type">const</span> sti = <span class="built_in">ffstream</span>(st);</span><br><span class="line">    <span class="type">int64_t</span> current_offset;</span><br><span class="line">    <span class="type">int64_t</span> current_dts = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> stts_index = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> stsc_index = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> stss_index = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> stps_index = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> i, j;</span><br><span class="line">    <span class="type">uint64_t</span> stream_size = <span class="number">0</span>;</span><br><span class="line">    MOVCtts *ctts_data_old = sc-&gt;ctts_data;</span><br><span class="line">    <span class="type">unsigned</span> <span class="type">int</span> ctts_count_old = sc-&gt;ctts_count;</span><br><span class="line"></span><br><span class="line">    <span class="type">int</span> ret = <span class="built_in">build_open_gop_key_points</span>(st);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (sc-&gt;elst_count) &#123;</span><br><span class="line">        <span class="comment">// 忽略 edit list</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* only use old uncompressed audio chunk demuxing when stts specifies it */</span></span><br><span class="line">    <span class="keyword">if</span> (!(st-&gt;codecpar-&gt;codec_type == AVMEDIA_TYPE_AUDIO &amp;&amp;</span><br><span class="line">          sc-&gt;stts_count == <span class="number">1</span> &amp;&amp; sc-&gt;stts_data[<span class="number">0</span>].duration == <span class="number">1</span>)) &#123;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> current_sample = <span class="number">0</span>;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> stts_sample = <span class="number">0</span>;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> sample_size;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> distance = <span class="number">0</span>;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> rap_group_index = <span class="number">0</span>;</span><br><span class="line">        <span class="type">unsigned</span> <span class="type">int</span> rap_group_sample = <span class="number">0</span>;</span><br><span class="line">        <span class="type">int</span> rap_group_present = sc-&gt;rap_group_count &amp;&amp; sc-&gt;rap_group;</span><br><span class="line">        <span class="type">int</span> key_off = (sc-&gt;keyframe_count &amp;&amp; sc-&gt;keyframes[<span class="number">0</span>] &gt; <span class="number">0</span>) || (sc-&gt;stps_count &amp;&amp; sc-&gt;stps_data[<span class="number">0</span>] &gt; <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">        current_dts -= sc-&gt;dts_shift;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (!sc-&gt;sample_count || sti-&gt;nb_index_entries)</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        <span class="keyword">if</span> (sc-&gt;sample_count &gt;= UINT_MAX / <span class="built_in">sizeof</span>(*sti-&gt;index_entries) - sti-&gt;nb_index_entries)</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        <span class="keyword">if</span> (<span class="built_in">av_reallocp_array</span>(&amp;sti-&gt;index_entries,</span><br><span class="line">                              sti-&gt;nb_index_entries + sc-&gt;sample_count,</span><br><span class="line">                              <span class="built_in">sizeof</span>(*sti-&gt;index_entries)) &lt; <span class="number">0</span>) &#123;</span><br><span class="line">            sti-&gt;nb_index_entries = <span class="number">0</span>;</span><br><span class="line">            <span class="keyword">return</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        sti-&gt;index_entries_allocated_size = (sti-&gt;nb_index_entries + sc-&gt;sample_count) * <span class="built_in">sizeof</span>(*sti-&gt;index_entries);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 先把ctts展开，ctts原来是游程编码形式，把所有entry都展开</span></span><br><span class="line">        <span class="keyword">if</span> (ctts_data_old) &#123;</span><br><span class="line">            <span class="comment">// Expand ctts entries such that we have a 1-1 mapping with samples</span></span><br><span class="line">            <span class="keyword">if</span> (sc-&gt;sample_count &gt;= UINT_MAX / <span class="built_in">sizeof</span>(*sc-&gt;ctts_data))</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            sc-&gt;ctts_count = <span class="number">0</span>;</span><br><span class="line">            sc-&gt;ctts_allocated_size = <span class="number">0</span>;</span><br><span class="line">            sc-&gt;ctts_data = <span class="built_in">av_fast_realloc</span>(<span class="literal">NULL</span>, &amp;sc-&gt;ctts_allocated_size,</span><br><span class="line">                                    sc-&gt;sample_count * <span class="built_in">sizeof</span>(*sc-&gt;ctts_data));</span><br><span class="line">            <span class="keyword">if</span> (!sc-&gt;ctts_data) &#123;</span><br><span class="line">                <span class="built_in">av_free</span>(ctts_data_old);</span><br><span class="line">                <span class="keyword">return</span>;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">memset</span>((<span class="type">uint8_t</span>*)(sc-&gt;ctts_data), <span class="number">0</span>, sc-&gt;ctts_allocated_size);</span><br><span class="line"></span><br><span class="line">            <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; ctts_count_old &amp;&amp;</span><br><span class="line">                        sc-&gt;ctts_count &lt; sc-&gt;sample_count; i++)</span><br><span class="line">                <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; ctts_data_old[i].count &amp;&amp;</span><br><span class="line">                            sc-&gt;ctts_count &lt; sc-&gt;sample_count; j++)</span><br><span class="line">                    <span class="built_in">add_ctts_entry</span>(&amp;sc-&gt;ctts_data, &amp;sc-&gt;ctts_count,</span><br><span class="line">                                   &amp;sc-&gt;ctts_allocated_size, <span class="number">1</span>,</span><br><span class="line">                                   ctts_data_old[i].duration);</span><br><span class="line">            <span class="built_in">av_free</span>(ctts_data_old);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 遍历每一个chunk</span></span><br><span class="line">        <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; sc-&gt;chunk_count; i++) &#123;</span><br><span class="line">            <span class="type">int64_t</span> next_offset = i+<span class="number">1</span> &lt; sc-&gt;chunk_count ? sc-&gt;chunk_offsets[i+<span class="number">1</span>] : INT64_MAX;</span><br><span class="line">            <span class="comment">// 先计算当前chunk的chunk offset</span></span><br><span class="line">            current_offset = sc-&gt;chunk_offsets[i];</span><br><span class="line">            <span class="comment">// 计算当前chunk属于哪一个sample to chunk</span></span><br><span class="line">            <span class="keyword">while</span> (<span class="built_in">mov_stsc_index_valid</span>(stsc_index, sc-&gt;stsc_count) &amp;&amp;</span><br><span class="line">                i + <span class="number">1</span> == sc-&gt;stsc_data[stsc_index + <span class="number">1</span>].first)</span><br><span class="line">                stsc_index++; <span class="comment">// 计算sample to chunk</span></span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (next_offset &gt; current_offset &amp;&amp; sc-&gt;sample_size&gt;<span class="number">0</span> &amp;&amp; sc-&gt;sample_size &lt; sc-&gt;stsz_sample_size &amp;&amp;</span><br><span class="line">                sc-&gt;stsc_data[stsc_index].count * (<span class="type">int64_t</span>)sc-&gt;stsz_sample_size &gt; next_offset - current_offset) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_WARNING, <span class="string">&quot;STSZ sample size %d invalid (too large), ignoring\n&quot;</span>, sc-&gt;stsz_sample_size);</span><br><span class="line">                sc-&gt;stsz_sample_size = sc-&gt;sample_size;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (sc-&gt;stsz_sample_size&gt;<span class="number">0</span> &amp;&amp; sc-&gt;stsz_sample_size &lt; sc-&gt;sample_size) &#123;</span><br><span class="line">                <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_WARNING, <span class="string">&quot;STSZ sample size %d invalid (too small), ignoring\n&quot;</span>, sc-&gt;stsz_sample_size);</span><br><span class="line">                sc-&gt;stsz_sample_size = sc-&gt;sample_size;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 遍历当前chunk的每一个sample</span></span><br><span class="line">            <span class="comment">// 当前chunk有几个sample由上面sample to chunk描述</span></span><br><span class="line">            <span class="keyword">for</span> (j = <span class="number">0</span>; j &lt; sc-&gt;stsc_data[stsc_index].count; j++) &#123;</span><br><span class="line">                <span class="type">int</span> keyframe = <span class="number">0</span>;</span><br><span class="line">                <span class="keyword">if</span> (current_sample &gt;= sc-&gt;sample_count) &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_ERROR, <span class="string">&quot;wrong sample count\n&quot;</span>);</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 判断当前sample是不是关键帧，通过当前sample的序号和stss中进行比对</span></span><br><span class="line">                <span class="keyword">if</span> (!sc-&gt;keyframe_absent &amp;&amp; (!sc-&gt;keyframe_count || current_sample+key_off == sc-&gt;keyframes[stss_index])) &#123;</span><br><span class="line">                    keyframe = <span class="number">1</span>;</span><br><span class="line">                    <span class="keyword">if</span> (stss_index + <span class="number">1</span> &lt; sc-&gt;keyframe_count)</span><br><span class="line">                        stss_index++;</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (sc-&gt;stps_count &amp;&amp; current_sample+key_off == sc-&gt;stps_data[stps_index]) &#123;</span><br><span class="line">                    keyframe = <span class="number">1</span>;</span><br><span class="line">                    <span class="keyword">if</span> (stps_index + <span class="number">1</span> &lt; sc-&gt;stps_count)</span><br><span class="line">                        stps_index++;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (rap_group_present &amp;&amp; rap_group_index &lt; sc-&gt;rap_group_count) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (sc-&gt;rap_group[rap_group_index].index &gt; <span class="number">0</span>)</span><br><span class="line">                        keyframe = <span class="number">1</span>;</span><br><span class="line">                    <span class="keyword">if</span> (++rap_group_sample == sc-&gt;rap_group[rap_group_index].count) &#123;</span><br><span class="line">                        rap_group_sample = <span class="number">0</span>;</span><br><span class="line">                        rap_group_index++;</span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (sc-&gt;keyframe_absent</span><br><span class="line">                    &amp;&amp; !sc-&gt;stps_count</span><br><span class="line">                    &amp;&amp; !rap_group_present</span><br><span class="line">                    &amp;&amp; (st-&gt;codecpar-&gt;codec_type == AVMEDIA_TYPE_AUDIO || (i==<span class="number">0</span> &amp;&amp; j==<span class="number">0</span>)))</span><br><span class="line">                     keyframe = <span class="number">1</span>;</span><br><span class="line">                <span class="keyword">if</span> (keyframe)</span><br><span class="line">                    distance = <span class="number">0</span>;</span><br><span class="line">                <span class="comment">// 通过当前sample的序号找到sample size</span></span><br><span class="line">                sample_size = sc-&gt;stsz_sample_size &gt; <span class="number">0</span> ? sc-&gt;stsz_sample_size : sc-&gt;sample_sizes[current_sample];</span><br><span class="line">                <span class="keyword">if</span> (current_offset &gt; INT64_MAX - sample_size) &#123;</span><br><span class="line">                    <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_ERROR, <span class="string">&quot;Current offset %&quot;</span>PRId64<span class="string">&quot; or sample size %u is too large\n&quot;</span>,</span><br><span class="line">                           current_offset,</span><br><span class="line">                           sample_size);</span><br><span class="line">                    <span class="keyword">return</span>;</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                <span class="comment">// 为当前sample建立index</span></span><br><span class="line">                <span class="keyword">if</span> (sc-&gt;pseudo_stream_id == <span class="number">-1</span> ||</span><br><span class="line">                   sc-&gt;stsc_data[stsc_index].id - <span class="number">1</span> == sc-&gt;pseudo_stream_id) &#123;</span><br><span class="line">                    AVIndexEntry *e;</span><br><span class="line">                    <span class="keyword">if</span> (sample_size &gt; <span class="number">0x3FFFFFFF</span>) &#123;</span><br><span class="line">                        <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_ERROR, <span class="string">&quot;Sample size %u is too large\n&quot;</span>, sample_size);</span><br><span class="line">                        <span class="keyword">return</span>;</span><br><span class="line">                    &#125;</span><br><span class="line">                    e = &amp;sti-&gt;index_entries[sti-&gt;nb_index_entries++];</span><br><span class="line">                    e-&gt;pos = current_offset;</span><br><span class="line">                    e-&gt;timestamp = current_dts;</span><br><span class="line">                    e-&gt;size = sample_size;</span><br><span class="line">                    e-&gt;min_distance = distance; <span class="comment">// 离他前一个关键帧的距离</span></span><br><span class="line">                    e-&gt;flags = keyframe ? AVINDEX_KEYFRAME : <span class="number">0</span>;</span><br><span class="line">                    <span class="built_in">av_log</span>(mov-&gt;fc, AV_LOG_TRACE, <span class="string">&quot;AVIndex stream %d, sample %u, offset %&quot;</span>PRIx64<span class="string">&quot;, dts %&quot;</span>PRId64<span class="string">&quot;, &quot;</span></span><br><span class="line">                            <span class="string">&quot;size %u, distance %u, keyframe %d\n&quot;</span>, st-&gt;index, current_sample,</span><br><span class="line">                            current_offset, current_dts, sample_size, distance, keyframe);</span><br><span class="line">                    <span class="keyword">if</span> (st-&gt;codecpar-&gt;codec_type == AVMEDIA_TYPE_VIDEO &amp;&amp; sti-&gt;nb_index_entries &lt; <span class="number">100</span>)</span><br><span class="line">                        <span class="built_in">ff_rfps_add_frame</span>(mov-&gt;fc, st, current_dts);</span><br><span class="line">                &#125;</span><br><span class="line"></span><br><span class="line">                current_offset += sample_size;</span><br><span class="line">                stream_size += sample_size;</span><br><span class="line"></span><br><span class="line">                current_dts += sc-&gt;stts_data[stts_index].duration;</span><br><span class="line"></span><br><span class="line">                distance++;</span><br><span class="line">                stts_sample++;</span><br><span class="line">                current_sample++;</span><br><span class="line">                <span class="keyword">if</span> (stts_index + <span class="number">1</span> &lt; sc-&gt;stts_count &amp;&amp; stts_sample == sc-&gt;stts_data[stts_index].count) &#123;</span><br><span class="line">                    stts_sample = <span class="number">0</span>;</span><br><span class="line">                    stts_index++;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (st-&gt;duration &gt; <span class="number">0</span>)</span><br><span class="line">            st-&gt;codecpar-&gt;bit_rate = stream_size*<span class="number">8</span>*sc-&gt;time_scale/st-&gt;duration;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!mov-&gt;ignore_editlist &amp;&amp; mov-&gt;advanced_editlist) &#123;</span><br><span class="line">        <span class="comment">// Fix index according to edit lists.</span></span><br><span class="line">        <span class="built_in">mov_fix_index</span>(mov, st);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// Update start time of the stream.</span></span><br><span class="line">    <span class="keyword">if</span> (st-&gt;start_time == AV_NOPTS_VALUE &amp;&amp; st-&gt;codecpar-&gt;codec_type == AVMEDIA_TYPE_VIDEO &amp;&amp; sti-&gt;nb_index_entries &gt; <span class="number">0</span>) &#123;</span><br><span class="line">        st-&gt;start_time = sti-&gt;index_entries[<span class="number">0</span>].timestamp + sc-&gt;dts_shift;</span><br><span class="line">        <span class="keyword">if</span> (sc-&gt;ctts_data) &#123;</span><br><span class="line">            st-&gt;start_time += sc-&gt;ctts_data[<span class="number">0</span>].duration;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">mov_estimate_video_delay</span>(mov, st);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>具体计算过程：</p>
+<ul>
+<li><p>先把 ctts 展开，ctts 原来是游程编码形式，把所有 entry 都展开</p>
+</li>
+<li><p>遍历每一个 chunk</p>
+<ul>
+<li><p>先计算当前 chunk 的 chunk offset</p>
+</li>
+<li><p>计算当前 chunk 属于哪一个 sample to chunk</p>
+<ul>
+<li>从而获得当前 chunk 的 sample per chunk、当前 chunk 的 stsd index</li>
+</ul>
+</li>
+<li><p>遍历当前 chunk 的每一个 sample</p>
+<ul>
+<li><p>判断当前 sample 是不是关键帧，通过当前 sample 的序号和 stss 中进行比对</p>
+</li>
+<li><p>通过当前 sample 的序号找到 sample size</p>
+</li>
+<li><p>为当前 sample 建立 index</p>
+<ul>
+<li><p>设置 e-&gt;pos，表示 sample 在文件中的位置</p>
+</li>
+<li><p>设置 e-&gt;timestamp，表示 sample 的 dts</p>
+<ul>
+<li>该 dts 是通过累积 stts 来计算的</li>
+</ul>
+</li>
+<li><p>设置 e-&gt;size，表示 sample 的 size</p>
+</li>
+<li><p>设置 e-&gt;min_distance，表示当前 sample 离前一个参考帧的距离，seek 的时候会 seek 到参考帧中</p>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<p>上面就是建立 index 的过程，把 index 建立之后，后续 seek 就很方便了，下篇文章再分析 mov demuxer 中的 seek 过程。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/07/29/ffmpeg-rate-%E5%8F%82%E6%95%B0%E5%A6%82%E4%BD%95%E5%BD%B1%E5%93%8D-encode-%E8%BF%87%E7%A8%8B/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-08-10 21:50:22
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/mp4/" title="mp4">
+                        <b>#</b> mp4
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/08/25/ffmpeg-mov-demuxer-%E5%A6%82%E4%BD%95%E8%BF%9B%E8%A1%8C-seek/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg cmd 之 pix_fmt 选项 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg cmd 之 pix_fmt 选项</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-07-15 21:38:47
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg-cmd/" title="ffmpeg cmd">
+                    <b>#</b> ffmpeg cmd
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>最近在使用 ffmpeg 命令行程序的时候，遇到一个问题：现在希望生成一个测试用的 mp4 文件，希望 x264 编码器输入的图片格式为 yuv420p。下面的 3 条命令中，只有最后一条是有效的，第一条和第二条给 x264 编码器的图片格式都是 yuv444p。接下来就分析一下原因。</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">ffmpeg -hide_banner -f lavfi -i testsrc=size=<span class="number">250</span>x120:rate=<span class="number">30</span> -f lavfi -i anullsrc=r=<span class="number">48000</span>:cl=mono -f mp4 -t <span class="number">20</span> z.mp4</span><br><span class="line"></span><br><span class="line">ffmpeg -hide_banner -f lavfi -i testsrc=size=<span class="number">250</span>x120:rate=<span class="number">30</span> -f lavfi -i anullsrc=r=<span class="number">48000</span>:cl=mono -f mp4 -pixel_format yuv420p -t <span class="number">20</span> z.mp4</span><br><span class="line"></span><br><span class="line">ffmpeg -hide_banner -f lavfi -i testsrc=size=<span class="number">250</span>x120:rate=<span class="number">30</span> -f lavfi -i anullsrc=r=<span class="number">48000</span>:cl=mono -f mp4 -pix_fmt yuv420p -t <span class="number">20</span> z.mp4</span><br></pre></td></tr></table></figure>
+
+<p>从参数解析过程来看，-pixel_format 会被解析为 AVOption，而-pix_fmt 会被解析为 ffmpeg 自己定义的 Option。</p>
+<p>-pixel_format 最后是作为 format option 传给 format ctx，对于没有 pixel_format 选项的格式来说，该选项不起作用，而-pix_fmt 则会设置到 OutputStream、OutputFilter 以及 enc_ctx 中的 pix_fmt 字段。</p>
+<p>到这里可以发现，第一条和第二条命令相当于没有设置 OutputStream、OutputFilter 以及 enc_ctx 中的 pix_fmt 字段，而第三条则显式的设置了 pix_fmt 字段。在 ffmpeg 命令行程序中，对于一组对应的 OutputStream 和 InputStream，如果双方接受的格式不同，那么中间会插入一个 scale&#x2F;resample filter 来自动进行格式转换。</p>
+<p>testsrc 输出的是 rgb24 格式，而 OutputStream、OutputFilter 以及 enc_ctx 中的 pix_fmt 则是在下面设置的，如果命令行参数指定了-pix_fmt，则会设置到 video_enc-&gt;pix_fmt</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> OutputStream *<span class="title">new_video_stream</span><span class="params">(OptionsContext *o, AVFormatContext *oc,</span></span></span><br><span class="line"><span class="params"><span class="function">    <span class="type">int</span> source_index)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (!ost-&gt;stream_copy) &#123;</span><br><span class="line">        ...</span><br><span class="line">        <span class="built_in">MATCH_PER_STREAM_OPT</span>(frame_pix_fmts, str, frame_pix_fmt, oc, st);</span><br><span class="line">        <span class="keyword">if</span> (frame_pix_fmt &amp;&amp; *frame_pix_fmt == <span class="string">&#x27;+&#x27;</span>) &#123;</span><br><span class="line">            ost-&gt;keep_pix_fmt = <span class="number">1</span>;</span><br><span class="line">            <span class="keyword">if</span> (!*++frame_pix_fmt)</span><br><span class="line">                frame_pix_fmt = <span class="literal">NULL</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (frame_pix_fmt &amp;&amp; (video_enc-&gt;pix_fmt = <span class="built_in">av_get_pix_fmt</span>(frame_pix_fmt)) == AV_PIX_FMT_NONE) &#123;</span><br><span class="line">            <span class="built_in">av_log</span>(<span class="literal">NULL</span>, AV_LOG_FATAL, <span class="string">&quot;Unknown pixel format requested: %s.\n&quot;</span>, frame_pix_fmt);</span><br><span class="line">            <span class="built_in">exit_program</span>(<span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 open_output_file 中，会根据 enc_ctx-&gt;pix_fmt 来设置 OutputFilter 上的 format&#x2F;formats</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">open_output_file</span><span class="params">(OptionsContext *o, <span class="type">const</span> <span class="type">char</span> *filename)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="comment">/* set the decoding_needed flags and create simple filtergraphs */</span></span><br><span class="line">    <span class="keyword">for</span> (i = of-&gt;ost_index; i &lt; nb_output_streams; i++) &#123;</span><br><span class="line">        OutputStream *ost = output_streams[i];</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">        <span class="comment">/* set the filter output constraints */</span></span><br><span class="line">        <span class="keyword">if</span> (ost-&gt;filter) &#123;</span><br><span class="line">            OutputFilter *f = ost-&gt;filter;</span><br><span class="line">            <span class="keyword">switch</span> (ost-&gt;enc_ctx-&gt;codec_type) &#123;</span><br><span class="line">            <span class="keyword">case</span> AVMEDIA_TYPE_VIDEO:</span><br><span class="line">                f-&gt;frame_rate = ost-&gt;frame_rate;</span><br><span class="line">                f-&gt;width      = ost-&gt;enc_ctx-&gt;width;</span><br><span class="line">                f-&gt;height     = ost-&gt;enc_ctx-&gt;height;</span><br><span class="line">                <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;pix_fmt != AV_PIX_FMT_NONE) &#123;</span><br><span class="line">                    f-&gt;format = ost-&gt;enc_ctx-&gt;pix_fmt;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    f-&gt;formats = ost-&gt;enc-&gt;pix_fmts;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            <span class="keyword">case</span> AVMEDIA_TYPE_AUDIO:</span><br><span class="line">                <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;sample_fmt != AV_SAMPLE_FMT_NONE) &#123;</span><br><span class="line">                    f-&gt;format = ost-&gt;enc_ctx-&gt;sample_fmt;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    f-&gt;formats = ost-&gt;enc-&gt;sample_fmts;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;sample_rate) &#123;</span><br><span class="line">                    f-&gt;sample_rate = ost-&gt;enc_ctx-&gt;sample_rate;</span><br><span class="line">                &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">                    f-&gt;sample_rates = ost-&gt;enc-&gt;supported_samplerates;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;ch_layout.nb_channels) &#123;</span><br><span class="line">                    <span class="built_in">set_channel_layout</span>(f, ost);</span><br><span class="line">                &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ost-&gt;enc-&gt;ch_layouts) &#123;</span><br><span class="line">                    f-&gt;ch_layouts = ost-&gt;enc-&gt;ch_layouts;</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果输入 filter 和输出 filter 接受的格式不同，比如输入 filter 为 rgb24，输出 filter 可以接受 yuv420p、nv12 等格式，那么存在一个为输出 filter 选择输出格式的过程。从下面代码可以看到，如果 ost-&gt;enc_ctx-&gt;pix_fmt 不为空，就使用该格式，否则，从 ost-&gt;enc-&gt;pix_fmts 中选择若干合适的格式</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* May return NULL (no pixel format found), a static string or a string</span></span><br><span class="line"><span class="comment"> * backed by the bprint. Nothing has been written to the AVBPrint in case</span></span><br><span class="line"><span class="comment"> * NULL is returned. The AVBPrint provided should be clean. */</span></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">const</span> <span class="type">char</span> *<span class="title">choose_pix_fmts</span><span class="params">(OutputFilter *ofilter, AVBPrint *bprint)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    OutputStream *ost = ofilter-&gt;ost;</span><br><span class="line">    <span class="type">const</span> AVDictionaryEntry *strict_dict = <span class="built_in">av_dict_get</span>(ost-&gt;encoder_opts, <span class="string">&quot;strict&quot;</span>, <span class="literal">NULL</span>, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> (strict_dict)</span><br><span class="line">        <span class="comment">// used by choose_pixel_fmt() and below</span></span><br><span class="line">        <span class="built_in">av_opt_set</span>(ost-&gt;enc_ctx, <span class="string">&quot;strict&quot;</span>, strict_dict-&gt;value, <span class="number">0</span>);</span><br><span class="line"></span><br><span class="line">     <span class="keyword">if</span> (ost-&gt;keep_pix_fmt) &#123;</span><br><span class="line">        <span class="built_in">avfilter_graph_set_auto_convert</span>(ofilter-&gt;graph-&gt;graph,</span><br><span class="line">                                            AVFILTER_AUTO_CONVERT_NONE);</span><br><span class="line">        <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;pix_fmt == AV_PIX_FMT_NONE)</span><br><span class="line">            <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">av_get_pix_fmt_name</span>(ost-&gt;enc_ctx-&gt;pix_fmt);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;pix_fmt != AV_PIX_FMT_NONE) &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">av_get_pix_fmt_name</span>(<span class="built_in">choose_pixel_fmt</span>(ost-&gt;st, ost-&gt;enc_ctx, ost-&gt;enc, ost-&gt;enc_ctx-&gt;pix_fmt));</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (ost-&gt;enc &amp;&amp; ost-&gt;enc-&gt;pix_fmts) &#123;</span><br><span class="line">        <span class="type">const</span> <span class="keyword">enum</span> AVPixelFormat *p;</span><br><span class="line"></span><br><span class="line">        p = ost-&gt;enc-&gt;pix_fmts;</span><br><span class="line">        <span class="keyword">if</span> (ost-&gt;enc_ctx-&gt;strict_std_compliance &gt; FF_COMPLIANCE_UNOFFICIAL) &#123;</span><br><span class="line">            p = <span class="built_in">get_compliance_normal_pix_fmts</span>(ost-&gt;enc, p);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">for</span> (; *p != AV_PIX_FMT_NONE; p++) &#123;</span><br><span class="line">            <span class="type">const</span> <span class="type">char</span> *name = <span class="built_in">av_get_pix_fmt_name</span>(*p);</span><br><span class="line">            <span class="built_in">av_bprintf</span>(bprint, <span class="string">&quot;%s%c&quot;</span>, name, p[<span class="number">1</span>] == AV_PIX_FMT_NONE ? <span class="string">&#x27;\0&#x27;</span> : <span class="string">&#x27;|&#x27;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">if</span> (!<span class="built_in">av_bprint_is_complete</span>(bprint))</span><br><span class="line">            <span class="built_in">exit_program</span>(<span class="number">1</span>);</span><br><span class="line">        <span class="keyword">return</span> bprint-&gt;str;</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在 choose_pix_fmts 返回之后，使用输出的格式来创建一个 format filter，该 filter 可选的输出格式为（如果没有指定-pix_fmt，对于 libx264 就是）<code>yuv420p|yuvj420p|yuv422p|yuvj422p|yuv444p|yuvj444p|nv12|nv16|nv21|yuv420p10le|yuv422p10le|yuv444p10le|nv20le</code>，在后续 filter 的格式协商中会根据上游格式和这里的格式来选择一个合适的输出格式，同时，如果两者不同，还会插入一个 scale filter 来做格式转换。在这个例子中，上游输入 <code>rbg24</code>，format 选择的格式是 <code>yuv444p</code></p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">configure_output_video_filter</span><span class="params">(FilterGraph *fg, OutputFilter *ofilter, AVFilterInOut *out)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    OutputStream *ost = ofilter-&gt;ost;</span><br><span class="line">    OutputFile    *of = output_files[ost-&gt;file_index];</span><br><span class="line">    AVFilterContext *last_filter = out-&gt;filter_ctx;</span><br><span class="line">    AVBPrint bprint;</span><br><span class="line">    <span class="type">int</span> pad_idx = out-&gt;pad_idx;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    <span class="type">const</span> <span class="type">char</span> *pix_fmts;</span><br><span class="line">    <span class="type">char</span> name[<span class="number">255</span>];</span><br><span class="line"></span><br><span class="line">    <span class="built_in">snprintf</span>(name, <span class="built_in">sizeof</span>(name), <span class="string">&quot;out_%d_%d&quot;</span>, ost-&gt;file_index, ost-&gt;index);</span><br><span class="line">    ret = <span class="built_in">avfilter_graph_create_filter</span>(&amp;ofilter-&gt;filter,</span><br><span class="line">                                       <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;buffersink&quot;</span>),</span><br><span class="line">                                       name, <span class="literal">NULL</span>, <span class="literal">NULL</span>, fg-&gt;graph);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ofilter-&gt;width || ofilter-&gt;height) &amp;&amp; ofilter-&gt;ost-&gt;autoscale) &#123;</span><br><span class="line">        <span class="type">char</span> args[<span class="number">255</span>];</span><br><span class="line">        AVFilterContext *filter;</span><br><span class="line">        <span class="type">const</span> AVDictionaryEntry *e = <span class="literal">NULL</span>;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">snprintf</span>(args, <span class="built_in">sizeof</span>(args), <span class="string">&quot;%d:%d&quot;</span>,</span><br><span class="line">                 ofilter-&gt;width, ofilter-&gt;height);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">while</span> ((e = <span class="built_in">av_dict_get</span>(ost-&gt;sws_dict, <span class="string">&quot;&quot;</span>, e,</span><br><span class="line">                                AV_DICT_IGNORE_SUFFIX))) &#123;</span><br><span class="line">            <span class="built_in">av_strlcatf</span>(args, <span class="built_in">sizeof</span>(args), <span class="string">&quot;:%s=%s&quot;</span>, e-&gt;key, e-&gt;value);</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">snprintf</span>(name, <span class="built_in">sizeof</span>(name), <span class="string">&quot;scaler_out_%d_%d&quot;</span>,</span><br><span class="line">                 ost-&gt;file_index, ost-&gt;index);</span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_graph_create_filter</span>(&amp;filter, <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;scale&quot;</span>),</span><br><span class="line">                                                name, args, <span class="literal">NULL</span>, fg-&gt;graph)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_link</span>(last_filter, pad_idx, filter, <span class="number">0</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">        last_filter = filter;</span><br><span class="line">        pad_idx = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_bprint_init</span>(&amp;bprint, <span class="number">0</span>, AV_BPRINT_SIZE_UNLIMITED);</span><br><span class="line">    <span class="keyword">if</span> ((pix_fmts = <span class="built_in">choose_pix_fmts</span>(ofilter, &amp;bprint))) &#123;</span><br><span class="line">        AVFilterContext *filter;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">avfilter_graph_create_filter</span>(&amp;filter,</span><br><span class="line">                                           <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;format&quot;</span>),</span><br><span class="line">                                           <span class="string">&quot;format&quot;</span>, pix_fmts, <span class="literal">NULL</span>, fg-&gt;graph);</span><br><span class="line">        <span class="built_in">av_bprint_finalize</span>(&amp;bprint, <span class="literal">NULL</span>);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_link</span>(last_filter, pad_idx, filter, <span class="number">0</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">        last_filter = filter;</span><br><span class="line">        pad_idx     = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ost-&gt;frame_rate.num &amp;&amp; <span class="number">0</span>) &#123;</span><br><span class="line">        AVFilterContext *fps;</span><br><span class="line">        <span class="type">char</span> args[<span class="number">255</span>];</span><br><span class="line"></span><br><span class="line">        <span class="built_in">snprintf</span>(args, <span class="built_in">sizeof</span>(args), <span class="string">&quot;fps=%d/%d&quot;</span>, ost-&gt;frame_rate.num,</span><br><span class="line">                 ost-&gt;frame_rate.den);</span><br><span class="line">        <span class="built_in">snprintf</span>(name, <span class="built_in">sizeof</span>(name), <span class="string">&quot;fps_out_%d_%d&quot;</span>,</span><br><span class="line">                 ost-&gt;file_index, ost-&gt;index);</span><br><span class="line">        ret = <span class="built_in">avfilter_graph_create_filter</span>(&amp;fps, <span class="built_in">avfilter_get_by_name</span>(<span class="string">&quot;fps&quot;</span>),</span><br><span class="line">                                           name, args, <span class="literal">NULL</span>, fg-&gt;graph);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">        ret = <span class="built_in">avfilter_link</span>(last_filter, pad_idx, fps, <span class="number">0</span>);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        last_filter = fps;</span><br><span class="line">        pad_idx = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">snprintf</span>(name, <span class="built_in">sizeof</span>(name), <span class="string">&quot;trim_out_%d_%d&quot;</span>,</span><br><span class="line">             ost-&gt;file_index, ost-&gt;index);</span><br><span class="line">    ret = <span class="built_in">insert_trim</span>(of-&gt;start_time, of-&gt;recording_time,</span><br><span class="line">                      &amp;last_filter, &amp;pad_idx, name);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = <span class="built_in">avfilter_link</span>(last_filter, pad_idx, ofilter-&gt;filter, <span class="number">0</span>)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在研究这个问题的时候，发现 input 也有-pixel_format 和-pix_fmt 选项，这两个选项最后都会作用到 format opt 中，以“pixel_format”的形式，但是需要注意，如果对于没有 pixel_format 选项的 input format 使用该选项，会报错，因为 ffmpeg 会对 input 的 format opt 进行检查，如果发现有没使用的 opt，就会报错，但是 output 没有进行这个检查。</p>
+<p>上面的分析主要是针对 video，但是 audio 也存在格式转换过程，可以通过-sample_fmt 选项指定 enc_ctx 输入的 raw 格式。</p>
+<p>最后还有一个疑问，为什么-pixel_format 会被解释为 format opt？avcodec_options 中明明有 pixel_format 选项。从下面的 opt_find 中可以找到答案：查找到 AVOption 后还要求 AVOption 上的 flags 不为 0，而 avcodec_options 中的 pixel_format 选项的 flags 为 0</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">const</span> AVOption *<span class="title">opt_find</span><span class="params">(<span class="type">void</span> *obj, <span class="type">const</span> <span class="type">char</span> *name, <span class="type">const</span> <span class="type">char</span> *unit,</span></span></span><br><span class="line"><span class="params"><span class="function">                            <span class="type">int</span> opt_flags, <span class="type">int</span> search_flags)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">const</span> AVOption *o = <span class="built_in">av_opt_find</span>(obj, name, unit, opt_flags, search_flags);</span><br><span class="line">    <span class="keyword">if</span>(o &amp;&amp; !o-&gt;flags)</span><br><span class="line">        <span class="keyword">return</span> <span class="literal">NULL</span>;</span><br><span class="line">    <span class="keyword">return</span> o;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">static</span> <span class="type">const</span> AVOption avcodec_options[] = &#123;</span><br><span class="line">...</span><br><span class="line">&#123;<span class="string">&quot;pixel_format&quot;</span>, <span class="string">&quot;set pixel format&quot;</span>, <span class="built_in">OFFSET</span>(pix_fmt), AV_OPT_TYPE_PIXEL_FMT, &#123;.i64=AV_PIX_FMT_NONE&#125;, <span class="number">-1</span>, INT_MAX, <span class="number">0</span> &#125;,</span><br><span class="line">...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/07/07/Chromium-%E5%A4%9A%E5%AA%92%E4%BD%93%EF%BC%88%E4%B8%83%EF%BC%89/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-07-15 21:38:47
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg-cmd/" title="ffmpeg cmd">
+                        <b>#</b> ffmpeg cmd
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/07/21/ffmpeg-rate-%E5%8F%82%E6%95%B0%E5%A6%82%E4%BD%95%E5%BD%B1%E5%93%8D-decode-%E8%BF%87%E7%A8%8B/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+    </div>
+    
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
