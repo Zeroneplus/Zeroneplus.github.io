@@ -8,10 +8,13 @@
   <meta name="author" content="cdzhang" />
   <meta name="description" content="" />
   
-    <meta name="robots" content="noindex" />
-  
   
   <title>
+    
+      ffmpeg mov muxer 之 fmp4 
+      
+      
+      |
     
      ZeronePlus&#39; Blog
   </title>
@@ -103,175 +106,172 @@
 
 
       <div class="flex-container">
-        <div class="container index">
-  <div class="post-list">
-    <!-- 遍历渲染文章 -->
-    
-      <div class="post-item" title="ffmpeg filter之AVFilterLink">
-        <div class="time-m-d">2023-03-28</div>
-        <div class="title">
-          <a href="/2023/03/28/ffmpeg-filter%E4%B9%8BAVFilterLink/">
-            
-              
-                <span>ffmpeg filter之AVFilterLink</span>
-              
-            
-          </a>
-        </div>
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg mov muxer 之 fmp4</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-11-07 21:17:38
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/mp4/" title="mp4">
+                    <b>#</b> mp4
+                  </a>
+                </span>
+                
+              </span>
+          
       </div>
-    
-      <div class="post-item" title="ffmpeg filter之dump排错">
-        <div class="time-m-d">2023-03-25</div>
-        <div class="title">
-          <a href="/2023/03/25/ffmpeg-filter%E4%B9%8Bdump%E6%8E%92%E9%94%99/">
-            
-              
-                <span>ffmpeg filter之dump排错</span>
-              
-            
-          </a>
-        </div>
+      <div class="markdown-body">
+        <p>最近在使用 ffmpeg mp4 muxer 的时候遇到一个问题，当长时间录像时，由于 mp4 muxer 会在每写入一个 sample 之后，增加一个 entry 来存储这个 sample 的信息（用于 write_trailer 时得到 moov box），随着录像时间越来越长，相关 sample 的元数据信息就会越来越多，对于小内存的设备来说，就会出现 out of memory 的情况。</p>
+<p>后来了解到 mp4 还存在一种 fragment mp4 模式，fmp4 就是把一个大的 mp4 文件分成几个小的部分，每个部分依次存储在一个文件中，每个部分的 moov&#x2F;moof、mdat 邻近存储，可以在写完一定长度的数据之后就写入元信息，从而避免将元信息留到最后来写，这种模式相较 mp4 来说内存压力会小很多，特别是对于小设备且长期录像的场合。</p>
+<p>从 mov muxer 的 option 中发现，存在一些和 fragment 相关的选项，比如 frag_duration，设定了这个选项之后，mov muxer 就会按照 frag_duration 的大小来进行分片，比如下面就设定分片时长为 5s（5000000 对应的 timescale 是 1000000）</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ffmpeg -hide_banner -f lavfi -i testsrc=size=<span class="number">640</span>x480:rate=<span class="number">30</span> -f mp4 -frag_duration <span class="number">5000000</span> -t <span class="number">20</span> z.mp4</span><br></pre></td></tr></table></figure>
+
+<p>生成的 mp4 文件通过工具查看确实出现了一个 moov 和 3 个 moof。</p>
+<p>下篇文章介绍一下 fmp4 和 mp4 格式的区别。</p>
+
       </div>
-    
-      <div class="post-item" title="ffmpeg filter之状态变化与数据流转">
-        <div class="time-m-d">2023-03-21</div>
-        <div class="title">
-          <a href="/2023/03/21/ffmpeg-filter%E4%B9%8B%E7%8A%B6%E6%80%81%E5%8F%98%E5%8C%96%E4%B8%8E%E6%95%B0%E6%8D%AE%E6%B5%81%E8%BD%AC/">
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
             
-              
-                <span>ffmpeg filter之状态变化与数据流转</span>
-              
+              <a href="/2023/10/25/ffmpeg-mov-muxer-%E4%B9%8B-negative-cts-offsets-flag/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
             
-          </a>
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-11-07 21:17:38
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/mp4/" title="mp4">
+                        <b>#</b> mp4
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+              <a href="/2023/11/22/fMP4-%E6%A0%BC%E5%BC%8F/" target="_self">
+                <span>下一页</span>
+                <i class="iconfont icon-chevronright"></i>
+              </a>
+            
+          </div>
         </div>
-      </div>
+      
+    </div>
     
-      <div class="post-item" title="ffmpeg filter之格式协商（format negotiation）">
-        <div class="time-m-d">2023-03-19</div>
-        <div class="title">
-          <a href="/2023/03/19/ffmpeg-filter%E4%B9%8B%E6%A0%BC%E5%BC%8F%E5%8D%8F%E5%95%86%EF%BC%88format-negotiation%EF%BC%89/">
-            
-              
-                <span>ffmpeg filter之格式协商（format negotiation）</span>
-              
-            
-          </a>
-        </div>
-      </div>
+
     
-      <div class="post-item" title="ffmpeg filter之创建filter与filtergraph">
-        <div class="time-m-d">2023-03-16</div>
-        <div class="title">
-          <a href="/2023/03/16/ffmpeg-filter%E4%B9%8B%E5%88%9B%E5%BB%BAfilter%E4%B8%8Efiltergraph/">
-            
-              
-                <span>ffmpeg filter之创建filter与filtergraph</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVFrame和AVPacket">
-        <div class="time-m-d">2023-03-13</div>
-        <div class="title">
-          <a href="/2023/03/13/ffmpeg%E4%B9%8BAVFrame%E5%92%8CAVPacket/">
-            
-              
-                <span>ffmpeg之AVFrame和AVPacket</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVDictionary">
-        <div class="time-m-d">2023-03-10</div>
-        <div class="title">
-          <a href="/2023/03/10/ffmpeg%E4%B9%8BAVDictionary/">
-            
-              
-                <span>ffmpeg之AVDictionary</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="ffmpeg之AVOption和AVClass">
-        <div class="time-m-d">2023-03-07</div>
-        <div class="title">
-          <a href="/2023/03/07/ffmpeg%E4%B9%8BAVOption%E5%92%8CAVClass/">
-            
-              
-                <span>ffmpeg之AVOption和AVClass</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="declval是什么">
-        <div class="time-m-d">2023-03-04</div>
-        <div class="title">
-          <a href="/2023/03/04/declval%E6%98%AF%E4%BB%80%E4%B9%88/">
-            
-              
-                <span>declval是什么</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="decltype(auto)用法">
-        <div class="time-m-d">2023-03-04</div>
-        <div class="title">
-          <a href="/2023/03/04/decltype-auto-%E7%94%A8%E6%B3%95/">
-            
-              
-                <span>decltype(auto)用法</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="C++标准库之shared_ptr和weak_ptr">
-        <div class="time-m-d">2023-03-01</div>
-        <div class="title">
-          <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bshared-ptr%E5%92%8Cweak-ptr/">
-            
-              
-                <span>C++标准库之shared_ptr和weak_ptr</span>
-              
-            
-          </a>
-        </div>
-      </div>
-    
-      <div class="post-item" title="C++标准库之unique_ptr">
-        <div class="time-m-d">2023-03-01</div>
-        <div class="title">
-          <a href="/2023/03/01/C-%E6%A0%87%E5%87%86%E5%BA%93%E6%99%BA%E8%83%BD%E6%8C%87%E9%92%88%E5%88%86%E6%9E%90%E4%B9%8Bunique-ptr/">
-            
-              
-                <span>C++标准库之unique_ptr</span>
-              
-            
-          </a>
-        </div>
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
       </div>
     
   </div>
-  <nav class="post-navigation">
-    
-      <a href="/page/4/"><i class="iconfont icon-angleleft"></i></a>
-    
-    <span class="page-num">5 / 5</span>
-    
-  </nav>
-</div>
+
 
         
 <div class="footer">

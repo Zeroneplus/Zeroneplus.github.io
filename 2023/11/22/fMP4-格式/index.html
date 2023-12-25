@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      fMP4 格式 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">fMP4 格式</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2023-11-22 21:17:52
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/mp4/" title="mp4">
+                    <b>#</b> mp4
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>这篇文章接着上一篇继续介绍 fmp4 格式。</p>
+<p>传统的 mp4 格式的元数据和 sample 数据分开存储。编码时通常先存储 sample 数据，在编码的最后写入元数据。这样做有以下缺点：</p>
+<ul>
+<li>对于长时间录像，由于元数据最后才写入文件，所以编码过程中，元数据占用的内存会不断增长，对小内存设备来说会出现 out of memory 的情况</li>
+<li>在解析 mp4 文件时，需要读取 moov box 之后才知道如何去获取 sample。而 mp4 编码时通常把 moov box 存在文件的最后（不考虑后期优化 mp4 文件时将 moov box 移动到文件前面），所以首帧速度可能较慢</li>
+</ul>
+<p>而 fmp4 则是基于 mp4 格式改进而来，将一个大的 mp4 文件分成若干个小片段(fragment)，常用于一边生成音视频一边播放&#x2F;传输的场合。</p>
+<h1 id="fmp4-和-mp4-的区别"><a href="#fmp4-和-mp4-的区别" class="headerlink" title="fmp4 和 mp4 的区别"></a>fmp4 和 mp4 的区别</h1><p>fmp4 和 mp4 主要有以下区别</p>
+<ul>
+<li>mp4 格式通常只有一个 moov box 来存储所有 sample 的元数据，解析完 moov box 后就知道所有 sample 的信息；而 fmp4 可以有多个 moof 存储当前音视频数据的不同部分，每读取到一个 moof，就可以知道该小段 sample 的信息</li>
+<li>mp4 格式一般是 moov、mdat 两个 box 相邻，分别存储元数据和 sample 数据；fmp4 则是若干对 moof、mdat 相邻，比如 moof、mdat、moof、mdat、moof、mdat…，每一对 moof、mdat 代表某一小段数据的元数据和 sample 数据</li>
+<li>mp4 格式的元数据（sample 的 pts、dts、size、position）存储在 moov 中 stbl 中的 stts、ctts、stsz、stco、stsc 等 box 中；而 fmp4 的元数据存储在 moof 中的 tfhd&#x2F;trun 等 box 中</li>
+</ul>
+<p>接下来通过 ffmpeg mov muxer 的具体代码来看看 fmp4 格式。</p>
+<p>下面是写 moof box，先计算 moof box 的 size，因为 moof 先于 mdat 写入文件，但 moof 中会写入 sample 的 position，所以需要先算出 moof_size 才能知道每个 sample 的位置</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_moof_tag(AVIOContext *pb, MOVMuxContext *mov, <span class="built_in">int</span> tracks,</span><br><span class="line">                              int64_t mdat_size)</span><br><span class="line">&#123;</span><br><span class="line">    AVIOContext *avio_buf;</span><br><span class="line">    <span class="built_in">int</span> ret, moof_size;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> ((ret = ffio_open_null_buf(&amp;avio_buf)) &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    mov_write_moof_tag_internal(avio_buf, mov, tracks, <span class="number">0</span>);</span><br><span class="line">    moof_size = ffio_close_null_buf(avio_buf);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_DASH &amp;&amp;</span><br><span class="line">        !(mov-&gt;flags &amp; (FF_MOV_FLAG_GLOBAL_SIDX | FF_MOV_FLAG_SKIP_SIDX)))</span><br><span class="line">        mov_write_sidx_tags(pb, mov, tracks, moof_size + <span class="number">8</span> + mdat_size);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;write_prft &gt; MOV_PRFT_NONE &amp;&amp; mov-&gt;write_prft &lt; MOV_PRFT_NB)</span><br><span class="line">        mov_write_prft_tag(pb, mov, tracks);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_GLOBAL_SIDX ||</span><br><span class="line">        !(mov-&gt;flags &amp; FF_MOV_FLAG_SKIP_TRAILER) ||</span><br><span class="line">        mov-&gt;ism_lookahead) &#123;</span><br><span class="line">        <span class="keyword">if</span> ((ret = mov_add_tfra_entries(pb, mov, tracks, moof_size + <span class="number">8</span> + mdat_size)) &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        <span class="keyword">if</span> (!(mov-&gt;flags &amp; FF_MOV_FLAG_GLOBAL_SIDX) &amp;&amp;</span><br><span class="line">            mov-&gt;flags &amp; FF_MOV_FLAG_SKIP_TRAILER) &#123;</span><br><span class="line">            mov_prune_frag_info(mov, tracks, mov-&gt;ism_lookahead + <span class="number">1</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> mov_write_moof_tag_internal(pb, mov, tracks, moof_size);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>mov_write_moof_tag_internal 中会执行 mov_write_mfhd_tag 写入 mfhd，然后针对每个 track 写一个 traf</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_moof_tag_internal(AVIOContext *pb, MOVMuxContext *mov,</span><br><span class="line">                                       <span class="built_in">int</span> tracks, <span class="built_in">int</span> moof_size)</span><br><span class="line">&#123;</span><br><span class="line">    int64_t pos = avio_tell(pb);</span><br><span class="line">    <span class="built_in">int</span> i;</span><br><span class="line"></span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>); /* size placeholder */</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;moof&quot;</span>);</span><br><span class="line">    mov-&gt;first_trun = <span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    mov_write_mfhd_tag(pb, mov);</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">0</span>; i &lt; mov-&gt;nb_streams; i++) &#123;</span><br><span class="line">        MOVTrack *track = &amp;mov-&gt;tracks[i];</span><br><span class="line">        <span class="keyword">if</span> (tracks &gt;= <span class="number">0</span> &amp;&amp; i != tracks)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        <span class="keyword">if</span> (!track-&gt;entry)</span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        mov_write_traf_tag(pb, mov, track, pos, moof_size);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> update_size(pb, pos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>mfhd 中有一个 id 标识当前是第几个 fragment</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_mfhd_tag(AVIOContext *pb, MOVMuxContext *mov)</span><br><span class="line">&#123;</span><br><span class="line">    avio_wb32(pb, <span class="number">16</span>);</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;mfhd&quot;</span>);</span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>);</span><br><span class="line">    avio_wb32(pb, mov-&gt;fragments);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>mov_write_traf_tag 中写入 tfhd、tfdt，然后开始写 trun，注意一个 track 中可以有多个 trun，一个 trun 里有多个 sample，下面代码里把存储空间上连续的 sample 写成一个 trun</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_traf_tag(AVIOContext *pb, MOVMuxContext *mov,</span><br><span class="line">                              MOVTrack *track, int64_t moof_offset,</span><br><span class="line">                              <span class="built_in">int</span> moof_size)</span><br><span class="line">&#123;</span><br><span class="line">    int64_t pos = avio_tell(pb);</span><br><span class="line">    <span class="built_in">int</span> i, start = <span class="number">0</span>;</span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>); /* size placeholder */</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;traf&quot;</span>);</span><br><span class="line"></span><br><span class="line">    mov_write_tfhd_tag(pb, mov, track, moof_offset);</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;mode != MODE_ISM)</span><br><span class="line">        mov_write_tfdt_tag(pb, track);</span><br><span class="line">    <span class="keyword">for</span> (i = <span class="number">1</span>; i &lt; track-&gt;entry; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (track-&gt;cluster[i].pos != track-&gt;cluster[i - <span class="number">1</span>].pos + track-&gt;cluster[i - <span class="number">1</span>].size) &#123;</span><br><span class="line">            mov_write_trun_tag(pb, mov, track, moof_size, start, i);</span><br><span class="line">            start = i;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    mov_write_trun_tag(pb, mov, track, moof_size, start, track-&gt;entry);</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;mode == MODE_ISM) &#123;</span><br><span class="line">        mov_write_tfxd_tag(pb, track);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (mov-&gt;ism_lookahead) &#123;</span><br><span class="line">            <span class="built_in">int</span> size = <span class="number">16</span> + <span class="number">4</span> + <span class="number">1</span> + <span class="number">16</span> * mov-&gt;ism_lookahead;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">if</span> (track-&gt;nb_frag_info &gt; <span class="number">0</span>) &#123;</span><br><span class="line">                MOVFragmentInfo *info = &amp;track-&gt;frag_info[track-&gt;nb_frag_info - <span class="number">1</span>];</span><br><span class="line">                <span class="keyword">if</span> (!info-&gt;tfrf_offset)</span><br><span class="line">                    info-&gt;tfrf_offset = avio_tell(pb);</span><br><span class="line">            &#125;</span><br><span class="line">            avio_wb32(pb, <span class="number">8</span> + size);</span><br><span class="line">            ffio_wfourcc(pb, <span class="string">&quot;free&quot;</span>);</span><br><span class="line">            ffio_fill(pb, <span class="number">0</span>, size);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> update_size(pb, pos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>tfhd 里面有一些 flag 来标识 sample 的默认信息，比如 MOV_TFHD_DEFAULT_SIZE、MOV_TFHD_DEFAULT_DURATION、MOV_TFHD_DEFAULT_FLAGS。如果这些 flag 存在，那么 tfhd 中会有 default_duration、default_size、default_sample_flags 等字段。</p>
+<p>tfhd 里面还有一个比较特殊的 flag：FF_MOV_FLAG_DEFAULT_BASE_MOOF。出现了这个 flag 那么 MOV_TFHD_BASE_DATA_OFFSET 就不能再出现。FF_MOV_FLAG_DEFAULT_BASE_MOOF 表示 tfhd 中没有 data_offset 字段，data_offset 就是 moof 的地址，如果出现 MOV_TFHD_BASE_DATA_OFFSET，那么 tfhd 中有 data_offset，从下面代码可以看到，当存在 MOV_TFHD_BASE_DATA_OFFSET 时，data_offset 其实也是 moof_offset。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_tfhd_tag(AVIOContext *pb, MOVMuxContext *mov,</span><br><span class="line">                              MOVTrack *track, int64_t moof_offset)</span><br><span class="line">&#123;</span><br><span class="line">    int64_t pos = avio_tell(pb);</span><br><span class="line">    uint32_t flags = MOV_TFHD_DEFAULT_SIZE | MOV_TFHD_DEFAULT_DURATION |</span><br><span class="line">                     MOV_TFHD_BASE_DATA_OFFSET;</span><br><span class="line">    <span class="keyword">if</span> (!track-&gt;entry) &#123;</span><br><span class="line">        flags |= MOV_TFHD_DURATION_IS_EMPTY;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        flags |= MOV_TFHD_DEFAULT_FLAGS;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_OMIT_TFHD_OFFSET)</span><br><span class="line">        flags &amp;= ~MOV_TFHD_BASE_DATA_OFFSET;</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_DEFAULT_BASE_MOOF) &#123;</span><br><span class="line">        flags &amp;= ~MOV_TFHD_BASE_DATA_OFFSET;</span><br><span class="line">        flags |= MOV_TFHD_DEFAULT_BASE_IS_MOOF;</span><br><span class="line">    &#125;</span><br><span class="line">    /* CMAF requires <span class="built_in">all</span> values to be explicit <span class="keyword">in</span> tfhd atoms */</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_CMAF)</span><br><span class="line">        flags |= MOV_TFHD_STSD_ID;</span><br><span class="line">...</span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>); /* size placeholder */</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;tfhd&quot;</span>);</span><br><span class="line">    avio_w8(pb, <span class="number">0</span>); /* version */</span><br><span class="line">    avio_wb24(pb, flags);</span><br><span class="line"></span><br><span class="line">    avio_wb32(pb, track-&gt;track_id); /* track-<span class="built_in">id</span> */</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TFHD_BASE_DATA_OFFSET)</span><br><span class="line">        avio_wb64(pb, moof_offset);</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TFHD_STSD_ID) &#123;</span><br><span class="line">        avio_wb32(pb, <span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TFHD_DEFAULT_DURATION) &#123;</span><br><span class="line">        track-&gt;default_duration = get_cluster_duration(track, <span class="number">0</span>);</span><br><span class="line">        avio_wb32(pb, track-&gt;default_duration);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TFHD_DEFAULT_SIZE) &#123;</span><br><span class="line">        track-&gt;default_size = track-&gt;entry ? track-&gt;cluster[<span class="number">0</span>].size : <span class="number">1</span>;</span><br><span class="line">        avio_wb32(pb, track-&gt;default_size);</span><br><span class="line">    &#125; <span class="keyword">else</span></span><br><span class="line">        track-&gt;default_size = -<span class="number">1</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TFHD_DEFAULT_FLAGS) &#123;</span><br><span class="line">        /* <span class="type">Set</span> the default flags based on the second sample, <span class="keyword">if</span> available.</span><br><span class="line">         * If the first sample <span class="keyword">is</span> different, that can be signaled via a separate field. */</span><br><span class="line">        <span class="keyword">if</span> (track-&gt;entry &gt; <span class="number">1</span>)</span><br><span class="line">            track-&gt;default_sample_flags = get_sample_flags(track, &amp;track-&gt;cluster[<span class="number">1</span>]);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            track-&gt;default_sample_flags =</span><br><span class="line">                track-&gt;par-&gt;codec_type == AVMEDIA_TYPE_VIDEO ?</span><br><span class="line">                (MOV_FRAG_SAMPLE_FLAG_DEPENDS_YES | MOV_FRAG_SAMPLE_FLAG_IS_NON_SYNC) :</span><br><span class="line">                MOV_FRAG_SAMPLE_FLAG_DEPENDS_NO;</span><br><span class="line">        avio_wb32(pb, track-&gt;default_sample_flags);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> update_size(pb, pos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>tfdt 里面保存当前 fragment 的起始 dts，该起始 dts 加上 trun 里的 sample duration 可以计算出每个 sample 的 dts</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_tfdt_tag(AVIOContext *pb, MOVTrack *track)</span><br><span class="line">&#123;</span><br><span class="line">    int64_t pos = avio_tell(pb);</span><br><span class="line"></span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>); /* size */</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;tfdt&quot;</span>);</span><br><span class="line">    avio_w8(pb, <span class="number">1</span>); /* version */</span><br><span class="line">    avio_wb24(pb, <span class="number">0</span>);</span><br><span class="line">    avio_wb64(pb, track-&gt;cluster[<span class="number">0</span>].dts - track-&gt;start_dts);</span><br><span class="line">    <span class="keyword">return</span> update_size(pb, pos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>trun 里面存储每一个 sample 的信息，比如当前 trun 的 data offset、每个 sample 的 duration、size、flag。之前在 tfhd 中有一些 default 的 duration、size、flag 参数，当 trun 里 sample 的 duration、size、flag 不存在时，就使用 tfhd 中的 default 值。</p>
+<p>除了 tfhd 中的 base_offset，trun 还有一个 data_offset，base_offset+data_offset 才是当前 trun 的 offset，用当前 trun 的 offset 加上 sample size 就能算出每个 sample 的位置</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_write_trun_tag(AVIOContext *pb, MOVMuxContext *mov,</span><br><span class="line">                              MOVTrack *track, <span class="built_in">int</span> moof_size,</span><br><span class="line">                              <span class="built_in">int</span> first, <span class="built_in">int</span> end)</span><br><span class="line">&#123;</span><br><span class="line">    int64_t pos = avio_tell(pb);</span><br><span class="line">    uint32_t flags = MOV_TRUN_DATA_OFFSET;</span><br><span class="line">    <span class="built_in">int</span> i;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = first; i &lt; end; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (get_cluster_duration(track, i) != track-&gt;default_duration)</span><br><span class="line">            flags |= MOV_TRUN_SAMPLE_DURATION;</span><br><span class="line">        <span class="keyword">if</span> (track-&gt;cluster[i].size != track-&gt;default_size)</span><br><span class="line">            flags |= MOV_TRUN_SAMPLE_SIZE;</span><br><span class="line">        <span class="keyword">if</span> (i &gt; first &amp;&amp; get_sample_flags(track, &amp;track-&gt;cluster[i]) != track-&gt;default_sample_flags)</span><br><span class="line">            flags |= MOV_TRUN_SAMPLE_FLAGS;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">if</span> (!(flags &amp; MOV_TRUN_SAMPLE_FLAGS) &amp;&amp; track-&gt;entry &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">         get_sample_flags(track, &amp;track-&gt;cluster[<span class="number">0</span>]) != track-&gt;default_sample_flags)</span><br><span class="line">        flags |= MOV_TRUN_FIRST_SAMPLE_FLAGS;</span><br><span class="line">    <span class="keyword">if</span> (track-&gt;flags &amp; MOV_TRACK_CTTS)</span><br><span class="line">        flags |= MOV_TRUN_SAMPLE_CTS;</span><br><span class="line"></span><br><span class="line">    avio_wb32(pb, <span class="number">0</span>); /* size placeholder */</span><br><span class="line">    ffio_wfourcc(pb, <span class="string">&quot;trun&quot;</span>);</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_NEGATIVE_CTS_OFFSETS)</span><br><span class="line">        avio_w8(pb, <span class="number">1</span>); /* version */</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        avio_w8(pb, <span class="number">0</span>); /* version */</span><br><span class="line">    avio_wb24(pb, flags);</span><br><span class="line"></span><br><span class="line">    avio_wb32(pb, end - first); /* sample count */</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_OMIT_TFHD_OFFSET &amp;&amp;</span><br><span class="line">        !(mov-&gt;flags &amp; FF_MOV_FLAG_DEFAULT_BASE_MOOF) &amp;&amp;</span><br><span class="line">        !mov-&gt;first_trun)</span><br><span class="line">        avio_wb32(pb, <span class="number">0</span>); /* Later tracks follow immediately after the previous one */</span><br><span class="line">    <span class="keyword">else</span></span><br><span class="line">        avio_wb32(pb, moof_size + <span class="number">8</span> + track-&gt;data_offset +</span><br><span class="line">                      track-&gt;cluster[first].pos); /* data offset */</span><br><span class="line">    <span class="keyword">if</span> (flags &amp; MOV_TRUN_FIRST_SAMPLE_FLAGS)</span><br><span class="line">        avio_wb32(pb, get_sample_flags(track, &amp;track-&gt;cluster[first]));</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (i = first; i &lt; end; i++) &#123;</span><br><span class="line">        <span class="keyword">if</span> (flags &amp; MOV_TRUN_SAMPLE_DURATION)</span><br><span class="line">            avio_wb32(pb, get_cluster_duration(track, i));</span><br><span class="line">        <span class="keyword">if</span> (flags &amp; MOV_TRUN_SAMPLE_SIZE)</span><br><span class="line">            avio_wb32(pb, track-&gt;cluster[i].size);</span><br><span class="line">        <span class="keyword">if</span> (flags &amp; MOV_TRUN_SAMPLE_FLAGS)</span><br><span class="line">            avio_wb32(pb, get_sample_flags(track, &amp;track-&gt;cluster[i]));</span><br><span class="line">        <span class="keyword">if</span> (flags &amp; MOV_TRUN_SAMPLE_CTS)</span><br><span class="line">            avio_wb32(pb, track-&gt;cluster[i].cts);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    mov-&gt;first_trun = <span class="number">0</span>;</span><br><span class="line">    <span class="keyword">return</span> update_size(pb, pos);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>从上面代码可以发现 fmp4 和 mp4 非常像，特别是 sample 元数据的组织方式，fmp4 只是把 mp4 分成很多个 fragment，然后将这些 fragment 的元数据和 sample 数据相邻存储。</p>
+<h1 id="MSE-和-fmp4"><a href="#MSE-和-fmp4" class="headerlink" title="MSE 和 fmp4"></a>MSE 和 fmp4</h1><p>MSE 标准使得浏览器能原生播放 fmp4 格式的视频，但是 MSE 标准对 fmp4 有以下额外要求：</p>
+<ul>
+<li>moov 中不能有数据（moov 中有数据也不会读取）</li>
+<li>trun 的 base data offset 必须使用 FF_MOV_FLAG_DEFAULT_BASE_MOOF</li>
+</ul>
+<p>ffmpeg mov muxer 中有一个 flag：FF_MOV_FLAG_DASH，存在该 flag 时会自动添加 FF_MOV_FLAG_FRAGMENT、FF_MOV_FLAG_EMPTY_MOOV、FF_MOV_FLAG_DEFAULT_BASE_MOOF。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">static <span class="built_in">int</span> mov_init(AVFormatContext *s)</span><br><span class="line">&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (mov-&gt;flags &amp; FF_MOV_FLAG_DASH)</span><br><span class="line">        mov-&gt;flags |= FF_MOV_FLAG_FRAGMENT | FF_MOV_FLAG_EMPTY_MOOV |</span><br><span class="line">                      FF_MOV_FLAG_DEFAULT_BASE_MOOF;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>所以要想得到 mse compatible 的 fmp4 文件，需使用 FF_MOV_FLAG_DASH。</p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/11/07/ffmpeg-mov-muxer-%E4%B9%8B-fmp4/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2023-11-22 21:17:52
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/mp4/" title="mp4">
+                        <b>#</b> mp4
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#fmp4-%E5%92%8C-mp4-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-text">fmp4 和 mp4 的区别</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#MSE-%E5%92%8C-fmp4"><span class="toc-text">MSE 和 fmp4</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2023 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
