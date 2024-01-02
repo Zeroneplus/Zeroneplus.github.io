@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN" color-mode="light">
+
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="keywords" content="" />
+  <meta name="author" content="cdzhang" />
+  <meta name="description" content="" />
+  
+  
+  <title>
+    
+      ffmpeg 之 matroska encoder 
+      
+      
+      |
+    
+     ZeronePlus&#39; Blog
+  </title>
+
+  
+    <link rel="apple-touch-icon" href="/images/images3.png">
+    <link rel="icon" href="/images/images3.png">
+  
+
+  <!-- Raleway-Font -->
+  <link href="https://fonts.googleapis.com/css?family=Raleway&display=swap" rel="stylesheet">
+
+  <!-- hexo site css -->
+  <link rel="stylesheet" href="/css/main.css" />
+  <link rel="stylesheet" href="//at.alicdn.com/t/font_1886449_67xjft27j1l.css" />
+  <!-- 代码块风格 -->
+  
+
+  <!-- jquery3.3.1 -->
+  
+    <script defer type="text/javascript" src="/plugins/jquery.min.js"></script>
+  
+
+  <!-- fancybox -->
+  
+    <link href="/plugins/jquery.fancybox.min.css" rel="stylesheet">
+    <script defer type="text/javascript" src="/plugins/jquery.fancybox.min.js"></script>
+  
+  
+<script src="/js/fancybox.js"></script>
+
+
+  
+
+  
+
+  <script>
+    var html = document.documentElement
+    const colorMode = localStorage.getItem('color-mode')
+    if (colorMode) {
+      document.documentElement.setAttribute('color-mode', colorMode)
+    }
+  </script>
+<meta name="generator" content="Hexo 6.3.0"></head>
+
+
+  <body>
+    <div id="app">
+      <div class="header">
+  <div class="avatar">
+    <a href="/">
+      <!-- 头像取消懒加载，添加no-lazy -->
+      
+        <img no-lazy src="/images/images3.png" alt="">
+      
+    </a>
+    <div class="nickname"><a href="/">ZeronePlus</a></div>
+  </div>
+  <div class="navbar">
+    <ul>
+      
+        <li class="nav-item" data-path="/">
+          <a href="/">Home</a>
+        </li>
+      
+        <li class="nav-item" data-path="/archives/">
+          <a href="/archives/">Archives</a>
+        </li>
+      
+        <li class="nav-item" data-path="/categories/">
+          <a href="/categories/">Categories</a>
+        </li>
+      
+        <li class="nav-item" data-path="/tags/">
+          <a href="/tags/">Tags</a>
+        </li>
+      
+        <li class="nav-item" data-path="/about/">
+          <a href="/about/">About</a>
+        </li>
+      
+    </ul>
+  </div>
+</div>
+
+
+<script src="/js/activeNav.js"></script>
+
+
+
+      <div class="flex-container">
+        <!-- 文章详情页，展示文章具体内容，url形式：https://yoursite/文章标题/ -->
+<!-- 同时为「标签tag」，「朋友friend」，「分类categories」，「关于about」页面的承载页面，具体展示取决于page.type -->
+
+
+  <!-- LaTex Display -->
+
+  
+    <script async type="text/javascript" src="/plugins/mathjax/tex-chtml.js"></script>
+  
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      }
+    }
+  </script>
+
+
+
+
+
+  <!-- clipboard -->
+
+  
+    <script async type="text/javascript" src="/plugins/clipboard.min.js"></script>
+  
+  
+<script src="/js/codeCopy.js"></script>
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+  
+  <!-- 文章内容页 url形式：https://yoursite/文章标题/ -->
+  <div class="container post-details" id="post-details">
+    <div class="post-content">
+      <div class="post-title">ffmpeg 之 matroska encoder</div>
+      <div class="post-attach">
+        <span class="post-pubtime">
+          <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+          2024-01-02 22:14:05
+        </span>
+        
+              <span class="post-categories">
+                <i class="iconfont icon-bookmark" title="分类"></i>
+                
+                <span class="span--category">
+                  <a href="/categories/ffmpeg/" title="ffmpeg">
+                    <b>#</b> ffmpeg
+                  </a>
+                </span>
+                
+                <span class="span--category">
+                  <a href="/categories/mkv/" title="mkv">
+                    <b>#</b> mkv
+                  </a>
+                </span>
+                
+              </span>
+          
+      </div>
+      <div class="markdown-body">
+        <p>最近在做一个录像功能优化的任务，需要分析 mkv 格式和 mp4 格式的优缺点，于是阅读了 ffmpeg matroska encoder 代码以及 mkv 格式的官方 spec。特此记录一下 mkv 格式的学习心得。</p>
+<p>mkv 文件可以理解为一个二进制格式的 xml 文件，常规的 xml 文件如下，通过 <code>&lt; /&gt;</code> 来标识元素</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">Cluster</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">Timestamp</span>&gt;</span>123456<span class="tag">&lt;/<span class="name">Timestamp</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">BlockGroup</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">em</span>&gt;</span><span class="comment">&lt;!-- References a Block 40 Track Ticks before this one --&gt;</span><span class="tag">&lt;/<span class="name">em</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">ReferenceBlock</span>&gt;</span>-40<span class="tag">&lt;/<span class="name">ReferenceBlock</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">Block</span>/&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">BlockGroup</span>&gt;</span></span><br><span class="line">      ...</span><br><span class="line"><span class="tag">&lt;/<span class="name">Cluster</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>而 mkv 使用 ebml（Extensible Binary Meta Language）格式来存储数据。ebml 中每个元素都有三个部分：element id（全局唯一，用于标识元素类型）、element data length（element data 的长度）、element data。element id 和 element data length 都使用变长整数来存储，变长整数是普通整数的压缩，变长整数分为 3 部分，前缀 0、分隔符（1 比特的 1）、数据。前缀 0 和分隔符用于确定当前变长整数的字节数（前缀 0 的个数 +1），举几个例子：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">二进制整数                                 对应的变长整数                             字节数</span><br><span class="line">0000 0110                                &lt;strong&gt;1&lt;/strong&gt;000 0110                                1</span><br><span class="line">0000 0110 0000 0110                      &lt;strong&gt;01&lt;/strong&gt;00 0110 0000 0110                      2</span><br><span class="line">0000 0110 0000 0110 0000 0110 0000 0110  &lt;strong&gt;0001&lt;/strong&gt; 0110 0000 0110 0000 0110 0000 0110  4</span><br></pre></td></tr></table></figure>
+
+<p>所以对于变长整数来说，1byte 最多可以使用 7bit，2byte 最多可以使用 14bit，3byte 最多可以使用 21bit，以此类推。变长整数和 h264 格式中的指数哥伦布编码类似，但是变长整数要求 byte-aligned。更多关于 ebml 的内容请参考 <a href="https://datatracker.ietf.org/doc/rfc8794/">https://datatracker.ietf.org/doc/rfc8794/</a>。</p>
+<p>把上面 ebml 理解之后，mkv 格式就简单了。mkv 和 mp4 有很多相似的地方，理解的时候可以把 mp4 中的概念迁移到 mkv 中：mkv 的 element 类似 mp4 中的 box，element id、element data length 类似 mp4 box 的 type field、size field；mkv 也存在元素的嵌套，父元素可以包含若干子元素。</p>
+<p>这篇文章不打算介绍 mkv spec 相关内容，这些内容如果你理解 mp4 格式，很快就能触类旁通。这篇文章想结合 matroskaenc.c 来分析 mkv 格式某些不容易理解的地方。</p>
+<h1 id="codec-相关的-extra-data-如何存储"><a href="#codec-相关的-extra-data-如何存储" class="headerlink" title="codec 相关的 extra data 如何存储"></a>codec 相关的 extra data 如何存储</h1><p>和 mp4 类似，mkv 中有一个 codecpriv element，位于 track-&gt;trackentry 下，用于存储 codec 相关的 extra data</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_write_track</span><span class="params">(AVFormatContext *s, MatroskaMuxContext *mkv,</span></span></span><br><span class="line"><span class="params"><span class="function">                           AVStream *st, mkv_track *track, AVIOContext *pb,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">int</span> is_default)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (!<span class="built_in">IS_WEBM</span>(mkv) || par-&gt;codec_id != AV_CODEC_ID_WEBVTT) &#123;</span><br><span class="line">        <span class="type">uint8_t</span> *codecpriv;</span><br><span class="line">        <span class="type">int</span> codecpriv_size, max_payload_size;</span><br><span class="line">        track-&gt;codecpriv_offset = <span class="built_in">avio_tell</span>(pb);</span><br><span class="line">        ret = <span class="built_in">mkv_assemble_codecprivate</span>(s, mkv-&gt;tmp_bc, par,</span><br><span class="line">                                        par-&gt;extradata, par-&gt;extradata_size,</span><br><span class="line">                                        native_id, qt_id,</span><br><span class="line">                                        &amp;codecpriv, &amp;codecpriv_size, &amp;max_payload_size);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">goto</span> fail;</span><br><span class="line">        <span class="built_in">mkv_put_codecprivate</span>(pb, max_payload_size, codecpriv, codecpriv_size);</span><br><span class="line">        track-&gt;codecpriv_size = max_payload_size;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_assemble_codecprivate</span><span class="params">(AVFormatContext *s, AVIOContext *dyn_cp,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     AVCodecParameters *par,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     <span class="type">const</span> <span class="type">uint8_t</span> *extradata, <span class="type">int</span> extradata_size,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     <span class="type">int</span> native_id, <span class="type">int</span> qt_id,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     <span class="type">uint8_t</span> **codecpriv, <span class="type">int</span> *codecpriv_size,</span></span></span><br><span class="line"><span class="params"><span class="function">                                     <span class="type">unsigned</span> *max_payload_size)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MatroskaMuxContext av_unused *<span class="type">const</span> mkv = s-&gt;priv_data;</span><br><span class="line">    <span class="type">unsigned</span> size_to_reserve = <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (native_id) &#123;</span><br><span class="line">        ret = <span class="built_in">mkv_assemble_native_codecprivate</span>(s, dyn_cp, par,</span><br><span class="line">                                               extradata, extradata_size,</span><br><span class="line">                                               &amp;size_to_reserve);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_MATROSKA_MUXER</span></span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (par-&gt;codec_type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">...</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (par-&gt;codec_type == AVMEDIA_TYPE_AUDIO) &#123;</span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    *codecpriv_size = <span class="built_in">avio_get_dyn_buf</span>(dyn_cp, codecpriv);</span><br><span class="line">    <span class="keyword">if</span> (dyn_cp-&gt;error &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> dyn_cp-&gt;error;</span><br><span class="line">    *max_payload_size = *codecpriv_size + size_to_reserve;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>mkv_assemble_native_codecprivate 里面也是调用 ff_isom_write_avcc 来得到 h264 格式的 extradata</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_assemble_native_codecprivate</span><span class="params">(AVFormatContext *s, AVIOContext *dyn_cp,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">const</span> AVCodecParameters *par,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">const</span> <span class="type">uint8_t</span> *extradata,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">int</span> extradata_size,</span></span></span><br><span class="line"><span class="params"><span class="function">                                            <span class="type">unsigned</span> *size_to_reserve)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">switch</span> (par-&gt;codec_id) &#123;</span><br><span class="line">...</span><br><span class="line"><span class="meta">#<span class="keyword">if</span> CONFIG_MATROSKA_MUXER</span></span><br><span class="line">...</span><br><span class="line">    <span class="keyword">case</span> AV_CODEC_ID_H264:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">ff_isom_write_avcc</span>(dyn_cp, extradata,</span><br><span class="line">                                  extradata_size);</span><br><span class="line">    <span class="keyword">case</span> AV_CODEC_ID_HEVC:</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">ff_isom_write_hvcc</span>(dyn_cp, extradata,</span><br><span class="line">                                  extradata_size, <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">case</span> AV_CODEC_ID_AAC:</span><br><span class="line">        <span class="keyword">if</span> (extradata_size)</span><br><span class="line">            <span class="built_in">avio_write</span>(dyn_cp, extradata, extradata_size);</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            *size_to_reserve = MAX_PCE_SIZE;</span><br><span class="line">        <span class="keyword">break</span>;</span><br><span class="line"><span class="meta">#<span class="keyword">endif</span></span></span><br><span class="line">...</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h1 id="mkv-格式是如何存储-sample-数据的"><a href="#mkv-格式是如何存储-sample-数据的" class="headerlink" title="mkv 格式是如何存储 sample 数据的"></a>mkv 格式是如何存储 sample 数据的</h1><p>数据存在 cluster element 中，mkv 格式原生支持切片，默认情况下 5s 或者 5MB 分一个小片</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_write_header</span><span class="params">(AVFormatContext *s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">...</span><br><span class="line">    <span class="comment">// start a new cluster every 5 MB or 5 sec, or 32k / 1 sec for streaming or</span></span><br><span class="line">    <span class="comment">// after 4k and on a keyframe</span></span><br><span class="line">    <span class="keyword">if</span> (<span class="built_in">IS_SEEKABLE</span>(pb, mkv)) &#123;</span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;cluster_time_limit &lt; <span class="number">0</span>)</span><br><span class="line">            mkv-&gt;cluster_time_limit = <span class="number">5000</span>;</span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;cluster_size_limit &lt; <span class="number">0</span>)</span><br><span class="line">            mkv-&gt;cluster_size_limit = <span class="number">5</span> * <span class="number">1024</span> * <span class="number">1024</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;cluster_time_limit &lt; <span class="number">0</span>)</span><br><span class="line">            mkv-&gt;cluster_time_limit = <span class="number">1000</span>;</span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;cluster_size_limit &lt; <span class="number">0</span>)</span><br><span class="line">            mkv-&gt;cluster_size_limit = <span class="number">32</span> * <span class="number">1024</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>在写 pkt 的时候，会检查当前积攒的 buffer 是否已经足够（大于 5s 或者 5MB），如果是，就将当前积攒的数据作为一个 cluster 写入到文件中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_write_packet</span><span class="params">(AVFormatContext *s, <span class="type">const</span> AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MatroskaMuxContext *mkv = s-&gt;priv_data;</span><br><span class="line">    <span class="type">int</span> codec_type          = s-&gt;streams[pkt-&gt;stream_index]-&gt;codecpar-&gt;codec_type;</span><br><span class="line">    <span class="type">int</span> keyframe            = !!(pkt-&gt;flags &amp; AV_PKT_FLAG_KEY);</span><br><span class="line">    <span class="type">int</span> cluster_size;</span><br><span class="line">    <span class="type">int64_t</span> cluster_time;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    <span class="type">int</span> start_new_cluster;</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (mkv-&gt;cluster_pos != <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;tracks[pkt-&gt;stream_index].write_dts)</span><br><span class="line">            cluster_time = pkt-&gt;dts - mkv-&gt;cluster_pts;</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            cluster_time = pkt-&gt;pts - mkv-&gt;cluster_pts;</span><br><span class="line">        cluster_time += mkv-&gt;tracks[pkt-&gt;stream_index].ts_offset;</span><br><span class="line"></span><br><span class="line">        cluster_size  = <span class="built_in">avio_tell</span>(mkv-&gt;cluster_bc);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (mkv-&gt;is_dash &amp;&amp; codec_type == AVMEDIA_TYPE_VIDEO) &#123;</span><br><span class="line">            <span class="comment">// WebM DASH specification states that the first block of</span></span><br><span class="line">            <span class="comment">// every Cluster has to be a key frame. So for DASH video,</span></span><br><span class="line">            <span class="comment">// we only create a Cluster on seeing key frames.</span></span><br><span class="line">            start_new_cluster = keyframe;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (mkv-&gt;is_dash &amp;&amp; codec_type == AVMEDIA_TYPE_AUDIO &amp;&amp;</span><br><span class="line">                   cluster_time &gt; mkv-&gt;cluster_time_limit) &#123;</span><br><span class="line">            <span class="comment">// For DASH audio, we create a Cluster based on cluster_time_limit.</span></span><br><span class="line">            start_new_cluster = <span class="number">1</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!mkv-&gt;is_dash &amp;&amp;</span><br><span class="line">                   (cluster_size &gt; mkv-&gt;cluster_size_limit ||</span><br><span class="line">                    cluster_time &gt; mkv-&gt;cluster_time_limit ||</span><br><span class="line">                    (codec_type == AVMEDIA_TYPE_VIDEO &amp;&amp; keyframe &amp;&amp;</span><br><span class="line">                     cluster_size &gt; <span class="number">4</span> * <span class="number">1024</span>))) &#123;</span><br><span class="line">            start_new_cluster = <span class="number">1</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span></span><br><span class="line">            start_new_cluster = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (start_new_cluster) &#123;</span><br><span class="line">            ret = <span class="built_in">mkv_end_cluster</span>(s);</span><br><span class="line">            <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">...</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_end_cluster</span><span class="params">(AVFormatContext *s)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MatroskaMuxContext *mkv = s-&gt;priv_data;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (!mkv-&gt;have_video) &#123;</span><br><span class="line">        <span class="keyword">for</span> (<span class="type">unsigned</span> i = <span class="number">0</span>; i &lt; s-&gt;nb_streams; i++)</span><br><span class="line">            mkv-&gt;tracks[i].has_cue = <span class="number">0</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    mkv-&gt;cluster_pos = <span class="number">-1</span>;</span><br><span class="line">    ret = <span class="built_in">end_ebml_master_crc32</span>(s-&gt;pb, &amp;mkv-&gt;cluster_bc, mkv,</span><br><span class="line">                                MATROSKA_ID_CLUSTER, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">avio_write_marker</span>(s-&gt;pb, AV_NOPTS_VALUE, AVIO_DATA_MARKER_FLUSH_POINT);</span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>如果数据还不够，就把 sample 数据缓存，写到 block element 中</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br><span class="line">126</span><br><span class="line">127</span><br><span class="line">128</span><br><span class="line">129</span><br><span class="line">130</span><br><span class="line">131</span><br><span class="line">132</span><br><span class="line">133</span><br><span class="line">134</span><br><span class="line">135</span><br><span class="line">136</span><br><span class="line">137</span><br><span class="line">138</span><br><span class="line">139</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_write_packet_internal</span><span class="params">(AVFormatContext *s, <span class="type">const</span> AVPacket *pkt)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MatroskaMuxContext *mkv = s-&gt;priv_data;</span><br><span class="line">    AVIOContext *pb;</span><br><span class="line">    AVCodecParameters *par  = s-&gt;streams[pkt-&gt;stream_index]-&gt;codecpar;</span><br><span class="line">    mkv_track *track        = &amp;mkv-&gt;tracks[pkt-&gt;stream_index];</span><br><span class="line">    <span class="type">int</span> is_sub              = par-&gt;codec_type == AVMEDIA_TYPE_SUBTITLE;</span><br><span class="line">    <span class="comment">/* All subtitle blocks are considered to be keyframes. */</span></span><br><span class="line">    <span class="type">int</span> keyframe            = is_sub || !!(pkt-&gt;flags &amp; AV_PKT_FLAG_KEY);</span><br><span class="line">    <span class="type">int64_t</span> duration        = <span class="built_in">FFMAX</span>(pkt-&gt;duration, <span class="number">0</span>);</span><br><span class="line">    <span class="type">int64_t</span> write_duration  = is_sub ? duration : <span class="number">0</span>;</span><br><span class="line">    <span class="type">int</span> ret;</span><br><span class="line">    <span class="type">int64_t</span> ts = track-&gt;write_dts ? pkt-&gt;dts : pkt-&gt;pts;</span><br><span class="line">    <span class="type">int64_t</span> relative_packet_pos;</span><br><span class="line">...</span><br><span class="line">    ts += track-&gt;ts_offset;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mkv-&gt;cluster_pos != <span class="number">-1</span>) &#123;</span><br><span class="line">        <span class="type">int64_t</span> cluster_time = ts - mkv-&gt;cluster_pts;</span><br><span class="line">        <span class="keyword">if</span> ((<span class="type">int16_t</span>)cluster_time != cluster_time) &#123;</span><br><span class="line">            ret = <span class="built_in">mkv_end_cluster</span>(s);</span><br><span class="line">            <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">return</span> ret;</span><br><span class="line">            <span class="built_in">av_log</span>(s, AV_LOG_WARNING, <span class="string">&quot;Starting new cluster due to timestamp\n&quot;</span>);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (mkv-&gt;cluster_pos == <span class="number">-1</span>) &#123;</span><br><span class="line">        ret = <span class="built_in">start_ebml_master_crc32</span>(&amp;mkv-&gt;cluster_bc, mkv);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        mkv-&gt;cluster_bc-&gt;direct = <span class="number">1</span>;</span><br><span class="line">        mkv-&gt;cluster_pos = <span class="built_in">avio_tell</span>(s-&gt;pb);</span><br><span class="line">        <span class="built_in">put_ebml_uint</span>(mkv-&gt;cluster_bc, MATROSKA_ID_CLUSTERTIMECODE, <span class="built_in">FFMAX</span>(<span class="number">0</span>, ts));</span><br><span class="line">        mkv-&gt;cluster_pts = <span class="built_in">FFMAX</span>(<span class="number">0</span>, ts);</span><br><span class="line">        <span class="built_in">av_log</span>(s, AV_LOG_DEBUG,</span><br><span class="line">               <span class="string">&quot;Starting new cluster with timestamp &quot;</span></span><br><span class="line">               <span class="string">&quot;%&quot;</span> PRId64 <span class="string">&quot; at offset %&quot;</span> PRId64 <span class="string">&quot; bytes\n&quot;</span>,</span><br><span class="line">               mkv-&gt;cluster_pts, mkv-&gt;cluster_pos);</span><br><span class="line">    &#125;</span><br><span class="line">    pb = mkv-&gt;cluster_bc;</span><br><span class="line"></span><br><span class="line">    relative_packet_pos = <span class="built_in">avio_tell</span>(pb);</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* The WebM spec requires WebVTT to be muxed in BlockGroups;</span></span><br><span class="line"><span class="comment">     * so we force it even for packets without duration. */</span></span><br><span class="line">    ret = <span class="built_in">mkv_write_block</span>(s, mkv, pb, par, track, pkt,</span><br><span class="line">                          keyframe, ts, write_duration,</span><br><span class="line">                          par-&gt;codec_id == AV_CODEC_ID_WEBVTT,</span><br><span class="line">                          relative_packet_pos);</span><br><span class="line">    <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> ret;</span><br><span class="line">    <span class="keyword">if</span> (keyframe &amp;&amp; <span class="built_in">IS_SEEKABLE</span>(s-&gt;pb, mkv) &amp;&amp;</span><br><span class="line">        (par-&gt;codec_type == AVMEDIA_TYPE_VIDEO    ||</span><br><span class="line">         par-&gt;codec_type == AVMEDIA_TYPE_SUBTITLE ||</span><br><span class="line">         !mkv-&gt;have_video &amp;&amp; !track-&gt;has_cue)) &#123;</span><br><span class="line">        ret = <span class="built_in">mkv_add_cuepoint</span>(mkv, pkt-&gt;stream_index, ts,</span><br><span class="line">                               mkv-&gt;cluster_pos, relative_packet_pos,</span><br><span class="line">                               write_duration);</span><br><span class="line">        <span class="keyword">if</span> (ret &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> ret;</span><br><span class="line">        track-&gt;has_cue = <span class="number">1</span>;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    track-&gt;last_timestamp = ts;</span><br><span class="line">    mkv-&gt;duration   = <span class="built_in">FFMAX</span>(mkv-&gt;duration,   ts + duration);</span><br><span class="line">    track-&gt;duration = <span class="built_in">FFMAX</span>(track-&gt;duration, ts + duration);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_write_block</span><span class="params">(<span class="type">void</span> *logctx, MatroskaMuxContext *mkv,</span></span></span><br><span class="line"><span class="params"><span class="function">                           AVIOContext *pb, <span class="type">const</span> AVCodecParameters *par,</span></span></span><br><span class="line"><span class="params"><span class="function">                           mkv_track *track, <span class="type">const</span> AVPacket *pkt,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">int</span> keyframe, <span class="type">int64_t</span> ts, <span class="type">uint64_t</span> duration,</span></span></span><br><span class="line"><span class="params"><span class="function">                           <span class="type">int</span> force_blockgroup, <span class="type">int64_t</span> relative_packet_pos)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="type">uint8_t</span> *side_data;</span><br><span class="line">    <span class="type">size_t</span> side_data_size;</span><br><span class="line">    <span class="type">uint64_t</span> additional_id;</span><br><span class="line">    <span class="type">int64_t</span> discard_padding = <span class="number">0</span>;</span><br><span class="line">    <span class="type">unsigned</span> track_number = track-&gt;track_num;</span><br><span class="line">    <span class="built_in">EBML_WRITER</span>(<span class="number">9</span>);</span><br><span class="line"></span><br><span class="line">    mkv-&gt;cur_block.track  = track;</span><br><span class="line">    mkv-&gt;cur_block.pkt    = pkt;</span><br><span class="line">    mkv-&gt;cur_block.rel_ts = ts - mkv-&gt;cluster_pts;</span><br><span class="line">    mkv-&gt;cur_block.flags  = <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Open a BlockGroup with a Block now; it will later be converted</span></span><br><span class="line"><span class="comment">     * to a SimpleBlock if possible. */</span></span><br><span class="line">    <span class="built_in">ebml_writer_open_master</span>(&amp;writer, MATROSKA_ID_BLOCKGROUP);</span><br><span class="line">    <span class="built_in">ebml_writer_add_block</span>(&amp;writer, mkv);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (duration)</span><br><span class="line">        <span class="built_in">ebml_writer_add_uint</span>(&amp;writer, MATROSKA_ID_BLOCKDURATION, duration);</span><br><span class="line"></span><br><span class="line">    <span class="built_in">av_log</span>(logctx, AV_LOG_DEBUG,</span><br><span class="line">           <span class="string">&quot;Writing block of size %d with pts %&quot;</span> PRId64 <span class="string">&quot;, dts %&quot;</span> PRId64 <span class="string">&quot;, &quot;</span></span><br><span class="line">           <span class="string">&quot;duration %&quot;</span> PRId64 <span class="string">&quot; at relative offset %&quot;</span> PRId64 <span class="string">&quot; in cluster &quot;</span></span><br><span class="line">           <span class="string">&quot;at offset %&quot;</span> PRId64 <span class="string">&quot;. TrackNumber %u, keyframe %d\n&quot;</span>,</span><br><span class="line">           pkt-&gt;size, pkt-&gt;pts, pkt-&gt;dts, pkt-&gt;duration, relative_packet_pos,</span><br><span class="line">           mkv-&gt;cluster_pos, track_number, keyframe != <span class="number">0</span>);</span><br><span class="line">...</span><br><span class="line">    <span class="keyword">if</span> (!force_blockgroup &amp;&amp; writer.nb_elements == <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="comment">/* Nothing except the BlockGroup + Block. Can use a SimpleBlock. */</span></span><br><span class="line">        writer.elements++;    <span class="comment">// Skip the BlockGroup.</span></span><br><span class="line">        writer.nb_elements--;</span><br><span class="line">        <span class="built_in">av_assert2</span>(writer.elements[<span class="number">0</span>].id == MATROSKA_ID_BLOCK);</span><br><span class="line">        writer.elements[<span class="number">0</span>].id = MATROSKA_ID_SIMPLEBLOCK;</span><br><span class="line">        <span class="keyword">if</span> (keyframe)</span><br><span class="line">            mkv-&gt;cur_block.flags |= <span class="number">1</span> &lt;&lt; <span class="number">7</span>;</span><br><span class="line">    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (!keyframe)</span><br><span class="line">        <span class="built_in">ebml_writer_add_sint</span>(&amp;writer, MATROSKA_ID_BLOCKREFERENCE,</span><br><span class="line">                             track-&gt;last_timestamp - ts);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="built_in">ebml_writer_write</span>(&amp;writer, pb);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">static</span> <span class="type">void</span> <span class="title">ebml_writer_write_block</span><span class="params">(<span class="type">const</span> EbmlElement *elem, AVIOContext *pb)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    MatroskaMuxContext *<span class="type">const</span> mkv = elem-&gt;priv.mkv;</span><br><span class="line">    BlockContext *<span class="type">const</span> block = &amp;mkv-&gt;cur_block;</span><br><span class="line">    mkv_track *<span class="type">const</span> track = block-&gt;track;</span><br><span class="line">    <span class="type">const</span> AVPacket *<span class="type">const</span> pkt = block-&gt;pkt;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">put_ebml_num</span>(pb, track-&gt;track_num, track-&gt;track_num_size);</span><br><span class="line">    <span class="built_in">avio_wb16</span>(pb, block-&gt;rel_ts);</span><br><span class="line">    <span class="built_in">avio_w8</span>(pb, block-&gt;flags);</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (track-&gt;reformat) &#123;</span><br><span class="line">        <span class="type">int</span> size;</span><br><span class="line">        track-&gt;<span class="built_in">reformat</span>(mkv, pb, pkt, &amp;size);</span><br><span class="line">    &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">        <span class="type">const</span> <span class="type">uint8_t</span> *data = pkt-&gt;data;</span><br><span class="line">        <span class="type">unsigned</span> offset = track-&gt;offset &lt;= pkt-&gt;size ? track-&gt;offset : <span class="number">0</span>;</span><br><span class="line">        <span class="built_in">avio_write</span>(pb, data + offset, pkt-&gt;size - offset);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>上面代码有以下几点要注意</p>
+<ul>
+<li><p>每个 cluster element 的头部有一个 <code>CLUSTERTIMECODE</code>，这个时间再加上 block 里的时间才是 block 中 sample 的 pts，block 里的时间用 2byte 来表示，所以当 block 里的时间大于 int16_t 能表示的极限时就需要分片</p>
+</li>
+<li><p>mkv 格式只存储 pts，不存储 dts（某些 pts&#x3D;dts 的场景中会存储 dts），所以 mkv 支持 variable fps，因为两个 sample 之间的 duration 由他们的 pts 来决定</p>
+</li>
+<li><p>mkv 也存在关键帧索引的概念，关键帧索引存储在 cues element 中，mkv 只会在以下条件下存储当前 sample 的索引信息：<code>当前sample是关键帧 &amp;&amp; (当前sample是video/subtitle || 当前是audio且整个文件没有video且当前sample是当前cluster的第一个sample)</code>。这就避免了对每一个 audio sample 都保存一个关键帧索引。</p>
+<ul>
+<li>下面存储 cuepoint 时，cluster_pos 参数代表当前 cluster 在整个文件的起始位置，而 <code>entries[idx].cluster_pos</code> 是 <code>cluster_pos - mkv-&gt;segment_offset</code>，所以 <code>entries[idx].cluster_pos</code> 就是当前 cluster 相对 segment element 的偏移值；<code>entries[idx].pts</code> 则是当前关键帧的绝对时间；<code>entries[idx].relative_pos</code> 则是当前关键帧存储位置相对当前 cluster 的偏移</li>
+</ul>
+</li>
+</ul>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_add_cuepoint</span><span class="params">(MatroskaMuxContext *mkv, <span class="type">int</span> stream, <span class="type">int64_t</span> ts,</span></span></span><br><span class="line"><span class="params"><span class="function">                            <span class="type">int64_t</span> cluster_pos, <span class="type">int64_t</span> relative_pos, <span class="type">int64_t</span> duration)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    mkv_cues *cues = &amp;mkv-&gt;cues;</span><br><span class="line">    mkv_cuepoint *entries = cues-&gt;entries;</span><br><span class="line">    <span class="type">unsigned</span> idx = cues-&gt;num_entries;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span> (ts &lt; <span class="number">0</span>)</span><br><span class="line">        <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    entries = <span class="built_in">av_realloc_array</span>(entries, cues-&gt;num_entries + <span class="number">1</span>, <span class="built_in">sizeof</span>(mkv_cuepoint));</span><br><span class="line">    <span class="keyword">if</span> (!entries)</span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">AVERROR</span>(ENOMEM);</span><br><span class="line">    cues-&gt;entries = entries;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/* Make sure the cues entries are sorted by pts. */</span></span><br><span class="line">    <span class="keyword">while</span> (idx &gt; <span class="number">0</span> &amp;&amp; entries[idx - <span class="number">1</span>].pts &gt; ts)</span><br><span class="line">        idx--;</span><br><span class="line">    <span class="built_in">memmove</span>(&amp;entries[idx + <span class="number">1</span>], &amp;entries[idx],</span><br><span class="line">            (cues-&gt;num_entries - idx) * <span class="built_in">sizeof</span>(entries[<span class="number">0</span>]));</span><br><span class="line"></span><br><span class="line">    entries[idx].pts           = ts;</span><br><span class="line">    entries[idx].stream_idx    = stream;</span><br><span class="line">    entries[idx].cluster_pos   = cluster_pos - mkv-&gt;segment_offset;</span><br><span class="line">    entries[idx].relative_pos  = relative_pos;</span><br><span class="line">    entries[idx].duration      = duration;</span><br><span class="line"></span><br><span class="line">    cues-&gt;num_entries++;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>最后整合所有 cuepoint 代码如下</p>
+<figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="type">static</span> <span class="type">int</span> <span class="title">mkv_assemble_cues</span><span class="params">(AVStream **streams, AVIOContext *dyn_cp, AVIOContext *cuepoint,</span></span></span><br><span class="line"><span class="params"><span class="function">                             <span class="type">const</span> mkv_cues *cues, mkv_track *tracks, <span class="type">int</span> num_tracks,</span></span></span><br><span class="line"><span class="params"><span class="function">                             <span class="type">uint64_t</span> offset)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">for</span> (mkv_cuepoint *entry = cues-&gt;entries, *end = entry + cues-&gt;num_entries;</span><br><span class="line">         entry &lt; end;) &#123;</span><br><span class="line">        <span class="type">uint64_t</span> pts = entry-&gt;pts;</span><br><span class="line">        <span class="type">uint8_t</span> *buf;</span><br><span class="line">        <span class="type">int</span> size;</span><br><span class="line"></span><br><span class="line">        <span class="built_in">put_ebml_uint</span>(cuepoint, MATROSKA_ID_CUETIME, pts);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// put all the entries from different tracks that have the exact same</span></span><br><span class="line">        <span class="comment">// timestamp into the same CuePoint</span></span><br><span class="line">        <span class="keyword">for</span> (<span class="type">int</span> j = <span class="number">0</span>; j &lt; num_tracks; j++)</span><br><span class="line">            tracks[j].has_cue = <span class="number">0</span>;</span><br><span class="line">        <span class="keyword">do</span> &#123;</span><br><span class="line">            ebml_master track_positions;</span><br><span class="line">            <span class="type">int</span> idx = entry-&gt;stream_idx;</span><br><span class="line"></span><br><span class="line">            <span class="built_in">av_assert0</span>(idx &gt;= <span class="number">0</span> &amp;&amp; idx &lt; num_tracks);</span><br><span class="line">            <span class="keyword">if</span> (tracks[idx].has_cue &amp;&amp; streams[idx]-&gt;codecpar-&gt;codec_type != AVMEDIA_TYPE_SUBTITLE)</span><br><span class="line">                <span class="keyword">continue</span>;</span><br><span class="line">            tracks[idx].has_cue = <span class="number">1</span>;</span><br><span class="line">            track_positions = <span class="built_in">start_ebml_master</span>(cuepoint, MATROSKA_ID_CUETRACKPOSITION, MAX_CUETRACKPOS_SIZE);</span><br><span class="line">            <span class="built_in">put_ebml_uint</span>(cuepoint, MATROSKA_ID_CUETRACK           , tracks[idx].track_num);</span><br><span class="line">            <span class="built_in">put_ebml_uint</span>(cuepoint, MATROSKA_ID_CUECLUSTERPOSITION , entry-&gt;cluster_pos + offset);</span><br><span class="line">            <span class="built_in">put_ebml_uint</span>(cuepoint, MATROSKA_ID_CUERELATIVEPOSITION, entry-&gt;relative_pos);</span><br><span class="line">            <span class="keyword">if</span> (entry-&gt;duration &gt; <span class="number">0</span>)</span><br><span class="line">                <span class="built_in">put_ebml_uint</span>(cuepoint, MATROSKA_ID_CUEDURATION    , entry-&gt;duration);</span><br><span class="line">            <span class="built_in">end_ebml_master</span>(cuepoint, track_positions);</span><br><span class="line">        &#125; <span class="keyword">while</span> (++entry &lt; end &amp;&amp; entry-&gt;pts == pts);</span><br><span class="line">        size = <span class="built_in">avio_get_dyn_buf</span>(cuepoint, &amp;buf);</span><br><span class="line">        <span class="keyword">if</span> (cuepoint-&gt;error &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> cuepoint-&gt;error;</span><br><span class="line">        <span class="built_in">put_ebml_binary</span>(dyn_cp, MATROSKA_ID_POINTENTRY, buf, size);</span><br><span class="line">        <span class="built_in">ffio_reset_dyn_buf</span>(cuepoint);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">return</span> <span class="number">0</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>会将相同时间的关键帧信息存储在一个 cuepoint 中。在 cuepoint 的头部存储一个 <code>entry-&gt;pts</code>，也就是绝对的 pts，然后存储若干个 <code>CUETRACKPOSITION</code>，每个 <code>CUETRACKPOSITION</code> 包含下述元素</p>
+<ul>
+<li><code>track_num</code> 当前属于哪个 track</li>
+<li><code>CUECLUSTERPOSITION</code> 当前 sample 所处的 cluster 相对于 segment 的位置（offset 可以忽略，他用于 cues 移动到文件头部时调整 cluster_pos，<code>entry-&gt;cluster_pos + offset</code> 本质还是当前 sample 所处的 cluster 相对于 segment 的位置）</li>
+<li><code>CUERELATIVEPOSITION</code> 当前 sample 相对于当前 cluster 的偏移</li>
+</ul>
+<p>有了上面这些信息，给定一个指定的 pts，就可以 seek 到相应的 cluster 中。</p>
+<p>参考资料：</p>
+<p>ffmpeg&#x2F;libavformat&#x2F;matroskaenc.c</p>
+<p><a href="https://www.matroska.org/technical/elements.html">https://www.matroska.org/technical/elements.html</a></p>
+<p><a href="https://datatracker.ietf.org/doc/rfc8794/">https://datatracker.ietf.org/doc/rfc8794/</a></p>
+<p><a href="https://blog.csdn.net/intel1985/article/details/113971488">https://blog.csdn.net/intel1985/article/details/113971488</a></p>
+<p><a href="https://www.cnblogs.com/tocy/category/630599.html?page=2">https://www.cnblogs.com/tocy/category/630599.html?page=2</a></p>
+<p><a href="http://blog.chinaunix.net/uid/20758197/cid-148494-list-3.html">http://blog.chinaunix.net/uid/20758197/cid-148494-list-3.html</a></p>
+
+      </div>
+      
+        <div class="prev-or-next">
+          <div class="post-foot-next">
+            
+              <a href="/2023/11/22/fMP4-%E6%A0%BC%E5%BC%8F/" target="_self">
+                <i class="iconfont icon-chevronleft"></i>
+                <span>上一页</span>
+              </a>
+            
+          </div>
+          <div class="post-attach">
+            <span class="post-pubtime">
+              <i class="iconfont icon-updatetime mr-10" title="更新时间"></i>
+              2024-01-02 22:14:05
+            </span>
+            
+                  <span class="post-categories">
+                    <i class="iconfont icon-bookmark" title="分类"></i>
+                    
+                    <span class="span--category">
+                      <a href="/categories/ffmpeg/" title="ffmpeg">
+                        <b>#</b> ffmpeg
+                      </a>
+                    </span>
+                    
+                    <span class="span--category">
+                      <a href="/categories/mkv/" title="mkv">
+                        <b>#</b> mkv
+                      </a>
+                    </span>
+                    
+                  </span>
+              
+          </div>
+          <div class="post-foot-prev">
+            
+          </div>
+        </div>
+      
+    </div>
+    
+  <div id="btn-catalog" class="btn-catalog">
+    <i class="iconfont icon-catalog"></i>
+  </div>
+  <div class="post-catalog hidden" id="catalog">
+    <div class="title">目录</div>
+    <div class="catalog-content">
+      
+        <ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#codec-%E7%9B%B8%E5%85%B3%E7%9A%84-extra-data-%E5%A6%82%E4%BD%95%E5%AD%98%E5%82%A8"><span class="toc-text">codec 相关的 extra data 如何存储</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#mkv-%E6%A0%BC%E5%BC%8F%E6%98%AF%E5%A6%82%E4%BD%95%E5%AD%98%E5%82%A8-sample-%E6%95%B0%E6%8D%AE%E7%9A%84"><span class="toc-text">mkv 格式是如何存储 sample 数据的</span></a></li></ol>
+      
+    </div>
+  </div>
+
+  
+<script src="/js/catalog.js"></script>
+
+
+
+
+    
+      <div class="comments-container">
+        
+
+
+
+
+  
+    <script async type="text/javascript" src="/plugins/valine.min.js" onload="loadValineSuc(this)"></script>
+  
+
+  <div id="vcomments"></div>
+
+  <script>
+    function loadValineSuc() {
+      new Valine({
+        el: '#vcomments',
+        appId: 'fg49dbpe7aWEpf8yQgZnaNlc-gzGzoHsz',
+        appKey: 'zT8ZAY6u1L6753gMkaDp8hgW',
+        placeholder: '说点什么吧',
+        avatar: 'retro',
+        lang: 'zh-CN'
+      })
+    }
+  </script>
+
+    <style>
+      .comments-container .v .vempty {
+        display: none!important;
+      }
+    </style>
+
+
+
+
+      </div>
+    
+  </div>
+
+
+        
+<div class="footer">
+  <div class="social">
+    <ul>
+      
+        <li>
+          <a title="github" href="https://github.com/Zeroneplus">
+            <i class="iconfont icon-github"></i>
+          </a>
+        </li>
+      
+    </ul>
+  </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://zeroneplus.github.io/">Copyright © 2024 ZeronePlus</a>
+        
+    </div>
+  
+    
+    <div class="footer-more">
+      
+        <a href="https://github.com/zchengsite/hexo-theme-oranges">Theme by Oranges | Powered by Hexo</a>
+        
+    </div>
+  
+  
+</div>
+
+      </div>
+
+      <div class="tools-bar">
+        <div class="back-to-top tools-bar-item hidden">
+  <a href="javascript: void(0)">
+    <i class="iconfont icon-chevronup"></i>
+  </a>
+</div>
+
+
+<script src="/js/backtotop.js"></script>
+
+
+
+        
+  <div class="search-icon tools-bar-item" id="search-icon">
+    <a href="javascript: void(0)">
+      <i class="iconfont icon-search"></i>
+    </a>
+  </div>
+
+  <div class="search-overlay hidden">
+    <div class="search-content" tabindex="0">
+      <div class="search-title">
+        <span class="search-icon-input">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-search"></i>
+          </a>
+        </span>
+        
+          <input type="text" class="search-input" id="search-input" placeholder="搜索">
+        
+        <span class="search-close-icon" id="search-close-icon">
+          <a href="javascript: void(0)">
+            <i class="iconfont icon-close"></i>
+          </a>
+        </span>
+      </div>
+      <div class="search-result" id="search-result"></div>
+    </div>
+  </div>
+
+  <script type="text/javascript">
+    var inputArea = document.querySelector("#search-input")
+    var searchOverlayArea = document.querySelector(".search-overlay")
+
+    inputArea.onclick = function() {
+      getSearchFile()
+      this.onclick = null
+    }
+
+    inputArea.onkeydown = function() {
+      if(event.keyCode == 13)
+        return false
+    }
+
+    function openOrHideSearchContent() {
+      let isHidden = searchOverlayArea.classList.contains('hidden')
+      if (isHidden) {
+        searchOverlayArea.classList.remove('hidden')
+        document.body.classList.add('hidden')
+        // inputArea.focus()
+      } else {
+        searchOverlayArea.classList.add('hidden')
+        document.body.classList.remove('hidden')
+      }
+    }
+
+    function blurSearchContent(e) {
+      if (e.target === searchOverlayArea) {
+        openOrHideSearchContent()
+      }
+    }
+
+    document.querySelector("#search-icon").addEventListener("click", openOrHideSearchContent, false)
+    document.querySelector("#search-close-icon").addEventListener("click", openOrHideSearchContent, false)
+    searchOverlayArea.addEventListener("click", blurSearchContent, false)
+
+    var searchFunc = function (path, search_id, content_id) {
+      'use strict';
+      var $input = document.getElementById(search_id);
+      var $resultContent = document.getElementById(content_id);
+      $resultContent.innerHTML = "<ul><span class='local-search-empty'>首次搜索，正在载入索引文件，请稍后……<span></ul>";
+      $.ajax({
+        // 0x01. load xml file
+        url: path,
+        dataType: "xml",
+        success: function (xmlResponse) {
+          // 0x02. parse xml file
+          var datas = $("entry", xmlResponse).map(function () {
+            return {
+              title: $("title", this).text(),
+              content: $("content", this).text(),
+              url: $("url", this).text()
+            };
+          }).get();
+          $resultContent.innerHTML = "";
+
+          $input.addEventListener('input', function () {
+            // 0x03. parse query to keywords list
+            var str = '<ul class=\"search-result-list\">';
+            var keywords = this.value.trim().toLowerCase().split(/[\s\-]+/);
+            $resultContent.innerHTML = "";
+            if (this.value.trim().length <= 0) {
+              return;
+            }
+            // 0x04. perform local searching
+            datas.forEach(function (data) {
+              var isMatch = true;
+              var content_index = [];
+              if (!data.title || data.title.trim() === '') {
+                data.title = "Untitled";
+              }
+              var orig_data_title = data.title.trim();
+              var data_title = orig_data_title.toLowerCase();
+              var orig_data_content = data.content.trim().replace(/<[^>]+>/g, "");
+              var data_content = orig_data_content.toLowerCase();
+              var data_url = data.url;
+              var index_title = -1;
+              var index_content = -1;
+              var first_occur = -1;
+              // only match artiles with not empty contents
+              if (data_content !== '') {
+                keywords.forEach(function (keyword, i) {
+                  index_title = data_title.indexOf(keyword);
+                  index_content = data_content.indexOf(keyword);
+
+                  if (index_title < 0 && index_content < 0) {
+                    isMatch = false;
+                  } else {
+                    if (index_content < 0) {
+                      index_content = 0;
+                    }
+                    if (i == 0) {
+                      first_occur = index_content;
+                    }
+                    // content_index.push({index_content:index_content, keyword_len:keyword_len});
+                  }
+                });
+              } else {
+                isMatch = false;
+              }
+              // 0x05. show search results
+              if (isMatch) {
+                str += "<li><a href='" + data_url + "' class='search-result-title'>" + orig_data_title + "</a>";
+                var content = orig_data_content;
+                if (first_occur >= 0) {
+                  // cut out 100 characters
+                  var start = first_occur - 20;
+                  var end = first_occur + 80;
+
+                  if (start < 0) {
+                    start = 0;
+                  }
+
+                  if (start == 0) {
+                    end = 100;
+                  }
+
+                  if (end > content.length) {
+                    end = content.length;
+                  }
+
+                  var match_content = content.substr(start, end);
+
+                  // highlight all keywords
+                  keywords.forEach(function (keyword) {
+                    var regS = new RegExp(keyword, "gi");
+                    match_content = match_content.replace(regS, "<span class=\"search-keyword\">" + keyword + "</span>");
+                  });
+
+                  str += "<p class=\"search-result-abstract\">" + match_content + "...</p>"
+                }
+                str += "</li>";
+              }
+            });
+            str += "</ul>";
+            if (str.indexOf('<li>') === -1) {
+              return $resultContent.innerHTML = "<ul><span class='local-search-empty'>没有找到内容，请尝试更换检索词。<span></ul>";
+            }
+            $resultContent.innerHTML = str;
+          });
+        },
+        error: function(xhr, status, error) {
+          $resultContent.innerHTML = ""
+          if (xhr.status === 404) {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>未找到search.xml文件，具体请参考：<a href='https://github.com/zchengsite/hexo-theme-oranges#configuration' target='_black'>configuration</a><span></ul>";
+          } else {
+            $resultContent.innerHTML = "<ul><span class='local-search-empty'>请求失败，尝试重新刷新页面或稍后重试。<span></ul>";
+          }
+        }
+      });
+      $(document).on('click', '#search-close-icon', function() {
+        $('#search-input').val('');
+        $('#search-result').html('');
+      });
+    }
+
+    var getSearchFile = function() {
+        var path = "/search.xml";
+        searchFunc(path, 'search-input', 'search-result');
+    }
+  </script>
+
+
+
+
+        
+  <div class="tools-bar-item theme-icon" id="switch-color-scheme">
+    <a href="javascript: void(0)">
+      <i id="theme-icon" class="iconfont icon-moon"></i>
+    </a>
+  </div>
+
+  
+<script src="/js/colorscheme.js"></script>
+
+
+
+
+
+        
+
+      </div>
+    </div>
+  
+        <style>
+            [bg-lazy] {
+                background-image: none !important;
+                background-color: #eee !important;
+            }
+        </style>
+        <script>
+            window.imageLazyLoadSetting = {
+                isSPA: false,
+                preloadRatio: 1,
+                processImages: null,
+            };
+        </script><script>window.addEventListener("load",function(){var t=/\.(gif|jpg|jpeg|tiff|png)$/i,r=/^data:image\/[a-z]+;base64,/;Array.prototype.slice.call(document.querySelectorAll("img[data-original]")).forEach(function(a){var e=a.parentNode;"A"===e.tagName&&(e.href.match(t)||e.href.match(r))&&(e.href=a.dataset.original)})});</script><script>!function(r){r.imageLazyLoadSetting.processImages=t;var e=r.imageLazyLoadSetting.isSPA,n=r.imageLazyLoadSetting.preloadRatio||1,c=a();function a(){var t=Array.prototype.slice.call(document.querySelectorAll("img[data-original]")),e=Array.prototype.slice.call(document.querySelectorAll("[bg-lazy]"));return t.concat(e)}function t(){e&&(c=a());for(var t,o=0;o<c.length;o++)0<=(t=(t=c[o]).getBoundingClientRect()).bottom&&0<=t.left&&t.top<=(r.innerHeight*n||document.documentElement.clientHeight*n)&&function(){var t,e,n,a,i=c[o];e=function(){c=c.filter(function(t){return i!==t}),r.imageLazyLoadSetting.onImageLoaded&&r.imageLazyLoadSetting.onImageLoaded(i)},(t=i).hasAttribute("bg-lazy")?(t.removeAttribute("bg-lazy"),e&&e()):(n=new Image,a=t.getAttribute("data-original"),n.onload=function(){t.src=a,t.removeAttribute("data-original"),e&&e()},t.src!==a&&(n.src=a))}()}function i(){clearTimeout(t.tId),t.tId=setTimeout(t,500)}t(),document.addEventListener("scroll",i),r.addEventListener("resize",i),r.addEventListener("orientationchange",i)}(this);</script></body>
+</html>
