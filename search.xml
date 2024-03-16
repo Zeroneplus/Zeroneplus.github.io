@@ -4,6 +4,134 @@
   
     
     <entry>
+      <title>h264 B Direct 预测</title>
+      <link href="/2024/02/27/h264-B-Direct-%E9%A2%84%E6%B5%8B/"/>
+      <url>/2024/02/27/h264-B-Direct-%E9%A2%84%E6%B5%8B/</url>
+      
+        <content type="html"><![CDATA[<p>这篇文章简要介绍一下 h264 B Direct 预测的解码过程。</p><p>使用 B Direct 预测的块有 B Direct16x16、B Direct8x8、B Skip。B Skip 就相当于 B Direct16x16 预测但所有残差数据为 0。B Direct 分为 spatial 和 temporal 预测两种。</p><p>先看 spatial 预测。spatial 预测先计算 refidx0 和 refidx1，计算方法是通过 A B C 相邻区域的 refidx0 和 refidx1 来进行预测（和 P Skip 一样，计算 A B C 区域时，以当前整个 16x16 宏块来计算）。在知道 refidx0&#x2F;refidx1 之后把 refidx0&#x2F;refidx1 作为参数用普通 Inter 宏块的 mv 预测方法从相邻 A B C 宏块（也是以当前整个 16x16 宏块来计算）预测得到 mv（同样预测的 mvp 就是 mv，因为 mvd 为 0）。</p><p>可以看到 spatial 预测和 P Skip 预测过程比较像，都是通过 spatial 上相邻的宏块来预测 refidx 以及 mv。还有一点要注意，上述过程省略了 col zero 过程，具体 col zero 过程的细节可以看标准文档。</p><p>再看 tempora 预测。tempora 预测的 refidx1 固定为 0。确定 refidx1 之后再从 refidx1 对应的 picture（也被称为 colocated picture）上查找 colocated 的小块（如果是 frame mode，该查找过程比较简单，如果是 field mode，那么有一套复杂的规则，具体可以参考标准文档）。找到 colocated 的小块之后，优先使用该小块的 refidx0 和 mvL0，如果 refidx0 不存在，则使用 refidx1 和 mvL1。然后把上一步 colocated 的小块的 refidx0（或者 refidx1）对应的 picture 在当前宏块的 reflist0 中的索引找到，该索引就是当前小块的 refidx0。</p><p>通过上面的步骤我们就得到了当前预测的块的 refidx0、refidx1 以及 colocated 小块的 mvL0（或者 mvL1），接下来就是把 colocated 小块的 mvL0 拆解为当前小块的 mvL0 和 mvL1，该过程就是按当前 picture 以及 refidx0、refidx1 对应的 picture 的 poc 来计算相互之间的距离，然后按距离来分配 colocated 小块的 mvL0 到当前小块的 mvL0 和 mvL1。temporal 预测有点像是在两个 picture 之间进行一个线性插值。同样上面过程也省略了 col zero 过程。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>h264 P Skip 宏块</title>
+      <link href="/2024/02/16/h264-P-Skip-%E5%AE%8F%E5%9D%97/"/>
+      <url>/2024/02/16/h264-P-Skip-%E5%AE%8F%E5%9D%97/</url>
+      
+        <content type="html"><![CDATA[<p>这篇文章简要介绍一下 h264 P Skip 宏块的解码过程。</p><p>h264 P Skip 宏块只有一个参考图像，属于 P 预测类型，他的 ref idx 固定为 0，mv 则需要从相邻 A B C 区域进行预测。预测 mv 时，P Skip 相邻 A B C 区域需要按当前块为 16x16 来计算，此外，P Skip 的 mvd 为 0，所以通过相邻 A B C 区域预测得到的 mvp 就是 P Skip 的 mv。</p><p>还有一点要注意，P Skip 在以下条件满足时会直接将 mv 设为 0（和 B Skip 的 col zero 有点相似），无需进行上述步骤描述的 mv 预测过程：</p><figure class="highlight cpp"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">mbAddrA <span class="keyword">not</span> available</span><br><span class="line">|| mbAddrB <span class="keyword">not</span> available</span><br><span class="line">|| (refIdxL0A == <span class="number">0</span> &amp;&amp; mvL0A[<span class="number">0</span>] == <span class="number">0</span> &amp;&amp; mvL0A[<span class="number">1</span>] == <span class="number">0</span>)</span><br><span class="line">|| (refIdxL0B == <span class="number">0</span> &amp;&amp; mvL0B[<span class="number">0</span>] == <span class="number">0</span> &amp;&amp; mvL0B[<span class="number">1</span>] == <span class="number">0</span>)</span><br></pre></td></tr></table></figure><p>mbAddrA 是 left 宏块的地址，mbAddrB 是 top 宏块的地址，refIdxL0A、mvL0A 是 left 宏块的 refIdxL0 和 mvL0</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>h264 之 transform bypass</title>
+      <link href="/2024/02/04/h264-%E4%B9%8B-transform-bypass/"/>
+      <url>/2024/02/04/h264-%E4%B9%8B-transform-bypass/</url>
+      
+        <content type="html"><![CDATA[<p>h264 中的 transform bypass 就是残差数据不经过量化与 DCT 变换。在解码时遇到 transform bypass 的宏块时无需对残差进行反量化与反 DCT 变换处理。但是注意在 Intra 预测，且预测方式为水平或者垂直方向时，需要对残差进行一个压缩处理，相应的解码时就要进行解压。</p><p>举个例子，假设 Intra 预测且预测方式为垂直预测且 transform bypass 的 4x4 小块的残差数据如下：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span>   <span class="number">2</span>   <span class="number">3</span>   <span class="number">4</span></span><br><span class="line"><span class="number">5</span>   <span class="number">6</span>   <span class="number">7</span>   <span class="number">8</span></span><br><span class="line"><span class="number">9</span>   <span class="number">10</span>  <span class="number">11</span>  <span class="number">12</span></span><br><span class="line"><span class="number">13</span>  <span class="number">14</span>  <span class="number">15</span>  <span class="number">16</span></span><br></pre></td></tr></table></figure><p>那么解压缩之后就是</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="number">1</span>         <span class="number">2</span>          <span class="number">3</span>          <span class="number">4</span></span><br><span class="line"><span class="number">5</span>+<span class="number">1</span>       <span class="number">6</span>+<span class="number">2</span>        <span class="number">7</span>+<span class="number">3</span>        <span class="number">8</span>+<span class="number">4</span></span><br><span class="line"><span class="number">9</span>+<span class="number">5</span>+<span class="number">1</span>     <span class="number">10</span>+<span class="number">6</span>+<span class="number">2</span>     <span class="number">11</span>+<span class="number">7</span>+<span class="number">3</span>     <span class="number">12</span>+<span class="number">8</span>+<span class="number">4</span></span><br><span class="line"><span class="number">13</span>+<span class="number">9</span>+<span class="number">5</span>+<span class="number">1</span>  <span class="number">14</span>+<span class="number">10</span>+<span class="number">6</span>+<span class="number">2</span>  <span class="number">15</span>+<span class="number">11</span>+<span class="number">7</span>+<span class="number">3</span>  <span class="number">16</span>+<span class="number">12</span>+<span class="number">8</span>+<span class="number">4</span></span><br></pre></td></tr></table></figure><p>如果是垂直预测解压缩就是水平累加。</p><p>从上可知 transform bypass 的 intra 水平&#x2F;垂直预测会对残差数据进行水平&#x2F;垂直差分压缩处理。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>h264 之 8x8 CAVLC 解码</title>
+      <link href="/2024/01/26/h264-%E4%B9%8B-8x8-CAVLC-%E8%A7%A3%E7%A0%81/"/>
+      <url>/2024/01/26/h264-%E4%B9%8B-8x8-CAVLC-%E8%A7%A3%E7%A0%81/</url>
+      
+        <content type="html"><![CDATA[<p>h264 8x8 块在存储 CAVLC 数据时是按 4x4 小块来存储的，也就是说读取一个 8x8 CAVLC 需要读取 4 个 4x4 小块中的 CAVLC 数据。但是这 4 个 4x4 小块的数据组合得到 8x8 数据时，不是按几何位置来的。4 个 4x4 小块中的数据是从 8x8 数据中按 4 为间隔划分而来，比如：8x8 数据 zig zag 之后是 <code>1 2 3 4 5 6 7 8 9 10...</code>，那么 4 个 4x4 小块分别是 <code>1 5 9...</code> <code>2 6 10...</code> <code>3 7...</code> <code>4 8...</code>。同样的道理，在解码得到 4x4 小块的数据后需要按上述的反过程来重新组合得到 8x8 的数据。</p><p>在解码完 8x8 CAVLC 后，4 个 4x4 小块上的 non-zero count 会被相邻 4x4&#x2F;8x8 所使用，这里无需将 4x4 上的 non-zero count 累加赋给整个 8x8 小块。但在滤波时不一样，滤波时会根据相邻块是 4x4&#x2F;8x8 来计算是否有非 0 系数，如果是 8x8，则需要把 4x4 累加来得到当前 8x8 块是否有非 0 系数，然后把该结果赋给整个 8x8 块（当然，更好的做法是使用 coded block pattern 来计算）。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>h264 之 separate color plane</title>
+      <link href="/2024/01/16/h264-%E4%B9%8B-separate-color-plane/"/>
+      <url>/2024/01/16/h264-%E4%B9%8B-separate-color-plane/</url>
+      
+        <content type="html"><![CDATA[<p>这个 flag 用于指明同一个 frame&#x2F;field 的 Y U V 数据是在一个 slice 中还是分别在单独的 slice 中。</p><p>在解码带有 separate color plane 的码流时，把 U V 数据都当作 Y 来看待，包括 bit depth 等，但是有一点要注意，在 scaling matrix 的选择时，U V 数据不能当作 Y 来选择 luma 的 scaling matrix，而是要根据自己的 U&#x2F;V 来选择 chroma 对应的 scaling matrix。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>ffmpeg h264 解码器之 VLC 解码过程</title>
+      <link href="/2024/01/07/ffmpeg-h264-%E8%A7%A3%E7%A0%81%E5%99%A8%E4%B9%8B-VLC-%E8%A7%A3%E7%A0%81%E8%BF%87%E7%A8%8B/"/>
+      <url>/2024/01/07/ffmpeg-h264-%E8%A7%A3%E7%A0%81%E5%99%A8%E4%B9%8B-VLC-%E8%A7%A3%E7%A0%81%E8%BF%87%E7%A8%8B/</url>
+      
+        <content type="html"><![CDATA[<h1 id="ffmpeg-h264-解码器之-VLC-解码过程"><a href="#ffmpeg-h264-解码器之-VLC-解码过程" class="headerlink" title="ffmpeg h264 解码器之 VLC 解码过程"></a>ffmpeg h264 解码器之 VLC 解码过程</h1><p>这篇文章简要介绍一下 ffmpeg h264 解码器中 vlc 解码过程。</p><p>对于 vlc 解码，最简单的解码思路就是预先读取所有码点中最长比特数的数据，然后从短到长依次匹配码点，最先匹配到的码点就是当前读取到的码点。</p><p>举个例子：有如下 vlc 码点</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">比特数   码点</span><br><span class="line"><span class="number">1</span>       <span class="number">1</span></span><br><span class="line"><span class="number">2</span>       01</span><br><span class="line"><span class="number">3</span>       001</span><br><span class="line"><span class="number">6</span>       000111</span><br><span class="line"><span class="number">6</span>       <span class="number">000</span>100</span><br><span class="line"><span class="number">6</span>       000110</span><br></pre></td></tr></table></figure><p>上面码点最长的比特数是 6，那么一次预读取 6 个比特的数据，然后按比特数从短到长的顺序依次匹配，最先匹配上的就是当前数据对应的码点</p><p>ffmpeg h264 解码器中的 vlc 解码和上面说的思路大体类似，但是做了一些优化：它将 vlc 码字进行了分段处理，第一次先读取 n 比特数据，将这 n 比特数据在根据码字预先构造的表中进行查找，如果这 n 比特数据有对应的码字，那么就找到了码点，直接返回即可，如果找不到，继续读取 n 比特，来匹配码字的下 n 比特，如果该 n 比特中有匹配的，返回，否则继续读取 n 比特进行匹配。</p>]]></content>
+      
+      
+      <categories>
+          
+          <category> ffmpeg </category>
+          
+          <category> codec </category>
+          
+          <category> h264 </category>
+          
+      </categories>
+      
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>h264 解码之如何构建 field 初始参考帧列表</title>
       <link href="/2023/12/25/h264-%E8%A7%A3%E7%A0%81%E4%B9%8B%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA-field-%E5%88%9D%E5%A7%8B%E5%8F%82%E8%80%83%E5%B8%A7%E5%88%97%E8%A1%A8/"/>
       <url>/2023/12/25/h264-%E8%A7%A3%E7%A0%81%E4%B9%8B%E5%A6%82%E4%BD%95%E6%9E%84%E5%BB%BA-field-%E5%88%9D%E5%A7%8B%E5%8F%82%E8%80%83%E5%B8%A7%E5%88%97%E8%A1%A8/</url>
